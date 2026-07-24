@@ -1453,11 +1453,14 @@ const MessageBubble = memo(
       );
     }
     const t = text.trim();
-    if (t === "⟪imggen:generating⟫" || t === "⟪imggen:editing⟫") {
+    const pendingMatch = t.match(/^⟪(imggen|imgedit):pending:([0-9a-f-]{36})⟫$/i);
+    if (pendingMatch || t === "⟪imggen:generating⟫" || t === "⟪imggen:editing⟫") {
+      const mode: "editing" | "generating" =
+        pendingMatch?.[1] === "imgedit" || t === "⟪imggen:editing⟫" ? "editing" : "generating";
       return (
         <div className="flex gap-3">
           <PrismXLogo size="sm" />
-          <ImageGenProgress mode={t === "⟪imggen:editing⟫" ? "editing" : "generating"} />
+          <ImageGenProgress mode={mode} />
         </div>
       );
     }
