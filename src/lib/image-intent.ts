@@ -137,3 +137,25 @@ export function detectImageIntent(rawText: string): ImageIntent {
   const isEdit = isImage && editHit && !verbHit; // "change the color", "remove the tree"
   return { isImage, isEdit: isEdit || (editHit && isImage), confidence };
 }
+
+// Explicit edit-of-previous-image detection. Only these prompts may reuse a
+// prior completed generation as the input to a new one. Normal conversation
+// (e.g. "hi", "what do you think of it?", "thanks") must never trigger this.
+export function isExplicitImageEdit(rawText: string): boolean {
+  const t = rawText.trim().toLowerCase();
+  if (!t || t.length > 400) return false;
+  // Phrases that explicitly reference the previous image.
+  const patterns: RegExp[] = [
+    /\bedit(\s+(it|this|that|the\s+image|the\s+picture|the\s+photo|the\s+logo))?\b/,
+    /\bcontinue\s+editing\b/,
+    /\b(make|turn|change|recolor|repaint)\s+(it|this|that|the\s+(image|picture|photo|logo|background))\b/,
+    /\b(remove|erase|delete)\s+(the\s+)?(background|bg|text|watermark|logo|object|person|people)\b/,
+    /\breplace\s+(the\s+)?(text|background|color|colour|logo|face)\b/,
+    /\b(upscale|enlarge|hi-?res|hd|4k|8k)\s+(it|this|that|the\s+(image|picture|photo))\b/,
+    /\b(improve|enhance|refine|sharpen|clean\s+up)\s+(the\s+)?(quality|image|picture|photo|resolution|colors?|details?)\b/,
+    /\badd\s+.+\s+to\s+(it|this|that|the\s+(image|picture|photo|logo))\b/,
+    /\bcrop\s+(it|this|that|the\s+(image|picture|photo))\b/,
+    /\b(rotate|flip|blur|brighten|darken)\s+(it|this|that|the\s+(image|picture|photo))\b/,
+  ];
+  return patterns.some((re) => re.test(t));
+}
