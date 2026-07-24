@@ -421,11 +421,17 @@ export function ChatPage() {
     const isImgGenPlaceholder = (m: UIMessage) => {
       const parts = (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts;
       if (!Array.isArray(parts) || parts.length === 0) return false;
-      return parts.every(
-        (p) =>
-          p.type === "text" &&
-          (p.text === "⟪imggen:generating⟫" || p.text === "⟪imggen:editing⟫"),
-      );
+      return parts.every((p) => {
+        if (p.type !== "text" || typeof p.text !== "string") return false;
+        const t = p.text.trim();
+        if (!t) return true;
+        if (t === "⟪imggen:generating⟫" || t === "⟪imggen:editing⟫") return true;
+        // Defensive: strip any leftover "Generating your image…" / progress
+        // labels that a prior version of the model or client may have
+        // persisted. Completed images are stored as markdown `![...](url)`
+        // and will never match these.
+        return /^(generating your image|creating image|editing image|interrupted|loading|generating\.\.\.|creating\.\.\.)[.…\s]*$/i.test(t);
+      });
     };
     const sanitized = t
       ? (t.messages as unknown as UIMessage[]).filter((m) => !isImgGenPlaceholder(m))
