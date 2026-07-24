@@ -1,6 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireApiAuth } from "@/lib/api-auth.server";
 
+// ---------------------------------------------------------------------------
+// Image generation lifecycle
+//
+// Every generation (including every edit) is its own immutable row in
+// `public.image_generations`. The client picks the id up-front so it can
+// persist a `⟪imggen:pending:<id>⟫` marker BEFORE the POST returns —
+// meaning a refresh mid-flight can call GET /api/image?id=<id> and resume
+// exactly where it left off. Edits pass `parentId` so history preserves
+// provenance and the previous image is never mutated.
+//
+//   POST /api/image                       → start (or resume) a generation
+//     body: { generationId, prompt, inputImage?, parentId? }
+//     resp: { generationId, status, imageUrl?, error? }
+//
+//   GET  /api/image?id=<generationId>     → poll status; auto-fails rows
+//                                           stuck in 'processing' > 2 min
+//     resp: { status, imageUrl?, error? }
+// ---------------------------------------------------------------------------
+
+const STUCK_MS = 2 * 60 * 1000;
+
 function friendly(status: number, upstreamMsg?: string): { status: number; error: string } {
   if (status === 401) return { status: 401, error: "Please sign in again to generate images." };
   if (status === 402) return { status: 402, error: "Image generation credits are exhausted for this workspace. Please add credits and try again." };
@@ -12,29 +33,232 @@ function friendly(status: number, upstreamMsg?: string): { status: number; error
   return { status: 400, error: "I couldn't generate that image. Try a different prompt or try again." };
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function runGeneration(params: {
+  generationId: string;
+  userId: string;
+  prompt: string;
+  inputImageUrl?: string;
+  parentId?: string;
+}): Promise<{ status: number; body: Record<string, unknown> }> {
+  const { generationId, userId, prompt, inputImageUrl, parentId } = params;
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  // Upsert the lifecycle row as processing (idempotent — a second POST with
+  // the same id becomes a no-op reservation, letting the eventual response
+  // reconcile whichever caller wins).
+  await supabaseAdmin
+    .from("image_generations")
+    .upsert(
+      {
+        id: generationId,
+        user_id: userId,
+        parent_id: parentId ?? null,
+        prompt,
+        input_url: inputImageUrl ?? null,
+        status: "processing",
+        error: null,
+      },
+      { onConflict: "id" },
+    );
+
+  const finalize = async (patch: Record<string, unknown>) => {
+    await supabaseAdmin
+      .from("image_generations")
+      .update(patch)
+      .eq("id", generationId)
+      .eq("user_id", userId);
+  };
+
+  const key = process.env.LOVABLE_API_KEY;
+  if (!key) {
+    await finalize({ status: "failed", error: "Image generation isn't configured." });
+    return { status: 503, body: { generationId, status: "failed", error: "Image generation isn't configured right now. Please try again shortly." } };
+  }
+
+  const doFetch = () =>
+    fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Lovable-API-Key": key,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3.1-flash-image",
+        messages: [
+          {
+            role: "user",
+            content: inputImageUrl
+              ? [
+                  { type: "text", text: prompt },
+                  { type: "image_url", image_url: { url: inputImageUrl } },
+                ]
+              : prompt,
+          },
+        ],
+        modalities: ["image", "text"],
+      }),
+    });
+
+  let upstream: Response;
+  try {
+    upstream = await doFetch();
+    if (!upstream.ok && upstream.status >= 500) {
+      await new Promise((r) => setTimeout(r, 400));
+      upstream = await doFetch();
+    }
+  } catch (e) {
+    console.error("[api/image] network error", e);
+    const msg = "I couldn't reach the image service. Please try again in a moment.";
+    await finalize({ status: "failed", error: msg });
+    return { status: 502, body: { generationId, status: "failed", error: msg } };
+  }
+
+  if (!upstream.ok) {
+    const text = await upstream.text().catch(() => "");
+    console.error("[api/image] upstream error", upstream.status, text);
+    const f = friendly(upstream.status, text);
+    await finalize({ status: "failed", error: f.error });
+    return { status: f.status, body: { generationId, status: "failed", error: f.error } };
+  }
+
+  let json: { data?: Array<{ b64_json?: string }> };
+  try {
+    json = await upstream.json();
+  } catch (e) {
+    console.error("[api/image] bad json", e);
+    const msg = "The image service returned an unexpected response. Please try again.";
+    await finalize({ status: "failed", error: msg });
+    return { status: 502, body: { generationId, status: "failed", error: msg } };
+  }
+
+  const b64 = json.data?.[0]?.b64_json;
+  if (!b64) {
+    const msg = "No image was returned. Please try a different prompt.";
+    await finalize({ status: "failed", error: msg });
+    return { status: 502, body: { generationId, status: "failed", error: msg } };
+  }
+
+  const filename = `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.png`;
+  const storagePath = `${userId}/${filename}`;
+  let publicImageUrl: string | null = null;
+  try {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const chatUp = await supabaseAdmin.storage
+      .from("chat-images")
+      .upload(storagePath, bytes, { contentType: "image/png", upsert: false });
+    if (!chatUp.error) {
+      const base = (process.env.SUPABASE_URL ?? "").replace(/\/+$/, "");
+      publicImageUrl = `${base}/storage/v1/object/public/chat-images/${storagePath}`;
+    } else {
+      console.error("[api/image] chat-images upload failed", chatUp.error);
+    }
+    const { error: upErr } = await supabaseAdmin.storage
+      .from("library")
+      .upload(storagePath, bytes, { contentType: "image/png", upsert: false });
+    if (!upErr) {
+      await supabaseAdmin.from("library_items").insert({
+        user_id: userId,
+        kind: "image",
+        title: prompt.slice(0, 80),
+        prompt,
+        storage_path: storagePath,
+        mime_type: "image/png",
+        size_bytes: bytes.byteLength,
+      });
+    } else {
+      console.error("[api/image] library upload failed", upErr);
+    }
+  } catch (e) {
+    console.error("[api/image] persist failed", e);
+  }
+
+  const finalUrl = publicImageUrl ?? `data:image/png;base64,${b64}`;
+  await finalize({ status: "completed", image_url: finalUrl, storage_path: storagePath });
+  return {
+    status: 200,
+    body: { generationId, status: "completed", imageUrl: finalUrl, storagePath },
+  };
+}
+
 export const Route = createFileRoute("/api/image")({
   server: {
     handlers: {
+      GET: async ({ request }) => {
+        const auth = await requireApiAuth(request);
+        if (!auth.ok) {
+          return Response.json({ error: "Please sign in again." }, { status: 401 });
+        }
+        const url = new URL(request.url);
+        const id = url.searchParams.get("id");
+        if (!id || !UUID_RE.test(id)) {
+          return Response.json({ error: "Missing generation id." }, { status: 400 });
+        }
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data: row, error } = await supabaseAdmin
+          .from("image_generations")
+          .select("id,user_id,status,image_url,error,created_at")
+          .eq("id", id)
+          .eq("user_id", auth.userId)
+          .maybeSingle();
+        if (error) {
+          console.error("[api/image] status lookup failed", error);
+          return Response.json({ error: "Status lookup failed." }, { status: 500 });
+        }
+        if (!row) return Response.json({ status: "not_found" }, { status: 404 });
+
+        // Auto-recover: if a generation has been stuck in processing longer
+        // than STUCK_MS, mark it failed so the client can render a Retry
+        // action instead of a card that never resolves.
+        if (
+          row.status === "processing" &&
+          Date.now() - new Date(row.created_at as string).getTime() > STUCK_MS
+        ) {
+          const msg = "Image generation timed out. Please try again.";
+          await supabaseAdmin
+            .from("image_generations")
+            .update({ status: "failed", error: msg })
+            .eq("id", id)
+            .eq("user_id", auth.userId);
+          return Response.json({ status: "failed", error: msg });
+        }
+
+        return Response.json({
+          status: row.status,
+          imageUrl: row.image_url ?? undefined,
+          error: row.error ?? undefined,
+        });
+      },
+
       POST: async ({ request }) => {
         const auth = await requireApiAuth(request);
         if (!auth.ok) {
           return Response.json({ error: "Please sign in again to generate images." }, { status: 401 });
         }
 
-        let prompt: string | undefined;
-        let inputImageDataUrl: string | undefined;
+        let body: {
+          generationId?: string;
+          prompt?: string;
+          inputImage?: string;
+          parentId?: string;
+        };
         try {
-          const body = (await request.json()) as { prompt?: string; inputImage?: string };
-          prompt = body.prompt;
-          inputImageDataUrl = body.inputImage;
+          body = (await request.json()) as typeof body;
         } catch {
           return Response.json({ error: "Please describe the image you want to generate." }, { status: 400 });
+        }
+
+        const generationId = body.generationId;
+        let prompt = body.prompt;
+        if (!generationId || !UUID_RE.test(generationId)) {
+          return Response.json({ error: "Missing generation id." }, { status: 400 });
         }
         if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
           return Response.json({ error: "Please describe the image you want to generate." }, { status: 400 });
         }
         if (prompt.length > 8000) {
-          // Auto-compress: dedupe repeated instructions & whitespace instead of rejecting.
           const lines = prompt.split("\n").map((l) => l.trim()).filter(Boolean);
           const seen = new Set<string>();
           const kept: string[] = [];
@@ -47,7 +271,8 @@ export const Route = createFileRoute("/api/image")({
           prompt = kept.join("\n").slice(0, 8000);
         }
 
-        // Server-side feature kill-switch: admin can globally disable image generation.
+        // Feature kill-switch + free-plan quota — same behavior as before,
+        // just guarded so a missing table/RPC never blocks generation.
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { data: cfg } = await supabaseAdmin
@@ -66,164 +291,40 @@ export const Route = createFileRoute("/api/image")({
           console.error("[api/image] feature flag check failed", e);
         }
 
-        // Server-side plan + daily quota enforcement (free = 3/day; premium/pro/admin bypass).
-        // Fail-open: if the roles lookup or quota RPC fails (e.g. the migration
-        // hasn't been applied yet in this environment), log and allow the
-        // request rather than surfacing "Couldn't verify your image quota".
-        // Real provider errors below still surface normally.
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const { data: roles, error: rolesErr } = await supabaseAdmin
+          const { data: roles } = await supabaseAdmin
             .from("user_roles")
             .select("role")
             .eq("user_id", auth.userId);
-          if (rolesErr) {
-            console.error("[api/image] roles lookup failed (fail-open)", rolesErr);
-          } else {
-            const isPaid = (roles ?? []).some((r) => ["admin", "premium", "pro"].includes(r.role as string));
-            if (!isPaid) {
-              const { data: remaining, error: qErr } = await supabaseAdmin.rpc(
-                "consume_image_quota",
-                { _limit: 3, _user_id: auth.userId },
+          const isPaid = (roles ?? []).some((r) =>
+            ["admin", "premium", "pro"].includes(r.role as string),
+          );
+          if (!isPaid) {
+            const { data: remaining, error: qErr } = await supabaseAdmin.rpc(
+              "consume_image_quota",
+              { _limit: 3, _user_id: auth.userId },
+            );
+            if (!qErr && typeof remaining === "number" && remaining < 0) {
+              return Response.json(
+                { error: "Free plan limit reached: 3 images per day. Upgrade for unlimited image generation." },
+                { status: 429 },
               );
-              if (qErr) {
-                console.error("[api/image] quota rpc error (fail-open)", qErr);
-              } else if (typeof remaining === "number" && remaining < 0) {
-                return Response.json(
-                  { error: "Free plan limit reached: 3 images per day. Upgrade for unlimited image generation." },
-                  { status: 429 },
-                );
-              }
             }
           }
         } catch (e) {
           console.error("[api/image] quota check failed (fail-open)", e);
         }
 
-        const key = process.env.LOVABLE_API_KEY;
-        if (!key) {
-          console.error("[api/image] missing LOVABLE_API_KEY");
-          return Response.json({ error: "Image generation isn't configured right now. Please try again shortly." }, { status: 503 });
-        }
-
-        // Retry once on transient upstream failure (5xx / network).
-        const doFetch = () =>
-          fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${key}`,
-              "Lovable-API-Key": key,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "google/gemini-3.1-flash-image",
-              messages: [
-                {
-                  role: "user",
-                  content: inputImageDataUrl
-                    ? [
-                        { type: "text", text: prompt },
-                        { type: "image_url", image_url: { url: inputImageDataUrl } },
-                      ]
-                    : prompt,
-                },
-              ],
-              modalities: ["image", "text"],
-            }),
-          });
-
-
-        let upstream: Response;
-        try {
-          upstream = await doFetch();
-          if (!upstream.ok && upstream.status >= 500) {
-            await new Promise((r) => setTimeout(r, 400));
-            upstream = await doFetch();
-          }
-        } catch (e) {
-          console.error("[api/image] network error", e);
-          return Response.json(
-            { error: "I couldn't reach the image service. Please try again in a moment." },
-            { status: 502 },
-          );
-        }
-
-        if (!upstream.ok) {
-          const text = await upstream.text().catch(() => "");
-          console.error("[api/image] upstream error", upstream.status, text);
-          const f = friendly(upstream.status, text);
-          return Response.json({ error: f.error }, { status: f.status });
-        }
-
-        let json: { data?: Array<{ b64_json?: string }> };
-        try {
-          json = await upstream.json();
-        } catch (e) {
-          console.error("[api/image] bad json", e);
-          return Response.json(
-            { error: "The image service returned an unexpected response. Please try again." },
-            { status: 502 },
-          );
-        }
-        const b64 = json.data?.[0]?.b64_json;
-        if (!b64) {
-          return Response.json(
-            { error: "No image was returned. Please try a different prompt." },
-            { status: 502 },
-          );
-        }
-
-        // Persist to storage:
-        //  - chat-images (public bucket) → stable public URL embedded in the
-        //    chat message so refreshes/other devices render the finished image
-        //    without base64 payloads bloating localStorage or cloud sync.
-        //  - library (private bucket) → surfaces in the Library modal exactly
-        //    like manually saved items.
-        // Both uploads are best-effort; if the chat-images upload fails we
-        // fall back to returning the base64 data URL so the user still sees
-        // their image (the message just won't survive a refresh).
-        const filename = `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.png`;
-        const storagePath = `${auth.userId}/${filename}`;
-        let publicImageUrl: string | null = null;
-        try {
-          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-          const chatUp = await supabaseAdmin.storage
-            .from("chat-images")
-            .upload(storagePath, bytes, { contentType: "image/png", upsert: false });
-          if (!chatUp.error) {
-            const base = (process.env.SUPABASE_URL ?? "").replace(/\/+$/, "");
-            publicImageUrl = `${base}/storage/v1/object/public/chat-images/${storagePath}`;
-          } else {
-            console.error("[api/image] chat-images upload failed", chatUp.error);
-          }
-          const { error: upErr } = await supabaseAdmin.storage
-            .from("library")
-            .upload(storagePath, bytes, { contentType: "image/png", upsert: false });
-          if (!upErr) {
-            const title = prompt.slice(0, 80);
-            await supabaseAdmin.from("library_items").insert({
-              user_id: auth.userId,
-              kind: "image",
-              title,
-              prompt,
-              storage_path: storagePath,
-              mime_type: "image/png",
-              size_bytes: bytes.byteLength,
-            });
-          } else {
-            console.error("[api/image] library upload failed", upErr);
-          }
-        } catch (e) {
-          console.error("[api/image] persist failed", e);
-        }
-
-        return Response.json({
-          imageUrl: publicImageUrl ?? `data:image/png;base64,${b64}`,
-          storagePath,
+        const result = await runGeneration({
+          generationId,
+          userId: auth.userId,
+          prompt,
+          inputImageUrl: body.inputImage,
+          parentId: body.parentId,
         });
+        return Response.json(result.body, { status: result.status });
       },
     },
   },
 });
-
