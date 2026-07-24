@@ -425,11 +425,12 @@ export function ChatPage() {
         if (p.type !== "text" || typeof p.text !== "string") return false;
         const t = p.text.trim();
         if (!t) return true;
+        // Legacy markers with no generation id can never be recovered — drop.
         if (t === "⟪imggen:generating⟫" || t === "⟪imggen:editing⟫") return true;
-        // Defensive: strip any leftover "Generating your image…" / progress
-        // labels that a prior version of the model or client may have
-        // persisted. Completed images are stored as markdown `![...](url)`
-        // and will never match these.
+        // Pending markers WITH an id are the recoverable ones — KEEP them
+        // so the polling effect below can resolve them from the DB.
+        if (/^⟪(imggen|imgedit):pending:[0-9a-f-]{36}⟫$/i.test(t)) return false;
+        // Defensive: strip any leftover "Generating your image…" strings.
         return /^(generating your image|creating image|editing image|interrupted|loading|generating\.\.\.|creating\.\.\.)[.…\s]*$/i.test(t);
       });
     };
