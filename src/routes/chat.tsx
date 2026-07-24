@@ -879,19 +879,28 @@ export function ChatPage() {
     }
 
 
-    // Image intent short-circuit — fuzzy/typo-tolerant detection.
+    // Image intent short-circuit.
+    //  1. Explicit edit ("edit it", "make it blue", "remove background", …)
+    //     reuses the most recent completed image as input. This is the ONLY
+    //     path that touches the previous generation.
+    //  2. A fresh explicit image request ("generate a logo", "draw a cat",
+    //     "anime girl") starts a brand-new generation with no input image.
+    //  3. Everything else — greetings, follow-ups, questions, thanks — falls
+    //     through to normal chat and NEVER reuses a completed image or
+    //     triggers image generation.
     if (files.length === 0) {
+      const lastImg = extractLastGeneratedImage(messages);
+      if (lastImg && isExplicitImageEdit(text)) {
+        await generateImageInline(text, lastImg);
+        return;
+      }
       const intent = detectImageIntent(text);
       if (intent.isImage && intent.confidence >= 0.7) {
-        const lastImg = extractLastGeneratedImage(messages);
-        if (lastImg && intent.isEdit) {
-          await generateImageInline(text, lastImg);
-          return;
-        }
         await generateImageInline(text);
         return;
       }
     }
+
 
 
     const fileParts = files.length
