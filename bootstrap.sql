@@ -846,7 +846,59 @@ CREATE OR REPLACE VIEW public.admin_user_overview AS
     (SELECT count(*) FROM public.projects       pr WHERE pr.owner_id = p.id)        AS project_count
   FROM public.profiles p;
 GRANT SELECT ON public.admin_user_overview TO authenticated;
+-- ---------------------------------------------------------------------------
+-- 18. Image generations — durable lifecycle so refresh mid-edit can resume.
+--     Each row is an immutable record for one generation OR edit request.
+--     Edits reference the source via parent_id; the previous row is NEVER
+--     mutated by an edit. The `id` is chosen client-side (uuid) so the
+--     browser can persist a pending marker before the POST returns and
+--     recover the correct row on refresh.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.image_generations (
+  id           uuid PRIMARY KEY,
+  user_id      uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  parent_id    uuid REFERENCES public.image_generations(id) ON DELETE SET NULL,
+  prompt       text NOT NULL,
+  input_url    text,
+  status       text NOT NULL DEFAULT 'processing'
+               CHECK (status IN ('queued','processing','completed','failed')),
+  image_url    text,
+  storage_path text,
+  error        text,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.image_generations ADD COLUMN IF NOT EXISTS parent_id uuid;
+ALTER TABLE public.image_generations ADD COLUMN IF NOT EXISTS input_url text;
+ALTER TABLE public.image_generations ADD COLUMN IF NOT EXISTS storage_path text;
+ALTER TABLE public.image_generations ADD COLUMN IF NOT EXISTS error text;
+
+CREATE INDEX IF NOT EXISTS image_generations_user_idx
+  ON public.image_generations(user_id, created_at DESC);
+
+GRANT SELECT, INSERT, UPDATE ON public.image_generations TO authenticated;
+GRANT ALL ON public.image_generations TO service_role;
+
+ALTER TABLE public.image_generations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users read own image_generations"   ON public.image_generations;
+DROP POLICY IF EXISTS "Users insert own image_generations" ON public.image_generations;
+DROP POLICY IF EXISTS "Users update own image_generations" ON public.image_generations;
+CREATE POLICY "Users read own image_generations"
+  ON public.image_generations FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
+CREATE POLICY "Users insert own image_generations"
+  ON public.image_generations FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users update own image_generations"
+  ON public.image_generations FOR UPDATE TO authenticated
+  USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+DROP TRIGGER IF EXISTS image_generations_touch ON public.image_generations;
+CREATE TRIGGER image_generations_touch
+  BEFORE UPDATE ON public.image_generations
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- ============================================================================
 -- END OF BOOTSTRAP
 -- ============================================================================
+
