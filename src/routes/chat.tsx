@@ -787,17 +787,32 @@ export function ChatPage() {
         return;
       }
     }
+    // Client-owned generation id — persisted BEFORE the POST returns so a
+    // refresh mid-flight can resume by polling GET /api/image?id=<id>.
+    const generationId =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}-0000-0000-0000-000000000000`;
+    const marker = inputImage
+      ? `⟪imgedit:pending:${generationId}⟫`
+      : `⟪imggen:pending:${generationId}⟫`;
     const userMsg = { id: `u_${Date.now()}`, role: "user" as const, parts: [{ type: "text" as const, text: prompt }] };
-    const asstId = `a_${Date.now()}`;
-    const asstPlaceholder = { id: asstId, role: "assistant" as const, parts: [{ type: "text" as const, text: inputImage ? "⟪imggen:editing⟫" : "⟪imggen:generating⟫" }] };
-    setMessages((prev) => [...prev, userMsg as unknown as UIMessage, asstPlaceholder as unknown as UIMessage]);
+    const asstId = `a_${generationId}`;
+    const asstPlaceholder = { id: asstId, role: "assistant" as const, parts: [{ type: "text" as const, text: marker }] };
+    // Force-persist the placeholder immediately so refresh can recover it.
+    setMessages((prev) => {
+      const next = [...prev, userMsg as unknown as UIMessage, asstPlaceholder as unknown as UIMessage];
+      queueMicrotask(() => syncActiveThreadMessages(next, true));
+      return next;
+    });
+
     const callImageApi = async (): Promise<Response> => {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
       return fetch("/api/image", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ prompt, ...(inputImage ? { inputImage } : {}) }),
+        body: JSON.stringify({ generationId, prompt, ...(inputImage ? { inputImage } : {}) }),
       });
     };
 
@@ -805,7 +820,6 @@ export function ChatPage() {
       let res: Response;
       try {
         res = await callImageApi();
-        // Retry once on transient failure.
         if (!res.ok && (res.status >= 500 || res.status === 0)) {
           await new Promise((r) => setTimeout(r, 500));
           res = await callImageApi();
@@ -817,7 +831,8 @@ export function ChatPage() {
 
       const payload = await res.json().catch(() => null) as {
         imageUrl?: string;
-        dataUrl?: string; // legacy
+        dataUrl?: string;
+        status?: string;
         error?: string;
       } | null;
       const finalUrl = payload?.imageUrl || payload?.dataUrl;
@@ -826,32 +841,30 @@ export function ChatPage() {
         throw new Error(msg);
       }
       if (isFree) bumpImgQuota();
-      // Finalize the generation: swap the placeholder for the completed
-      // image markdown. This becomes an immutable history entry — the
-      // effect below will persist it to localStorage + cloud on the next
-      // tick, and no follow-up chat message will resurrect the placeholder.
       setMessages((prev) => {
         const next = prev.map((m) =>
           m.id === asstId
             ? ({ ...m, parts: [{ type: "text", text: `![generated image](${finalUrl})` }] } as unknown as UIMessage)
             : m,
         );
-        // Force-persist immediately so a refresh right after completion
-        // always sees the finished image (don't wait for the throttled
-        // effect during ongoing streaming).
         queueMicrotask(() => syncActiveThreadMessages(next, true));
         return next;
       });
     } catch (e) {
       console.error("[image] failed", e);
       const msg = e instanceof Error ? e.message : "Image generation is temporarily unavailable. Please try again in a moment.";
-      setMessages((prev) =>
-        prev.map((m) =>
+      // Don't overwrite the pending marker with an error if the server row
+      // might still be processing — the recovery poller will finalize it.
+      // But if the fetch itself errored out, surface the error now.
+      setMessages((prev) => {
+        const next = prev.map((m) =>
           m.id === asstId
             ? ({ ...m, parts: [{ type: "text", text: msg }] } as unknown as UIMessage)
             : m,
-        ),
-      );
+        );
+        queueMicrotask(() => syncActiveThreadMessages(next, true));
+        return next;
+      });
     }
   };
 
