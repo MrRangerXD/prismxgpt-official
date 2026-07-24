@@ -48,7 +48,7 @@ async function runGeneration(params: {
   // Upsert the lifecycle row as processing (idempotent — a second POST with
   // the same id becomes a no-op reservation, letting the eventual response
   // reconcile whichever caller wins).
-  await supabaseAdmin
+  await (supabaseAdmin as unknown as SupabaseAny)
     .from("image_generations")
     .upsert(
       {
@@ -64,7 +64,7 @@ async function runGeneration(params: {
     );
 
   const finalize = async (patch: Record<string, unknown>) => {
-    await supabaseAdmin
+    await (supabaseAdmin as unknown as SupabaseAny)
       .from("image_generations")
       .update(patch)
       .eq("id", generationId)
@@ -197,7 +197,7 @@ export const Route = createFileRoute("/api/image")({
           return Response.json({ error: "Missing generation id." }, { status: 400 });
         }
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data: row, error } = await supabaseAdmin
+        const { data: row, error } = await (supabaseAdmin as unknown as SupabaseAny)
           .from("image_generations")
           .select("id,user_id,status,image_url,error,created_at")
           .eq("id", id)
@@ -217,7 +217,7 @@ export const Route = createFileRoute("/api/image")({
           Date.now() - new Date(row.created_at as string).getTime() > STUCK_MS
         ) {
           const msg = "Image generation timed out. Please try again.";
-          await supabaseAdmin
+          await (supabaseAdmin as unknown as SupabaseAny)
             .from("image_generations")
             .update({ status: "failed", error: msg })
             .eq("id", id)
@@ -275,7 +275,7 @@ export const Route = createFileRoute("/api/image")({
         // just guarded so a missing table/RPC never blocks generation.
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const { data: cfg } = await supabaseAdmin
+          const { data: cfg } = await (supabaseAdmin as unknown as SupabaseAny)
             .from("app_settings")
             .select("value")
             .eq("key", "features")
@@ -293,7 +293,7 @@ export const Route = createFileRoute("/api/image")({
 
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const { data: roles } = await supabaseAdmin
+          const { data: roles } = await (supabaseAdmin as unknown as SupabaseAny)
             .from("user_roles")
             .select("role")
             .eq("user_id", auth.userId);
