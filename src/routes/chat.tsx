@@ -425,11 +425,12 @@ export function ChatPage() {
         if (p.type !== "text" || typeof p.text !== "string") return false;
         const t = p.text.trim();
         if (!t) return true;
+        // Legacy markers with no generation id can never be recovered — drop.
         if (t === "⟪imggen:generating⟫" || t === "⟪imggen:editing⟫") return true;
-        // Defensive: strip any leftover "Generating your image…" / progress
-        // labels that a prior version of the model or client may have
-        // persisted. Completed images are stored as markdown `![...](url)`
-        // and will never match these.
+        // Pending markers WITH an id are the recoverable ones — KEEP them
+        // so the polling effect below can resolve them from the DB.
+        if (/^⟪(imggen|imgedit):pending:[0-9a-f-]{36}⟫$/i.test(t)) return false;
+        // Defensive: strip any leftover "Generating your image…" strings.
         return /^(generating your image|creating image|editing image|interrupted|loading|generating\.\.\.|creating\.\.\.)[.…\s]*$/i.test(t);
       });
     };
@@ -438,6 +439,96 @@ export function ChatPage() {
       : [];
     setMessages(sanitized);
   }, [chatId, threads, urlChatId, user.userId, setMessages]);
+
+  // Recovery poller: for every pending image-generation marker in the current
+  // thread, poll GET /api/image?id=<id> until the row is completed/failed.
+  // This is what makes "refresh mid-edit" resume without losing progress.
+  const recoveryTrackedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const pending: Array<{ msgId: string; genId: string }> = [];
+    for (const m of messages) {
+      if (m.role !== "assistant") continue;
+      const parts = (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts ?? [];
+      for (const p of parts) {
+        if (p.type !== "text" || typeof p.text !== "string") continue;
+        const match = p.text.trim().match(/^⟪(?:imggen|imgedit):pending:([0-9a-f-]{36})⟫$/i);
+        if (match) pending.push({ msgId: m.id, genId: match[1] });
+      }
+    }
+    if (pending.length === 0) return;
+    let cancelled = false;
+    const timers: Array<ReturnType<typeof setTimeout>> = [];
+    const seen = recoveryTrackedRef.current;
+
+    const finalize = (msgId: string, text: string) => {
+      setMessages((prev) => {
+        const next = prev.map((m) =>
+          m.id === msgId
+            ? ({ ...m, parts: [{ type: "text", text }] } as unknown as UIMessage)
+            : m,
+        );
+        queueMicrotask(() => syncActiveThreadMessages(next, true));
+        return next;
+      });
+    };
+
+    const pollOnce = async (msgId: string, genId: string, attempt: number) => {
+      if (cancelled) return;
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) return; // will retry on next hydration when auth is ready
+        const res = await fetch(`/api/image?id=${encodeURIComponent(genId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (cancelled) return;
+        if (res.status === 404) {
+          // No server row — likely a legacy marker or a request the server
+          // never received. Mark failed so the card stops spinning.
+          finalize(msgId, "Image generation was interrupted. Please try again.");
+          return;
+        }
+        const payload = (await res.json().catch(() => null)) as {
+          status?: string;
+          imageUrl?: string;
+          error?: string;
+        } | null;
+        if (!payload) return;
+        if (payload.status === "completed" && payload.imageUrl) {
+          finalize(msgId, `![generated image](${payload.imageUrl})`);
+          return;
+        }
+        if (payload.status === "failed") {
+          finalize(msgId, payload.error || "Image generation failed. Please try again.");
+          return;
+        }
+        // still processing — poll again with mild backoff, cap ~3 min.
+        if (attempt > 60) {
+          finalize(msgId, "Image generation timed out. Please try again.");
+          return;
+        }
+        const delay = Math.min(4000, 1500 + attempt * 100);
+        timers.push(setTimeout(() => pollOnce(msgId, genId, attempt + 1), delay));
+      } catch (e) {
+        if (cancelled) return;
+        console.error("[image] recovery poll error", e);
+        timers.push(setTimeout(() => pollOnce(msgId, genId, attempt + 1), 3000));
+      }
+    };
+
+    for (const { msgId, genId } of pending) {
+      const key = `${msgId}:${genId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      pollOnce(msgId, genId, 0);
+    }
+
+    return () => {
+      cancelled = true;
+      for (const t of timers) clearTimeout(t);
+    };
+  }, [messages, setMessages, syncActiveThreadMessages]);
+
 
   // Persist messages back to storage. Streaming updates are throttled so the
   // sidebar and cloud sync don't re-render on every token.
@@ -786,17 +877,32 @@ export function ChatPage() {
         return;
       }
     }
+    // Client-owned generation id — persisted BEFORE the POST returns so a
+    // refresh mid-flight can resume by polling GET /api/image?id=<id>.
+    const generationId =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}-0000-0000-0000-000000000000`;
+    const marker = inputImage
+      ? `⟪imgedit:pending:${generationId}⟫`
+      : `⟪imggen:pending:${generationId}⟫`;
     const userMsg = { id: `u_${Date.now()}`, role: "user" as const, parts: [{ type: "text" as const, text: prompt }] };
-    const asstId = `a_${Date.now()}`;
-    const asstPlaceholder = { id: asstId, role: "assistant" as const, parts: [{ type: "text" as const, text: inputImage ? "⟪imggen:editing⟫" : "⟪imggen:generating⟫" }] };
-    setMessages((prev) => [...prev, userMsg as unknown as UIMessage, asstPlaceholder as unknown as UIMessage]);
+    const asstId = `a_${generationId}`;
+    const asstPlaceholder = { id: asstId, role: "assistant" as const, parts: [{ type: "text" as const, text: marker }] };
+    // Force-persist the placeholder immediately so refresh can recover it.
+    setMessages((prev) => {
+      const next = [...prev, userMsg as unknown as UIMessage, asstPlaceholder as unknown as UIMessage];
+      queueMicrotask(() => syncActiveThreadMessages(next, true));
+      return next;
+    });
+
     const callImageApi = async (): Promise<Response> => {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
       return fetch("/api/image", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ prompt, ...(inputImage ? { inputImage } : {}) }),
+        body: JSON.stringify({ generationId, prompt, ...(inputImage ? { inputImage } : {}) }),
       });
     };
 
@@ -804,7 +910,6 @@ export function ChatPage() {
       let res: Response;
       try {
         res = await callImageApi();
-        // Retry once on transient failure.
         if (!res.ok && (res.status >= 500 || res.status === 0)) {
           await new Promise((r) => setTimeout(r, 500));
           res = await callImageApi();
@@ -816,7 +921,8 @@ export function ChatPage() {
 
       const payload = await res.json().catch(() => null) as {
         imageUrl?: string;
-        dataUrl?: string; // legacy
+        dataUrl?: string;
+        status?: string;
         error?: string;
       } | null;
       const finalUrl = payload?.imageUrl || payload?.dataUrl;
@@ -825,32 +931,30 @@ export function ChatPage() {
         throw new Error(msg);
       }
       if (isFree) bumpImgQuota();
-      // Finalize the generation: swap the placeholder for the completed
-      // image markdown. This becomes an immutable history entry — the
-      // effect below will persist it to localStorage + cloud on the next
-      // tick, and no follow-up chat message will resurrect the placeholder.
       setMessages((prev) => {
         const next = prev.map((m) =>
           m.id === asstId
             ? ({ ...m, parts: [{ type: "text", text: `![generated image](${finalUrl})` }] } as unknown as UIMessage)
             : m,
         );
-        // Force-persist immediately so a refresh right after completion
-        // always sees the finished image (don't wait for the throttled
-        // effect during ongoing streaming).
         queueMicrotask(() => syncActiveThreadMessages(next, true));
         return next;
       });
     } catch (e) {
       console.error("[image] failed", e);
       const msg = e instanceof Error ? e.message : "Image generation is temporarily unavailable. Please try again in a moment.";
-      setMessages((prev) =>
-        prev.map((m) =>
+      // Don't overwrite the pending marker with an error if the server row
+      // might still be processing — the recovery poller will finalize it.
+      // But if the fetch itself errored out, surface the error now.
+      setMessages((prev) => {
+        const next = prev.map((m) =>
           m.id === asstId
             ? ({ ...m, parts: [{ type: "text", text: msg }] } as unknown as UIMessage)
             : m,
-        ),
-      );
+        );
+        queueMicrotask(() => syncActiveThreadMessages(next, true));
+        return next;
+      });
     }
   };
 
@@ -1453,11 +1557,14 @@ const MessageBubble = memo(
       );
     }
     const t = text.trim();
-    if (t === "⟪imggen:generating⟫" || t === "⟪imggen:editing⟫") {
+    const pendingMatch = t.match(/^⟪(imggen|imgedit):pending:([0-9a-f-]{36})⟫$/i);
+    if (pendingMatch || t === "⟪imggen:generating⟫" || t === "⟪imggen:editing⟫") {
+      const mode: "editing" | "generating" =
+        pendingMatch?.[1] === "imgedit" || t === "⟪imggen:editing⟫" ? "editing" : "generating";
       return (
         <div className="flex gap-3">
           <PrismXLogo size="sm" />
-          <ImageGenProgress mode={t === "⟪imggen:editing⟫" ? "editing" : "generating"} />
+          <ImageGenProgress mode={mode} />
         </div>
       );
     }
