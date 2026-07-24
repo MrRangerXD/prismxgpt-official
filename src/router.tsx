@@ -9,6 +9,10 @@ export const getRouter = () => {
     routeTree,
     context: { queryClient },
     scrollRestoration: true,
+    // Preload route code + data on link hover/focus for instant navigation.
+    defaultPreload: "intent",
+    defaultPreloadDelay: 40,
+    // Router owns nav caching; keep data fresh via TanStack Query on read.
     defaultPreloadStaleTime: 0,
   });
 
