@@ -30,7 +30,7 @@ import {
 } from "@/lib/chat-store";
 import { loadThreadsFromCloud, saveThreadsToCloud } from "@/lib/chat-sync";
 import { supabase } from "@/integrations/supabase/client";
-import { detectImageIntent } from "@/lib/image-intent";
+import { detectImageIntent, isExplicitImageEdit } from "@/lib/image-intent";
 
 type SpeechRecognitionEventLike = {
   resultIndex: number;
