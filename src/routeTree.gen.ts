@@ -9,38 +9,273 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermsRouteImport } from './routes/terms'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as HelpRouteImport } from './routes/help'
+import { Route as ChatRouteImport } from './routes/chat'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ShareIdRouteImport } from './routes/share.$id'
+import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
+import { Route as ChatChatIdRouteImport } from './routes/chat_.$chatId'
+import { Route as ApiImageRouteImport } from './routes/api/image'
+import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ProjectsJoinTokenRouteImport } from './routes/projects.join.$token'
+import { Route as ApiPublicSnapshotIdRouteImport } from './routes/api/public/snapshot.$id'
 
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChatRoute = ChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ShareIdRoute = ShareIdRouteImport.update({
+  id: '/share/$id',
+  path: '/share/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
+  id: '/projects/$projectId',
+  path: '/projects/$projectId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChatChatIdRoute = ChatChatIdRouteImport.update({
+  id: '/chat_/$chatId',
+  path: '/chat/$chatId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiImageRoute = ApiImageRouteImport.update({
+  id: '/api/image',
+  path: '/api/image',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsJoinTokenRoute = ProjectsJoinTokenRouteImport.update({
+  id: '/projects/join/$token',
+  path: '/projects/join/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicSnapshotIdRoute = ApiPublicSnapshotIdRouteImport.update({
+  id: '/api/public/snapshot/$id',
+  path: '/api/public/snapshot/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/chat': typeof ChatRoute
+  '/help': typeof HelpRoute
+  '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
+  '/signup': typeof SignupRoute
+  '/terms': typeof TermsRoute
+  '/api/chat': typeof ApiChatRoute
+  '/api/image': typeof ApiImageRoute
+  '/chat/$chatId': typeof ChatChatIdRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/share/$id': typeof ShareIdRoute
+  '/projects/join/$token': typeof ProjectsJoinTokenRoute
+  '/api/public/snapshot/$id': typeof ApiPublicSnapshotIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/chat': typeof ChatRoute
+  '/help': typeof HelpRoute
+  '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
+  '/signup': typeof SignupRoute
+  '/terms': typeof TermsRoute
+  '/api/chat': typeof ApiChatRoute
+  '/api/image': typeof ApiImageRoute
+  '/chat/$chatId': typeof ChatChatIdRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/share/$id': typeof ShareIdRoute
+  '/projects/join/$token': typeof ProjectsJoinTokenRoute
+  '/api/public/snapshot/$id': typeof ApiPublicSnapshotIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
+  '/chat': typeof ChatRoute
+  '/help': typeof HelpRoute
+  '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
+  '/signup': typeof SignupRoute
+  '/terms': typeof TermsRoute
+  '/api/chat': typeof ApiChatRoute
+  '/api/image': typeof ApiImageRoute
+  '/chat_/$chatId': typeof ChatChatIdRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/share/$id': typeof ShareIdRoute
+  '/projects/join/$token': typeof ProjectsJoinTokenRoute
+  '/api/public/snapshot/$id': typeof ApiPublicSnapshotIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/chat'
+    | '/help'
+    | '/login'
+    | '/privacy'
+    | '/signup'
+    | '/terms'
+    | '/api/chat'
+    | '/api/image'
+    | '/chat/$chatId'
+    | '/projects/$projectId'
+    | '/share/$id'
+    | '/projects/join/$token'
+    | '/api/public/snapshot/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/admin'
+    | '/chat'
+    | '/help'
+    | '/login'
+    | '/privacy'
+    | '/signup'
+    | '/terms'
+    | '/api/chat'
+    | '/api/image'
+    | '/chat/$chatId'
+    | '/projects/$projectId'
+    | '/share/$id'
+    | '/projects/join/$token'
+    | '/api/public/snapshot/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/chat'
+    | '/help'
+    | '/login'
+    | '/privacy'
+    | '/signup'
+    | '/terms'
+    | '/api/chat'
+    | '/api/image'
+    | '/chat_/$chatId'
+    | '/projects/$projectId'
+    | '/share/$id'
+    | '/projects/join/$token'
+    | '/api/public/snapshot/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
+  ChatRoute: typeof ChatRoute
+  HelpRoute: typeof HelpRoute
+  LoginRoute: typeof LoginRoute
+  PrivacyRoute: typeof PrivacyRoute
+  SignupRoute: typeof SignupRoute
+  TermsRoute: typeof TermsRoute
+  ApiChatRoute: typeof ApiChatRoute
+  ApiImageRoute: typeof ApiImageRoute
+  ChatChatIdRoute: typeof ChatChatIdRoute
+  ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
+  ShareIdRoute: typeof ShareIdRoute
+  ProjectsJoinTokenRoute: typeof ProjectsJoinTokenRoute
+  ApiPublicSnapshotIdRoute: typeof ApiPublicSnapshotIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chat': {
+      id: '/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof ChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +283,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/share/$id': {
+      id: '/share/$id'
+      path: '/share/$id'
+      fullPath: '/share/$id'
+      preLoaderRoute: typeof ShareIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects/$projectId': {
+      id: '/projects/$projectId'
+      path: '/projects/$projectId'
+      fullPath: '/projects/$projectId'
+      preLoaderRoute: typeof ProjectsProjectIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chat_/$chatId': {
+      id: '/chat_/$chatId'
+      path: '/chat/$chatId'
+      fullPath: '/chat/$chatId'
+      preLoaderRoute: typeof ChatChatIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/image': {
+      id: '/api/image'
+      path: '/api/image'
+      fullPath: '/api/image'
+      preLoaderRoute: typeof ApiImageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects/join/$token': {
+      id: '/projects/join/$token'
+      path: '/projects/join/$token'
+      fullPath: '/projects/join/$token'
+      preLoaderRoute: typeof ProjectsJoinTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/snapshot/$id': {
+      id: '/api/public/snapshot/$id'
+      path: '/api/public/snapshot/$id'
+      fullPath: '/api/public/snapshot/$id'
+      preLoaderRoute: typeof ApiPublicSnapshotIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
+  ChatRoute: ChatRoute,
+  HelpRoute: HelpRoute,
+  LoginRoute: LoginRoute,
+  PrivacyRoute: PrivacyRoute,
+  SignupRoute: SignupRoute,
+  TermsRoute: TermsRoute,
+  ApiChatRoute: ApiChatRoute,
+  ApiImageRoute: ApiImageRoute,
+  ChatChatIdRoute: ChatChatIdRoute,
+  ProjectsProjectIdRoute: ProjectsProjectIdRoute,
+  ShareIdRoute: ShareIdRoute,
+  ProjectsJoinTokenRoute: ProjectsJoinTokenRoute,
+  ApiPublicSnapshotIdRoute: ApiPublicSnapshotIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
