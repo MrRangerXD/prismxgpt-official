@@ -814,19 +814,33 @@ export function ChatPage() {
         throw new Error("I couldn't reach the image service. Check your connection and try again.");
       }
 
-      const payload = await res.json().catch(() => null) as { dataUrl?: string; error?: string } | null;
-      if (!res.ok || !payload?.dataUrl) {
+      const payload = await res.json().catch(() => null) as {
+        imageUrl?: string;
+        dataUrl?: string; // legacy
+        error?: string;
+      } | null;
+      const finalUrl = payload?.imageUrl || payload?.dataUrl;
+      if (!res.ok || !finalUrl) {
         const msg = payload?.error || "Image generation is temporarily unavailable. Please try again in a moment.";
         throw new Error(msg);
       }
       if (isFree) bumpImgQuota();
-      setMessages((prev) =>
-        prev.map((m) =>
+      // Finalize the generation: swap the placeholder for the completed
+      // image markdown. This becomes an immutable history entry — the
+      // effect below will persist it to localStorage + cloud on the next
+      // tick, and no follow-up chat message will resurrect the placeholder.
+      setMessages((prev) => {
+        const next = prev.map((m) =>
           m.id === asstId
-            ? ({ ...m, parts: [{ type: "text", text: `![generated image](${payload.dataUrl})` }] } as unknown as UIMessage)
+            ? ({ ...m, parts: [{ type: "text", text: `![generated image](${finalUrl})` }] } as unknown as UIMessage)
             : m,
-        ),
-      );
+        );
+        // Force-persist immediately so a refresh right after completion
+        // always sees the finished image (don't wait for the throttled
+        // effect during ongoing streaming).
+        queueMicrotask(() => syncActiveThreadMessages(next, true));
+        return next;
+      });
     } catch (e) {
       console.error("[image] failed", e);
       const msg = e instanceof Error ? e.message : "Image generation is temporarily unavailable. Please try again in a moment.";
