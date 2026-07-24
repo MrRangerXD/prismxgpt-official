@@ -781,8 +781,21 @@ CREATE POLICY "Admins manage admin notifications" ON public.admin_notifications 
 INSERT INTO storage.buckets (id, name, public) VALUES
   ('library',       'library',       false),
   ('project-files', 'project-files', false),
-  ('avatars',       'avatars',       true)
+  ('avatars',       'avatars',       true),
+  ('chat-images',   'chat-images',   true)
 ON CONFLICT (id) DO NOTHING;
+-- Ensure chat-images is publicly readable even if the row already existed.
+UPDATE storage.buckets SET public = true WHERE id = 'chat-images';
+
+DROP POLICY IF EXISTS "chat-images public read"   ON storage.objects;
+DROP POLICY IF EXISTS "chat-images owner write"   ON storage.objects;
+DROP POLICY IF EXISTS "chat-images owner delete"  ON storage.objects;
+CREATE POLICY "chat-images public read"  ON storage.objects FOR SELECT TO anon, authenticated
+  USING (bucket_id = 'chat-images');
+CREATE POLICY "chat-images owner write"  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'chat-images' AND ((storage.foldername(name))[1])::uuid = auth.uid());
+CREATE POLICY "chat-images owner delete" ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'chat-images' AND ((storage.foldername(name))[1])::uuid = auth.uid());
 
 DROP POLICY IF EXISTS "library owner read"   ON storage.objects;
 DROP POLICY IF EXISTS "library owner insert" ON storage.objects;
