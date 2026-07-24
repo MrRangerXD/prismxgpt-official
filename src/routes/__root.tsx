@@ -90,8 +90,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "PrismXGPT — Premium ChatGPT-style AI Assistant" },
       { name: "twitter:description", content: "PrismXGPT is a modern AI assistant for chat, writing, code and research. Free forever with an optional premium plan." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/b22aedbe-1830-45fd-8d8a-ea950f3e456d" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/b22aedbe-1830-45fd-8d8a-ea950f3e456d" },
+      { property: "og:image", content: "https://prismgpt.lovable.app/og-image.png" },
+      { name: "twitter:image", content: "https://prismgpt.lovable.app/og-image.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
