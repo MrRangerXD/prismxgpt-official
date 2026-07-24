@@ -303,8 +303,8 @@ export const Route = createFileRoute("/api/image")({
             .from("user_roles")
             .select("role")
             .eq("user_id", auth.userId);
-          const isPaid = (roles ?? []).some((r) =>
-            ["admin", "premium", "pro"].includes(r.role as string),
+          const isPaid = ((roles ?? []) as Array<{ role: string }>).some((r) =>
+            ["admin", "premium", "pro"].includes(r.role),
           );
           if (!isPaid) {
             const { data: remaining, error: qErr } = await supabaseAdmin.rpc(
