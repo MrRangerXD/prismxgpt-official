@@ -1,6 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireApiAuth } from "@/lib/api-auth.server";
 
+// The generated Supabase Database types don't yet include image_generations
+// (it's added by bootstrap.sql on the live project); use a loose alias so
+// the fluent query builder typechecks without regenerating types.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseAny = { from(name: string): any; rpc(name: string, args?: unknown): any };
+
 // ---------------------------------------------------------------------------
 // Image generation lifecycle
 //
