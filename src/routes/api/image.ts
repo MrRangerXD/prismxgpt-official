@@ -173,14 +173,30 @@ export const Route = createFileRoute("/api/image")({
           );
         }
 
-        // Persist to the user's Library (best-effort — do not fail the
-        // response if storage upload hiccups). Fixes item #3: images now
-        // appear in the Library modal after generation.
+        // Persist to storage:
+        //  - chat-images (public bucket) → stable public URL embedded in the
+        //    chat message so refreshes/other devices render the finished image
+        //    without base64 payloads bloating localStorage or cloud sync.
+        //  - library (private bucket) → surfaces in the Library modal exactly
+        //    like manually saved items.
+        // Both uploads are best-effort; if the chat-images upload fails we
+        // fall back to returning the base64 data URL so the user still sees
+        // their image (the message just won't survive a refresh).
+        const filename = `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.png`;
+        const storagePath = `${auth.userId}/${filename}`;
+        let publicImageUrl: string | null = null;
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-          const filename = `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.png`;
-          const storagePath = `${auth.userId}/${filename}`;
+          const chatUp = await supabaseAdmin.storage
+            .from("chat-images")
+            .upload(storagePath, bytes, { contentType: "image/png", upsert: false });
+          if (!chatUp.error) {
+            const base = (process.env.SUPABASE_URL ?? "").replace(/\/+$/, "");
+            publicImageUrl = `${base}/storage/v1/object/public/chat-images/${storagePath}`;
+          } else {
+            console.error("[api/image] chat-images upload failed", chatUp.error);
+          }
           const { error: upErr } = await supabaseAdmin.storage
             .from("library")
             .upload(storagePath, bytes, { contentType: "image/png", upsert: false });
@@ -199,10 +215,13 @@ export const Route = createFileRoute("/api/image")({
             console.error("[api/image] library upload failed", upErr);
           }
         } catch (e) {
-          console.error("[api/image] library persist failed", e);
+          console.error("[api/image] persist failed", e);
         }
 
-        return Response.json({ dataUrl: `data:image/png;base64,${b64}` });
+        return Response.json({
+          imageUrl: publicImageUrl ?? `data:image/png;base64,${b64}`,
+          storagePath,
+        });
       },
     },
   },
