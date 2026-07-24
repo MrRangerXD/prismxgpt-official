@@ -741,6 +741,10 @@ export function ChatPage() {
 
 
   // Image-intent detection lives in `@/lib/image-intent` (fuzzy + typo-tolerant).
+  // Returns the URL of the most recently *completed* generated image so
+  // explicit edit prompts can reuse it. We match http(s) URLs (public bucket)
+  // and legacy data URLs (older messages). Placeholders and progress text
+  // never match because they don't contain markdown image syntax.
   const extractLastGeneratedImage = (msgs: UIMessage[]): string | undefined => {
     for (let i = msgs.length - 1; i >= 0; i--) {
       const m = msgs[i];
@@ -748,7 +752,7 @@ export function ChatPage() {
       const parts = (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts ?? [];
       for (const p of parts) {
         if (p.type === "text" && typeof p.text === "string") {
-          const match = p.text.match(/!\[[^\]]*\]\((data:image\/[^)]+)\)/);
+          const match = p.text.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/);
           if (match) return match[1];
         }
       }
