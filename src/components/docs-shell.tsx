@@ -342,10 +342,26 @@ function PageTreeItem({
   onNavigate: () => void;
 }) {
   const activeRef = useRef<HTMLAnchorElement | null>(null);
+  // Detect if any descendant matches the active slug so we auto-expand ancestor branches.
+  const hasActiveDescendant = useMemo(() => {
+    if (!activeSlug) return false;
+    const stack = [...(tree.pagesByParent.get(page.id) ?? [])];
+    while (stack.length) {
+      const n = stack.pop()!;
+      if (n.slug === activeSlug) return true;
+      const kids = tree.pagesByParent.get(n.id);
+      if (kids) stack.push(...kids);
+    }
+    return false;
+  }, [activeSlug, page.id, tree.pagesByParent]);
   const [open, setOpen] = useState(true);
+  useEffect(() => {
+    if (hasActiveDescendant) setOpen(true);
+  }, [hasActiveDescendant]);
   useEffect(() => {
     if (isActive && activeRef.current) activeRef.current.scrollIntoView({ block: "nearest" });
   }, [isActive]);
+
   return (
     <div>
       <div className="flex items-center">
