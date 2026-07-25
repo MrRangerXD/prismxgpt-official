@@ -72,8 +72,9 @@
  * - Placeholder markers are the ONLY transient chat state. They are always
  *   either finalized (into an image URL / error text) or recoverable via
  *   the poller. They never leak across threads.
- * - `active_generation` and other in-memory scratch state are cleared on
- *   finalization to prevent context leaks between messages.
+ * - Pending markers are the only active image state; replacing/removing the
+ *   marker on completion/failure immediately stops polling and returns chat
+ *   to normal text routing.
  * - The `bootstrap.sql` file is the schema source of truth (see the
  *   `image_generations` table + `chat-images` bucket).
  *

@@ -133,6 +133,32 @@ async function runGeneration(params: {
       .eq("user_id", userId);
   };
 
+  // Quota is consumed only after this generation id has been reserved. A
+  // duplicate POST for the same generation short-circuits above before this
+  // point, so network retries cannot burn multiple quota units.
+  try {
+    const { data: roles } = await (supabaseAdmin as unknown as SupabaseAny)
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId);
+    const isPaid = ((roles ?? []) as Array<{ role: string }>).some((r) =>
+      ["admin", "premium", "pro"].includes(r.role),
+    );
+    if (!isPaid) {
+      const { data: remaining, error: qErr } = await (supabaseAdmin as unknown as SupabaseAny).rpc(
+        "consume_image_quota",
+        { _limit: 3, _user_id: userId },
+      );
+      if (!qErr && typeof remaining === "number" && remaining < 0) {
+        const msg = "Free plan limit reached: 3 images per day. Upgrade for unlimited image generation.";
+        await finalize({ status: "failed", progress: 100, error: msg });
+        return { status: 429, body: { generationId, status: "failed", error: msg } };
+      }
+    }
+  } catch (e) {
+    console.error("[api/image] quota check failed (fail-open)", e);
+  }
+
   const key = process.env.LOVABLE_API_KEY;
   if (!key) {
     await finalize({ status: "failed", progress: 100, error: "Image generation isn't configured." });
@@ -361,31 +387,6 @@ export const Route = createFileRoute("/api/image")({
           }
         } catch (e) {
           console.error("[api/image] feature flag check failed", e);
-        }
-
-        try {
-          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const { data: roles } = await (supabaseAdmin as unknown as SupabaseAny)
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", auth.userId);
-          const isPaid = ((roles ?? []) as Array<{ role: string }>).some((r) =>
-            ["admin", "premium", "pro"].includes(r.role),
-          );
-          if (!isPaid) {
-            const { data: remaining, error: qErr } = await supabaseAdmin.rpc(
-              "consume_image_quota",
-              { _limit: 3, _user_id: auth.userId },
-            );
-            if (!qErr && typeof remaining === "number" && remaining < 0) {
-              return Response.json(
-                { error: "Free plan limit reached: 3 images per day. Upgrade for unlimited image generation." },
-                { status: 429 },
-              );
-            }
-          }
-        } catch (e) {
-          console.error("[api/image] quota check failed (fail-open)", e);
         }
 
         const result = await runGeneration({
