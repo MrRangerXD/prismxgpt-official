@@ -26,6 +26,7 @@ import {
   Pencil,
   Share2,
   FolderPlus,
+  BookOpen,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ChatThread } from "@/lib/chat-store";
@@ -193,6 +194,10 @@ export function PrismSidebar({
           <FolderClosed className="h-4 w-4 text-muted-foreground" />
           <span>Projects</span>
         </button>
+        <Link to="/docs" className={rowCls} onClick={() => onMobileClose?.()}>
+          <BookOpen className="h-4 w-4 text-muted-foreground" />
+          <span>Documentation</span>
+        </Link>
         <div className="relative">
           <button className={rowCls} onClick={() => setMoreOpen((v) => !v)}>
             <MoreHorizontal className="h-4 w-4 text-muted-foreground" />

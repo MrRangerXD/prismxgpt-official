@@ -90,6 +90,7 @@ function Landing() {
           <div className="hidden items-center gap-8 md:flex">
             <a href="#features" className="text-sm text-muted-foreground transition hover:text-foreground">Features</a>
             <a href="#pricing" className="text-sm text-muted-foreground transition hover:text-foreground">Pricing</a>
+            <Link to="/docs" className="text-sm text-muted-foreground transition hover:text-foreground">Documentation</Link>
             <a href="#faq" className="text-sm text-muted-foreground transition hover:text-foreground">FAQ</a>
           </div>
 
@@ -151,6 +152,7 @@ function Landing() {
             <div className="flex flex-col gap-3">
               <a href="#features" className="text-sm text-muted-foreground">Features</a>
               <a href="#pricing" className="text-sm text-muted-foreground">Pricing</a>
+              <Link to="/docs" className="text-sm text-muted-foreground">Documentation</Link>
               <a href="#faq" className="text-sm text-muted-foreground">FAQ</a>
               <div className="my-2 h-px bg-border" />
               <Link to="/login" className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-center">Log in</Link>

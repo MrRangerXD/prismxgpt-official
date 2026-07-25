@@ -21,10 +21,13 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ShareIdRouteImport } from './routes/share.$id'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
+import { Route as DocsSlugRouteImport } from './routes/docs.$slug'
 import { Route as ChatChatIdRouteImport } from './routes/chat_.$chatId'
 import { Route as ApiImageRouteImport } from './routes/api/image'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as AdminDocsRouteImport } from './routes/admin.docs'
 import { Route as ProjectsJoinTokenRouteImport } from './routes/projects.join.$token'
+import { Route as AdminDocsIdRouteImport } from './routes/admin.docs.$id'
 import { Route as ApiPublicSnapshotIdRouteImport } from './routes/api/public/snapshot.$id'
 
 const TermsRoute = TermsRouteImport.update({
@@ -87,6 +90,11 @@ const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   path: '/projects/$projectId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocsSlugRoute = DocsSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => DocsRoute,
+} as any)
 const ChatChatIdRoute = ChatChatIdRouteImport.update({
   id: '/chat_/$chatId',
   path: '/chat/$chatId',
@@ -102,10 +110,20 @@ const ApiChatRoute = ApiChatRouteImport.update({
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminDocsRoute = AdminDocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
+  getParentRoute: () => AdminRoute,
+} as any)
 const ProjectsJoinTokenRoute = ProjectsJoinTokenRouteImport.update({
   id: '/projects/join/$token',
   path: '/projects/join/$token',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminDocsIdRoute = AdminDocsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminDocsRoute,
 } as any)
 const ApiPublicSnapshotIdRoute = ApiPublicSnapshotIdRouteImport.update({
   id: '/api/public/snapshot/$id',
@@ -115,59 +133,68 @@ const ApiPublicSnapshotIdRoute = ApiPublicSnapshotIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/chat': typeof ChatRoute
-  '/docs': typeof DocsRoute
+  '/docs': typeof DocsRouteWithChildren
   '/help': typeof HelpRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/admin/docs': typeof AdminDocsRouteWithChildren
   '/api/chat': typeof ApiChatRoute
   '/api/image': typeof ApiImageRoute
   '/chat/$chatId': typeof ChatChatIdRoute
+  '/docs/$slug': typeof DocsSlugRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/share/$id': typeof ShareIdRoute
+  '/admin/docs/$id': typeof AdminDocsIdRoute
   '/projects/join/$token': typeof ProjectsJoinTokenRoute
   '/api/public/snapshot/$id': typeof ApiPublicSnapshotIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/chat': typeof ChatRoute
-  '/docs': typeof DocsRoute
+  '/docs': typeof DocsRouteWithChildren
   '/help': typeof HelpRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/admin/docs': typeof AdminDocsRouteWithChildren
   '/api/chat': typeof ApiChatRoute
   '/api/image': typeof ApiImageRoute
   '/chat/$chatId': typeof ChatChatIdRoute
+  '/docs/$slug': typeof DocsSlugRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/share/$id': typeof ShareIdRoute
+  '/admin/docs/$id': typeof AdminDocsIdRoute
   '/projects/join/$token': typeof ProjectsJoinTokenRoute
   '/api/public/snapshot/$id': typeof ApiPublicSnapshotIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/chat': typeof ChatRoute
-  '/docs': typeof DocsRoute
+  '/docs': typeof DocsRouteWithChildren
   '/help': typeof HelpRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/admin/docs': typeof AdminDocsRouteWithChildren
   '/api/chat': typeof ApiChatRoute
   '/api/image': typeof ApiImageRoute
   '/chat_/$chatId': typeof ChatChatIdRoute
+  '/docs/$slug': typeof DocsSlugRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/share/$id': typeof ShareIdRoute
+  '/admin/docs/$id': typeof AdminDocsIdRoute
   '/projects/join/$token': typeof ProjectsJoinTokenRoute
   '/api/public/snapshot/$id': typeof ApiPublicSnapshotIdRoute
 }
@@ -184,11 +211,14 @@ export interface FileRouteTypes {
     | '/signup'
     | '/sitemap.xml'
     | '/terms'
+    | '/admin/docs'
     | '/api/chat'
     | '/api/image'
     | '/chat/$chatId'
+    | '/docs/$slug'
     | '/projects/$projectId'
     | '/share/$id'
+    | '/admin/docs/$id'
     | '/projects/join/$token'
     | '/api/public/snapshot/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -203,11 +233,14 @@ export interface FileRouteTypes {
     | '/signup'
     | '/sitemap.xml'
     | '/terms'
+    | '/admin/docs'
     | '/api/chat'
     | '/api/image'
     | '/chat/$chatId'
+    | '/docs/$slug'
     | '/projects/$projectId'
     | '/share/$id'
+    | '/admin/docs/$id'
     | '/projects/join/$token'
     | '/api/public/snapshot/$id'
   id:
@@ -222,20 +255,23 @@ export interface FileRouteTypes {
     | '/signup'
     | '/sitemap.xml'
     | '/terms'
+    | '/admin/docs'
     | '/api/chat'
     | '/api/image'
     | '/chat_/$chatId'
+    | '/docs/$slug'
     | '/projects/$projectId'
     | '/share/$id'
+    | '/admin/docs/$id'
     | '/projects/join/$token'
     | '/api/public/snapshot/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
+  AdminRoute: typeof AdminRouteWithChildren
   ChatRoute: typeof ChatRoute
-  DocsRoute: typeof DocsRoute
+  DocsRoute: typeof DocsRouteWithChildren
   HelpRoute: typeof HelpRoute
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
@@ -337,6 +373,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/docs/$slug': {
+      id: '/docs/$slug'
+      path: '/$slug'
+      fullPath: '/docs/$slug'
+      preLoaderRoute: typeof DocsSlugRouteImport
+      parentRoute: typeof DocsRoute
+    }
     '/chat_/$chatId': {
       id: '/chat_/$chatId'
       path: '/chat/$chatId'
@@ -358,12 +401,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/docs': {
+      id: '/admin/docs'
+      path: '/docs'
+      fullPath: '/admin/docs'
+      preLoaderRoute: typeof AdminDocsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/projects/join/$token': {
       id: '/projects/join/$token'
       path: '/projects/join/$token'
       fullPath: '/projects/join/$token'
       preLoaderRoute: typeof ProjectsJoinTokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/admin/docs/$id': {
+      id: '/admin/docs/$id'
+      path: '/$id'
+      fullPath: '/admin/docs/$id'
+      preLoaderRoute: typeof AdminDocsIdRouteImport
+      parentRoute: typeof AdminDocsRoute
     }
     '/api/public/snapshot/$id': {
       id: '/api/public/snapshot/$id'
@@ -375,11 +432,43 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AdminDocsRouteChildren {
+  AdminDocsIdRoute: typeof AdminDocsIdRoute
+}
+
+const AdminDocsRouteChildren: AdminDocsRouteChildren = {
+  AdminDocsIdRoute: AdminDocsIdRoute,
+}
+
+const AdminDocsRouteWithChildren = AdminDocsRoute._addFileChildren(
+  AdminDocsRouteChildren,
+)
+
+interface AdminRouteChildren {
+  AdminDocsRoute: typeof AdminDocsRouteWithChildren
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminDocsRoute: AdminDocsRouteWithChildren,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
+interface DocsRouteChildren {
+  DocsSlugRoute: typeof DocsSlugRoute
+}
+
+const DocsRouteChildren: DocsRouteChildren = {
+  DocsSlugRoute: DocsSlugRoute,
+}
+
+const DocsRouteWithChildren = DocsRoute._addFileChildren(DocsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
+  AdminRoute: AdminRouteWithChildren,
   ChatRoute: ChatRoute,
-  DocsRoute: DocsRoute,
+  DocsRoute: DocsRouteWithChildren,
   HelpRoute: HelpRoute,
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,

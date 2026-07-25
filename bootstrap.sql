@@ -898,7 +898,117 @@ CREATE TRIGGER image_generations_touch
   BEFORE UPDATE ON public.image_generations
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
+-- ---------------------------------------------------------------------------
+-- Documentation CMS (categories + pages)
+-- Everyone can READ published pages; only admins can write.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.documentation_categories (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug         text NOT NULL UNIQUE,
+  title        text NOT NULL,
+  description  text,
+  icon         text,
+  sort_order   integer NOT NULL DEFAULT 0,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.documentation_pages (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  category_id       uuid REFERENCES public.documentation_categories(id) ON DELETE SET NULL,
+  parent_id         uuid REFERENCES public.documentation_pages(id) ON DELETE SET NULL,
+  slug              text NOT NULL UNIQUE,
+  title             text NOT NULL,
+  description       text,
+  content           text NOT NULL DEFAULT '',
+  excerpt           text,
+  cover_image       text,
+  icon              text,
+  tags              text[] NOT NULL DEFAULT '{}',
+  version           text,
+  status            text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','published')),
+  visibility        text NOT NULL DEFAULT 'public' CHECK (visibility IN ('public','private')),
+  seo_title         text,
+  seo_description   text,
+  sort_order        integer NOT NULL DEFAULT 0,
+  reading_minutes   integer NOT NULL DEFAULT 1,
+  published_at      timestamptz,
+  created_by        uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  updated_at        timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS documentation_pages_category_idx
+  ON public.documentation_pages(category_id, sort_order);
+CREATE INDEX IF NOT EXISTS documentation_pages_status_idx
+  ON public.documentation_pages(status);
+
+GRANT SELECT ON public.documentation_categories TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE ON public.documentation_categories TO authenticated;
+GRANT ALL ON public.documentation_categories TO service_role;
+
+GRANT SELECT ON public.documentation_pages TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE ON public.documentation_pages TO authenticated;
+GRANT ALL ON public.documentation_pages TO service_role;
+
+ALTER TABLE public.documentation_categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.documentation_pages       ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "docs_categories_public_read"  ON public.documentation_categories;
+DROP POLICY IF EXISTS "docs_categories_admin_write"  ON public.documentation_categories;
+CREATE POLICY "docs_categories_public_read"
+  ON public.documentation_categories FOR SELECT TO anon, authenticated
+  USING (true);
+CREATE POLICY "docs_categories_admin_write"
+  ON public.documentation_categories FOR ALL TO authenticated
+  USING (private.has_role(auth.uid(), 'admin'))
+  WITH CHECK (private.has_role(auth.uid(), 'admin'));
+
+DROP POLICY IF EXISTS "docs_pages_public_read"       ON public.documentation_pages;
+DROP POLICY IF EXISTS "docs_pages_admin_read_all"    ON public.documentation_pages;
+DROP POLICY IF EXISTS "docs_pages_admin_write"       ON public.documentation_pages;
+CREATE POLICY "docs_pages_public_read"
+  ON public.documentation_pages FOR SELECT TO anon, authenticated
+  USING (status = 'published' AND visibility = 'public');
+CREATE POLICY "docs_pages_admin_read_all"
+  ON public.documentation_pages FOR SELECT TO authenticated
+  USING (private.has_role(auth.uid(), 'admin'));
+CREATE POLICY "docs_pages_admin_write"
+  ON public.documentation_pages FOR ALL TO authenticated
+  USING (private.has_role(auth.uid(), 'admin'))
+  WITH CHECK (private.has_role(auth.uid(), 'admin'));
+
+DROP TRIGGER IF EXISTS documentation_categories_touch ON public.documentation_categories;
+CREATE TRIGGER documentation_categories_touch
+  BEFORE UPDATE ON public.documentation_categories
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS documentation_pages_touch ON public.documentation_pages;
+CREATE TRIGGER documentation_pages_touch
+  BEFORE UPDATE ON public.documentation_pages
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- Seed a starter category + welcome page so /docs isn't empty on first run.
+INSERT INTO public.documentation_categories (slug, title, description, sort_order)
+VALUES ('getting-started', 'Getting Started', 'Everything you need to know to begin using PrismXGPT.', 0)
+ON CONFLICT (slug) DO NOTHING;
+
+INSERT INTO public.documentation_pages (slug, title, description, content, status, sort_order, category_id, published_at)
+SELECT
+  'welcome',
+  'Welcome to PrismXGPT',
+  'A quick introduction to the platform.',
+  E'# Welcome to PrismXGPT\n\nThis documentation is fully editable from the **Admin Dashboard → Docs** tab.\n\n## What you can do\n\n- Chat with a modern AI assistant\n- Generate and edit images\n- Organize work in projects\n\n> Tip: Admins can add categories and pages at any time.\n',
+  'published',
+  0,
+  c.id,
+  now()
+FROM public.documentation_categories c
+WHERE c.slug = 'getting-started'
+ON CONFLICT (slug) DO NOTHING;
+
 -- ============================================================================
 -- END OF BOOTSTRAP
 -- ============================================================================
+
 
