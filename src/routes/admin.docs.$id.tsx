@@ -37,6 +37,12 @@ type EditablePage = {
   seo_description: string | null;
   sort_order: number;
   reading_minutes: number;
+  is_featured: boolean;
+  is_pinned: boolean;
+  homepage_section: string | null;
+  search_keywords: string[];
+  author: string | null;
+  related_slugs: string[];
 };
 
 function computeReadingMinutes(text: string): number {
