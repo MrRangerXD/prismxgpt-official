@@ -843,7 +843,9 @@ export function ChatPage() {
   // explicit edit prompts can reuse it. We match http(s) URLs (public bucket)
   // and legacy data URLs (older messages). Placeholders and progress text
   // never match because they don't contain markdown image syntax.
-  const extractLastGeneratedImage = (msgs: UIMessage[]): string | undefined => {
+  const extractLastGeneratedImage = (
+    msgs: UIMessage[],
+  ): { url: string; parentId?: string } | undefined => {
     for (let i = msgs.length - 1; i >= 0; i--) {
       const m = msgs[i];
       if (m.role !== "assistant") continue;
@@ -851,7 +853,12 @@ export function ChatPage() {
       for (const p of parts) {
         if (p.type === "text" && typeof p.text === "string") {
           const match = p.text.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/);
-          if (match) return match[1];
+          if (match) {
+            // Assistant image messages created by generateImageInline use
+            // id `a_<uuid>`; parse that back so we can persist provenance.
+            const idMatch = /^a_([0-9a-f-]{36})$/i.exec(m.id);
+            return { url: match[1], parentId: idMatch?.[1] };
+          }
         }
       }
     }
