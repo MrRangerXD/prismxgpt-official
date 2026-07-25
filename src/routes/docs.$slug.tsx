@@ -4,7 +4,7 @@
  * TOC scroll-spy, prev/next, related articles, recently viewed, and
  * reader actions (copy link, share, print, fullscreen, edit page for admins).
  */
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/use-profile";
