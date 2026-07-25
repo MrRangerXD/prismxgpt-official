@@ -149,6 +149,7 @@ function Landing() {
         )}
       </header>
 
+      <main id="main">
       {/* Hero */}
       <section className="relative z-10 mx-auto max-w-7xl px-6 pt-16 pb-24 text-center md:pt-24">
         <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur">
@@ -401,6 +402,7 @@ function Landing() {
           </div>
         </div>
       </section>
+      </main>
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-border">
