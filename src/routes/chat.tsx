@@ -204,14 +204,14 @@ function extractMessageContent(m: unknown): { role: "user" | "assistant"; conten
 function AttachmentThumbnail({ file }: { file: File }) {
   const url = useMemo(() => URL.createObjectURL(file), [file]);
   useEffect(() => () => URL.revokeObjectURL(url), [url]);
-  return <img src={url} alt={file.name} className="h-10 w-10 rounded-lg object-cover" />;
+  return <img src={url} alt="" role="presentation" className="h-10 w-10 rounded-lg object-cover" />;
 }
 
 export const Route = createFileRoute("/chat")({
   head: () => ({
     meta: [
       { title: "Chat — PrismXGPT" },
-      { name: "description", content: "Talk with PrismXGPT — your AI assistant." },
+      { name: "description", content: "Chat with PrismXGPT — a modern AI assistant for writing, code, research, and image generation. Free forever with an optional Premium plan." },
       { name: "robots", content: "noindex,nofollow" },
     ],
   }),

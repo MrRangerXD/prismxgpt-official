@@ -10,8 +10,8 @@ export const Route = createFileRoute("/share/$id")({
   head: () => ({
     meta: [
       { title: "Shared conversation — PrismXGPT" },
-      { name: "description", content: "A read-only PrismXGPT conversation." },
-      { name: "robots", content: "noindex" },
+      { name: "description", content: "A read-only PrismXGPT conversation shared publicly. View the full exchange between the user and the PrismXGPT AI assistant." },
+      { name: "robots", content: "noindex,nofollow" },
     ],
   }),
   component: SharePage,

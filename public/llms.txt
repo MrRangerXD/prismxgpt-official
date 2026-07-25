@@ -1,0 +1,18 @@
+# PrismXGPT
+
+> PrismXGPT is a modern, premium ChatGPT-style AI assistant for chat, writing, code, research, and image generation. Free forever with an optional Premium plan.
+
+PrismXGPT runs on a curated set of top-tier reasoning models, chosen automatically for each task. It supports multi-turn chat, image generation and editing, project workspaces, and shareable read-only conversations.
+
+## Pages
+
+- [Home](/): Product overview, features, pricing, and FAQ
+- [Help Center](/help): Guides, FAQs, and support for getting started, account, AI features, projects, and billing
+- [Documentation](/docs): Developer and user documentation for PrismXGPT features
+- [Privacy Policy](/privacy): How PrismXGPT collects, uses, and protects user data
+- [Terms of Service](/terms): The rules and legal terms for using PrismXGPT
+
+## Optional
+
+- [Sign up](/signup): Create a free PrismXGPT account
+- [Log in](/login): Access your PrismXGPT account
