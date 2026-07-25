@@ -43,7 +43,7 @@ function LoginPage() {
         className="pointer-events-none absolute inset-x-0 top-0 h-[600px]"
         style={{ background: "var(--gradient-hero)" }}
       />
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6 py-16">
+      <main className="relative z-10 mx-auto flex min-h-[100dvh] max-w-md flex-col items-center justify-center px-6 py-16">
         <Link to="/" className="mb-8 flex items-center gap-2">
           <PrismXLogo size="md" />
           <span className="text-lg font-semibold tracking-tight">PrismXGPT</span>
@@ -102,7 +102,7 @@ function LoginPage() {
             </Link>
           </p>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
