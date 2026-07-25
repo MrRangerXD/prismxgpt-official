@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /chat
+Disallow: /chat_/
+Disallow: /projects/
+Disallow: /share/
+Disallow: /api/
+
+Sitemap: https://prismgpt.lovable.app/sitemap.xml
