@@ -237,7 +237,7 @@ function FileTree({ tree, level = 0 }: { tree: TreeNode; level?: number }) {
   return (
     <ul className={level === 0 ? "my-4 rounded-xl border border-border bg-card p-3 font-mono text-xs" : "ml-4 border-l border-border/60 pl-3"}>
       {entries.map(([name, val]) => {
-        const isDir = val && typeof val === "object";
+        const isDir = !!(val && typeof val === "object");
         return (
           <li key={name} className="my-0.5">
             <span className="inline-flex items-center gap-1.5 text-foreground/85">
