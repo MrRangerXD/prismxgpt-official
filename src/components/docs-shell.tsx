@@ -533,12 +533,12 @@ function CategorySection({
 const paletteBus: { open: () => void } = { open: () => {} };
 export function openDocsPalette() { paletteBus.open(); }
 
-const TOP_NAV = [
+const TOP_NAV: Array<{ label: string; to: string; active?: boolean }> = [
   { label: "Docs", to: "/docs", active: true },
   { label: "API", to: "/docs" },
   { label: "Guides", to: "/docs" },
   { label: "Changelog", to: "/docs" },
-] as const;
+];
 
 export function DocsShell({
   activeSlug,
