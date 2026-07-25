@@ -927,19 +927,19 @@ function DocsFooter() {
 
         <FooterCol title="Documentation" links={[
           { label: "Overview", to: "/docs" },
-          { label: "Quick start", to: "/docs" },
-          { label: "API reference", to: "/docs" },
-          { label: "SDKs", to: "/docs" },
+          { label: "Quick start", slug: "quick-start" },
+          { label: "API reference", slug: "api-overview" },
+          { label: "SDKs", slug: "sdks-overview" },
         ]} />
         <FooterCol title="Product" links={[
-          { label: "Chat", to: "/chat" },
-          { label: "Projects", to: "/chat" },
-          { label: "Pricing", to: "/" },
+          { label: "Chat", slug: "chat" },
+          { label: "Image generation", slug: "image-generation" },
+          { label: "Projects", slug: "projects" },
         ]} />
         <FooterCol title="Resources" links={[
-          { label: "Help center", to: "/help" },
-          { label: "Changelog", to: "/docs" },
-          { label: "Community", to: "/help" },
+          { label: "FAQ", slug: "faq" },
+          { label: "Changelog", slug: "changelog" },
+          { label: "Troubleshooting", slug: "troubleshooting" },
         ]} />
         <FooterCol title="Company" links={[
           { label: "Home", to: "/" },
@@ -959,14 +959,29 @@ function DocsFooter() {
   );
 }
 
-function FooterCol({ title, links }: { title: string; links: Array<{ label: string; to: string }> }) {
+type FooterLink = { label: string; to?: string; slug?: string };
+
+function FooterCol({ title, links }: { title: string; links: FooterLink[] }) {
   return (
     <div>
       <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">{title}</div>
       <ul className="space-y-2 text-sm">
         {links.map((l) => (
           <li key={l.label}>
-            <Link to={l.to} className="text-foreground/80 transition hover:text-brand">{l.label}</Link>
+            {l.slug ? (
+              <Link
+                to="/docs/$slug"
+                params={{ slug: l.slug }}
+                preload="intent"
+                className="text-foreground/80 transition hover:text-brand"
+              >
+                {l.label}
+              </Link>
+            ) : (
+              <Link to={l.to as never} className="text-foreground/80 transition hover:text-brand">
+                {l.label}
+              </Link>
+            )}
           </li>
         ))}
       </ul>
