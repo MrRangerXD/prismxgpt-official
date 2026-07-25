@@ -37,6 +37,12 @@ type EditablePage = {
   seo_description: string | null;
   sort_order: number;
   reading_minutes: number;
+  is_featured: boolean;
+  is_pinned: boolean;
+  homepage_section: string | null;
+  search_keywords: string[];
+  author: string | null;
+  related_slugs: string[];
 };
 
 function computeReadingMinutes(text: string): number {
@@ -357,6 +363,57 @@ function DocsEditorPage() {
               value={page.icon ?? ""}
               onChange={(e) => update("icon", e.target.value || null)}
             />
+          </Field>
+          <Field label="Author">
+            <input
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              value={page.author ?? ""}
+              onChange={(e) => update("author", e.target.value || null)}
+              placeholder="Author name"
+            />
+          </Field>
+          <Field label="Homepage section">
+            <select
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              value={page.homepage_section ?? ""}
+              onChange={(e) => update("homepage_section", e.target.value || null)}
+            >
+              <option value="">— None —</option>
+              <option value="api">API Reference</option>
+              <option value="sdk">SDKs</option>
+              <option value="tutorials">Tutorials</option>
+              <option value="examples">Examples</option>
+              <option value="changelog">Changelog</option>
+              <option value="community">Community</option>
+            </select>
+          </Field>
+          <Field label="Related page slugs (comma-separated)">
+            <input
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              value={(page.related_slugs ?? []).join(", ")}
+              onChange={(e) => update("related_slugs", e.target.value.split(",").map((t) => t.trim()).filter(Boolean))}
+              placeholder="getting-started, api-auth"
+            />
+          </Field>
+          <Field label="Search keywords (comma-separated)">
+            <input
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              value={(page.search_keywords ?? []).join(", ")}
+              onChange={(e) => update("search_keywords", e.target.value.split(",").map((t) => t.trim()).filter(Boolean))}
+              placeholder="auth, login, oauth"
+            />
+          </Field>
+          <Field label="Featured / Pinned">
+            <div className="flex items-center gap-4 pt-2 text-sm">
+              <label className="inline-flex items-center gap-2">
+                <input type="checkbox" checked={page.is_featured} onChange={(e) => update("is_featured", e.target.checked)} />
+                Featured
+              </label>
+              <label className="inline-flex items-center gap-2">
+                <input type="checkbox" checked={page.is_pinned} onChange={(e) => update("is_pinned", e.target.checked)} />
+                Pinned
+              </label>
+            </div>
           </Field>
         </div>
 

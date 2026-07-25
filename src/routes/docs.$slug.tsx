@@ -1,9 +1,28 @@
+/**
+ * Public single-doc page. Renders a full documentation experience:
+ * breadcrumbs, meta (author, updated, reading time, version, tags),
+ * TOC scroll-spy, prev/next, related articles, recently viewed, and
+ * reader actions (copy link, share, print, fullscreen, edit page for admins).
+ */
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useProfile } from "@/hooks/use-profile";
 import { DocsShell, Breadcrumbs, useDocsTree, type DocPage } from "@/components/docs-shell";
 import { DocMarkdown, extractHeadings, type Heading } from "@/components/doc-markdown";
-import { ArrowLeft, ArrowRight, Clock, Link as LinkIcon, Share2, Tag } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Clock,
+  Link as LinkIcon,
+  Share2,
+  Tag,
+  Printer,
+  Maximize2,
+  Minimize2,
+  Pencil,
+  User as UserIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 
 type FullPage = DocPage & {
@@ -13,21 +32,32 @@ type FullPage = DocPage & {
   seo_title: string | null;
   seo_description: string | null;
   published_at: string | null;
+  author: string | null;
+  related_slugs: string[] | null;
 };
+
+const RECENT_KEY = "prismx:docs:recent";
+function pushRecent(slug: string, title: string) {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    const arr: Array<{ slug: string; title: string }> = raw ? JSON.parse(raw) : [];
+    const next = [{ slug, title }, ...arr.filter((x) => x.slug !== slug)].slice(0, 8);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  } catch { /* noop */ }
+}
 
 export const Route = createFileRoute("/docs/$slug")({
   head: ({ params }) => ({
     meta: [
       { title: `${params.slug} — PrismXGPT Docs` },
       { name: "description", content: `Documentation page: ${params.slug}` },
-      {
-        property: "og:url",
-        content: `https://prismxgpt.lovable.app/docs/${params.slug}`,
-      },
+      { property: "og:title", content: `${params.slug} — PrismXGPT Docs` },
+      { property: "og:description", content: `Documentation page: ${params.slug}` },
+      { property: "og:type", content: "article" },
+      { property: "og:url", content: `https://prismxgpt.lovable.app/docs/${params.slug}` },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
-    links: [
-      { rel: "canonical", href: `https://prismxgpt.lovable.app/docs/${params.slug}` },
-    ],
+    links: [{ rel: "canonical", href: `https://prismxgpt.lovable.app/docs/${params.slug}` }],
   }),
   component: DocPageView,
 });
@@ -35,10 +65,12 @@ export const Route = createFileRoute("/docs/$slug")({
 function DocPageView() {
   const { slug } = Route.useParams();
   const { tree, loading: treeLoading } = useDocsTree();
+  const { isAdmin } = useProfile();
 
   const [page, setPage] = useState<FullPage | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFoundState, setNotFoundState] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,7 +80,7 @@ function DocPageView() {
       const { data, error } = await supabase
         .from("documentation_pages" as never)
         .select(
-          "id, category_id, parent_id, slug, title, description, content, cover_image, tags, version, sort_order, reading_minutes, seo_title, seo_description, published_at, updated_at",
+          "id, category_id, parent_id, slug, title, description, content, cover_image, tags, version, sort_order, reading_minutes, seo_title, seo_description, published_at, updated_at, author, related_slugs",
         )
         .eq("slug" as never, slug as never)
         .eq("status" as never, "published" as never)
@@ -59,13 +91,15 @@ function DocPageView() {
         setNotFoundState(true);
         setPage(null);
       } else {
-        setPage(data as FullPage);
+        const p = data as FullPage;
+        setPage(p);
+        pushRecent(p.slug, p.title);
+        // Fire-and-forget popularity ping
+        supabase.rpc("increment_doc_view" as never, { _slug: p.slug } as never).then(() => {}, () => {});
       }
       setLoading(false);
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [slug]);
 
   const headings: Heading[] = useMemo(
@@ -73,10 +107,8 @@ function DocPageView() {
     [page?.content],
   );
 
-  // Prev/next within the same category
   const { prev, next, categoryTitle } = useMemo(() => {
-    if (!page)
-      return { prev: null as DocPage | null, next: null as DocPage | null, categoryTitle: "" };
+    if (!page) return { prev: null as DocPage | null, next: null as DocPage | null, categoryTitle: "" };
     const pages = tree.pagesByCategory.get(page.category_id ?? null) ?? [];
     const idx = pages.findIndex((p) => p.id === page.id);
     const cat = tree.categories.find((c) => c.id === page.category_id);
@@ -86,6 +118,28 @@ function DocPageView() {
       categoryTitle: cat?.title ?? "",
     };
   }, [page, tree]);
+
+  // Related: explicit related_slugs first, else tag overlap.
+  const related = useMemo(() => {
+    if (!page) return [] as DocPage[];
+    const explicit = (page.related_slugs ?? [])
+      .map((s) => tree.allPages.find((p) => p.slug === s))
+      .filter((p): p is DocPage => !!p && p.id !== page.id);
+    if (explicit.length) return explicit.slice(0, 4);
+    const myTags = new Set(page.tags ?? []);
+    if (myTags.size === 0) return [];
+    return tree.allPages
+      .filter((p) => p.id !== page.id && (p.tags ?? []).some((t) => myTags.has(t)))
+      .slice(0, 4);
+  }, [page, tree.allPages]);
+
+  const recentlyViewed = useMemo(() => {
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem(RECENT_KEY) : null;
+      const arr: Array<{ slug: string; title: string }> = raw ? JSON.parse(raw) : [];
+      return arr.filter((r) => r.slug !== slug).slice(0, 5);
+    } catch { return []; }
+  }, [slug, page?.id]);
 
   const [activeHeading, setActiveHeading] = useState<string | null>(null);
   useEffect(() => {
@@ -114,19 +168,13 @@ function DocPageView() {
         await navigator.clipboard.writeText(url);
         toast.success("Link copied");
       }
-    } catch {
-      /* noop */
-    }
+    } catch { /* noop */ }
   };
-
   const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      toast.success("Link copied");
-    } catch {
-      /* noop */
-    }
+    try { await navigator.clipboard.writeText(window.location.href); toast.success("Link copied"); }
+    catch { /* noop */ }
   };
+  const print = () => window.print();
 
   if (notFoundState && !loading) throw notFound();
 
@@ -135,7 +183,7 @@ function DocPageView() {
       {loading || !page ? (
         <div className="text-sm text-muted-foreground">Loading page…</div>
       ) : (
-        <div className="flex gap-8">
+        <div className={`flex gap-8 ${fullscreen ? "fixed inset-0 z-50 overflow-y-auto bg-background p-6 md:p-12" : ""}`}>
           <article className="min-w-0 flex-1">
             <Breadcrumbs
               items={[
@@ -145,123 +193,134 @@ function DocPageView() {
               ]}
             />
             <div className="mb-6">
-              <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-                {page.title}
-              </h1>
-              {page.description && (
-                <p className="mt-2 text-muted-foreground">{page.description}</p>
-              )}
+              <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">{page.title}</h1>
+              {page.description && <p className="mt-2 text-muted-foreground">{page.description}</p>}
               <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                {page.author && (
+                  <span className="inline-flex items-center gap-1">
+                    <UserIcon className="h-3 w-3" /> {page.author}
+                  </span>
+                )}
                 {page.reading_minutes ? (
                   <span className="inline-flex items-center gap-1">
                     <Clock className="h-3 w-3" /> {page.reading_minutes} min read
                   </span>
                 ) : null}
-                {page.updated_at && (
-                  <span>Updated {new Date(page.updated_at).toLocaleDateString()}</span>
-                )}
+                {page.updated_at && <span>Updated {new Date(page.updated_at).toLocaleDateString()}</span>}
                 {page.version && (
-                  <span className="rounded-full border border-border bg-card px-2 py-0.5">
-                    v{page.version}
-                  </span>
+                  <span className="rounded-full border border-border bg-card px-2 py-0.5">v{page.version}</span>
                 )}
                 {(page.tags ?? []).slice(0, 4).map((t) => (
-                  <span
-                    key={t}
-                    className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5"
-                  >
+                  <span key={t} className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5">
                     <Tag className="h-3 w-3" /> {t}
                   </span>
                 ))}
-                <div className="ml-auto flex items-center gap-1">
-                  <button
-                    onClick={copyLink}
-                    className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 hover:bg-accent"
-                  >
-                    <LinkIcon className="h-3 w-3" /> Copy link
+                <div className="ml-auto flex flex-wrap items-center gap-1 print:hidden">
+                  <button onClick={copyLink} className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 hover:bg-accent">
+                    <LinkIcon className="h-3 w-3" /> Copy
                   </button>
-                  <button
-                    onClick={share}
-                    className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 hover:bg-accent"
-                  >
+                  <button onClick={share} className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 hover:bg-accent">
                     <Share2 className="h-3 w-3" /> Share
                   </button>
+                  <button onClick={print} className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 hover:bg-accent">
+                    <Printer className="h-3 w-3" /> Print
+                  </button>
+                  <button onClick={() => setFullscreen((v) => !v)} className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 hover:bg-accent" aria-label="Toggle fullscreen">
+                    {fullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+                    {fullscreen ? "Exit" : "Focus"}
+                  </button>
+                  {isAdmin && (
+                    <Link to="/admin/docs/$id" params={{ id: page.id }} className="inline-flex items-center gap-1 rounded-md border border-brand/40 bg-brand/10 px-2 py-1 text-brand hover:bg-brand/20">
+                      <Pencil className="h-3 w-3" /> Edit page
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>
 
             {page.cover_image && (
-              <img
-                src={page.cover_image}
-                alt={page.title}
-                className="mb-6 w-full rounded-2xl border border-border object-cover"
-              />
+              <img src={page.cover_image} alt={page.title} className="mb-6 w-full rounded-2xl border border-border object-cover" />
             )}
 
             <DocMarkdown content={page.content} />
 
+            {/* Related */}
+            {related.length > 0 && (
+              <section className="mt-12 border-t border-border pt-6">
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Related</h2>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {related.map((r) => (
+                    <Link key={r.id} to="/docs/$slug" params={{ slug: r.slug }} preload="intent"
+                      className="group rounded-xl border border-border bg-card p-4 transition hover:border-brand/40">
+                      <div className="text-sm font-medium text-foreground group-hover:text-brand">{r.title}</div>
+                      {r.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{r.description}</p>}
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* Prev / next */}
             <div className="mt-12 grid gap-3 border-t border-border pt-6 sm:grid-cols-2">
               {prev ? (
-                <Link
-                  to="/docs/$slug"
-                  params={{ slug: prev.slug }}
-                  className="group rounded-xl border border-border bg-card p-4 transition hover:border-brand/40"
-                >
+                <Link to="/docs/$slug" params={{ slug: prev.slug }} preload="intent"
+                  className="group rounded-xl border border-border bg-card p-4 transition hover:border-brand/40">
                   <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
                     <ArrowLeft className="h-3 w-3" /> Previous
                   </div>
-                  <div className="font-medium text-foreground group-hover:text-brand">
-                    {prev.title}
-                  </div>
+                  <div className="font-medium text-foreground group-hover:text-brand">{prev.title}</div>
                 </Link>
-              ) : (
-                <span />
-              )}
+              ) : <span />}
               {next ? (
-                <Link
-                  to="/docs/$slug"
-                  params={{ slug: next.slug }}
-                  className="group rounded-xl border border-border bg-card p-4 text-right transition hover:border-brand/40"
-                >
+                <Link to="/docs/$slug" params={{ slug: next.slug }} preload="intent"
+                  className="group rounded-xl border border-border bg-card p-4 text-right transition hover:border-brand/40">
                   <div className="mb-1 flex items-center justify-end gap-1 text-xs text-muted-foreground">
                     Next <ArrowRight className="h-3 w-3" />
                   </div>
-                  <div className="font-medium text-foreground group-hover:text-brand">
-                    {next.title}
-                  </div>
+                  <div className="font-medium text-foreground group-hover:text-brand">{next.title}</div>
                 </Link>
-              ) : (
-                <span />
-              )}
+              ) : <span />}
             </div>
           </article>
 
-          {/* Table of contents */}
-          {headings.length > 0 && (
-            <aside className="hidden w-56 flex-none xl:block">
-              <div className="sticky top-24">
-                <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  On this page
+          {/* Table of contents + recently viewed */}
+          <aside className="hidden w-56 flex-none xl:block print:hidden">
+            <div className="sticky top-24 space-y-6">
+              {headings.length > 0 && (
+                <div>
+                  <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">On this page</div>
+                  <nav className="space-y-1 text-sm">
+                    {headings.map((h) => (
+                      <a
+                        key={h.id}
+                        href={`#${h.id}`}
+                        className={`block border-l-2 py-1 pl-3 transition ${
+                          activeHeading === h.id ? "border-brand text-brand" : "border-transparent text-muted-foreground hover:text-foreground"
+                        } ${h.depth === 3 ? "pl-6 text-xs" : ""}`}
+                      >
+                        {h.text}
+                      </a>
+                    ))}
+                  </nav>
                 </div>
-                <nav className="space-y-1 text-sm">
-                  {headings.map((h) => (
-                    <a
-                      key={h.id}
-                      href={`#${h.id}`}
-                      className={`block border-l-2 py-1 pl-3 transition ${
-                        activeHeading === h.id
-                          ? "border-brand text-brand"
-                          : "border-transparent text-muted-foreground hover:text-foreground"
-                      } ${h.depth === 3 ? "pl-6 text-xs" : ""}`}
-                    >
-                      {h.text}
-                    </a>
-                  ))}
-                </nav>
-              </div>
-            </aside>
-          )}
+              )}
+              {recentlyViewed.length > 0 && (
+                <div>
+                  <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recently viewed</div>
+                  <ul className="space-y-1 text-sm">
+                    {recentlyViewed.map((r) => (
+                      <li key={r.slug}>
+                        <Link to="/docs/$slug" params={{ slug: r.slug }} preload="intent"
+                          className="line-clamp-1 text-muted-foreground hover:text-foreground">
+                          {r.title}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </aside>
         </div>
       )}
     </DocsShell>
