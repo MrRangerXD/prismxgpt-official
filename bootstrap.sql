@@ -983,10 +983,37 @@ CREATE TABLE IF NOT EXISTS public.documentation_pages (
   updated_at        timestamptz NOT NULL DEFAULT now()
 );
 
+-- Additional columns for premium docs experience (idempotent).
+ALTER TABLE public.documentation_pages
+  ADD COLUMN IF NOT EXISTS is_featured        boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS is_pinned          boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS homepage_section   text,
+  ADD COLUMN IF NOT EXISTS search_keywords    text[] NOT NULL DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS author             text,
+  ADD COLUMN IF NOT EXISTS related_slugs      text[] NOT NULL DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS view_count         integer NOT NULL DEFAULT 0;
+
 CREATE INDEX IF NOT EXISTS documentation_pages_category_idx
   ON public.documentation_pages(category_id, sort_order);
 CREATE INDEX IF NOT EXISTS documentation_pages_status_idx
   ON public.documentation_pages(status);
+CREATE INDEX IF NOT EXISTS documentation_pages_parent_idx
+  ON public.documentation_pages(parent_id, sort_order);
+CREATE INDEX IF NOT EXISTS documentation_pages_homepage_idx
+  ON public.documentation_pages(homepage_section) WHERE homepage_section IS NOT NULL;
+
+-- RPC: safely bump view_count for popularity ranking without broad UPDATE grants
+CREATE OR REPLACE FUNCTION public.increment_doc_view(_slug text)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  UPDATE public.documentation_pages
+     SET view_count = view_count + 1
+   WHERE slug = _slug AND status = 'published' AND visibility = 'public';
+$$;
+GRANT EXECUTE ON FUNCTION public.increment_doc_view(text) TO anon, authenticated;
 
 GRANT SELECT ON public.documentation_categories TO anon, authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.documentation_categories TO authenticated;
