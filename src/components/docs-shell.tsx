@@ -533,11 +533,18 @@ function CategorySection({
 const paletteBus: { open: () => void } = { open: () => {} };
 export function openDocsPalette() { paletteBus.open(); }
 
-const TOP_NAV: Array<{ label: string; to: string; active?: boolean }> = [
-  { label: "Docs", to: "/docs", active: true },
-  { label: "API", to: "/docs" },
-  { label: "Guides", to: "/docs" },
-  { label: "Changelog", to: "/docs" },
+/**
+ * Top navigation — each item must resolve to a real, published page.
+ * Home is `/docs`; every other tab targets a seeded landing slug that
+ * exists in `documentation_pages`.
+ */
+const TOP_NAV: Array<{ label: string; slug: string | null }> = [
+  { label: "Docs", slug: null },
+  { label: "API", slug: "api-overview" },
+  { label: "Guides", slug: "guides-overview" },
+  { label: "Examples", slug: "examples-overview" },
+  { label: "SDKs", slug: "sdks-overview" },
+  { label: "Changelog", slug: "changelog" },
 ];
 
 export function DocsShell({
