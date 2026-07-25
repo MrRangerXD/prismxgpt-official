@@ -64,7 +64,7 @@ export const Route = createFileRoute("/docs/$slug")({
 function DocPageView() {
   const { slug } = Route.useParams();
   const { tree, loading: treeLoading } = useDocsTree();
-  const { isAdmin } = useProfile();
+  
 
   const [page, setPage] = useState<FullPage | null>(null);
   const [loading, setLoading] = useState(true);
