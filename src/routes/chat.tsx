@@ -578,8 +578,10 @@ export function ChatPage() {
      let cancelled = false;
      const timers: Array<ReturnType<typeof setTimeout>> = [];
      const seen = recoveryTrackedRef.current;
+      const trackedThisRun = new Set<string>();
 
-      const finalize = (msgId: string, text: string, remove = false) => {
+      const finalize = (msgId: string, genId: string, text: string, remove = false) => {
+        seen.delete(`${msgId}:${genId}`);
        setMessages((prev) => {
           const next = remove
             ? prev.filter((m) => m.id !== msgId)
@@ -608,7 +610,7 @@ export function ChatPage() {
              timers.push(setTimeout(() => pollOnce(msgId, genId, attempt + 1), 2000));
              return;
            }
-            finalize(msgId, "", true);
+            finalize(msgId, genId, "", true);
            return;
          }
          const payload = (await res.json().catch(() => null)) as {
@@ -618,15 +620,15 @@ export function ChatPage() {
          } | null;
          if (!payload) return;
          if (payload.status === "completed" && payload.imageUrl) {
-           finalize(msgId, `![generated image](${payload.imageUrl})`);
+            finalize(msgId, genId, `![generated image](${payload.imageUrl})`);
            return;
          }
           if (payload.status === "failed" || payload.status === "cancelled") {
-            finalize(msgId, payload.error || "Image generation failed. Please retry.");
+            finalize(msgId, genId, payload.error || "Image generation failed. Please retry.");
            return;
          }
          if (attempt > 60) {
-            finalize(msgId, "Image generation timed out. Please retry.");
+            finalize(msgId, genId, "Image generation timed out. Please retry.");
            return;
          }
          const delay = Math.min(4000, 1500 + attempt * 100);
@@ -642,11 +644,13 @@ export function ChatPage() {
        const key = `${msgId}:${genId}`;
        if (seen.has(key)) continue;
        seen.add(key);
+        trackedThisRun.add(key);
        pollOnce(msgId, genId, 0);
      }
 
      return () => {
        cancelled = true;
+        for (const key of trackedThisRun) seen.delete(key);
        for (const t of timers) clearTimeout(t);
      };
      // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1065,6 +1069,9 @@ export function ChatPage() {
         status?: string;
         error?: string;
       } | null;
+      if (res.status === 202 || payload?.status === "queued" || payload?.status === "processing") {
+        return;
+      }
       const finalUrl = payload?.imageUrl || payload?.dataUrl;
       if (!res.ok || !finalUrl || payload?.status === "failed" || payload?.status === "cancelled") {
         const msg = payload?.error || "Image generation is temporarily unavailable. Please try again in a moment.";

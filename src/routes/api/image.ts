@@ -45,11 +45,12 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 async function runGeneration(params: {
   generationId: string;
   userId: string;
+  messageId?: string;
   prompt: string;
   inputImageUrl?: string;
   parentId?: string;
 }): Promise<{ status: number; body: Record<string, unknown> }> {
-  const { generationId, userId, prompt, inputImageUrl, parentId } = params;
+  const { generationId, userId, messageId, prompt, inputImageUrl, parentId } = params;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
   const existingRes = await (supabaseAdmin as unknown as SupabaseAny)
@@ -71,6 +72,9 @@ async function runGeneration(params: {
       },
     };
   }
+  if (existing?.status === "queued" || existing?.status === "processing") {
+    return { status: 202, body: { generationId, status: existing.status } };
+  }
 
   // Upsert the lifecycle row as processing (idempotent — a second POST with
   // the same id becomes a no-op reservation, letting the eventual response
@@ -78,6 +82,7 @@ async function runGeneration(params: {
   const baseRow = {
     id: generationId,
     user_id: userId,
+    message_id: messageId ?? null,
     prompt,
     input_url: inputImageUrl ?? null,
     status: "processing",
@@ -365,6 +370,7 @@ export const Route = createFileRoute("/api/image")({
         const result = await runGeneration({
           generationId,
           userId: auth.userId,
+          messageId: body.messageId,
           prompt,
           inputImageUrl: body.inputImage,
           parentId: body.parentId,

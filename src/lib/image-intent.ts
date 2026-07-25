@@ -202,7 +202,8 @@ export function isExplicitImageEdit(rawText: string): boolean {
   const t = rawText.trim().toLowerCase();
   if (!t || t.length > 400) return false;
   const patterns: RegExp[] = [
-    /\bedit(\s+(it|this|that|the\s+(image|picture|photo|logo)))?\b/,
+    /^(please\s+)?edit[.!?]*$/,
+    /\bedit\s+(it|this|that|the\s+(image|picture|photo|logo))\b/,
     /\bcontinue\s+editing\b/,
     /\b(make|turn|change|recolor|repaint)\s+(it|this|that|the\s+(image|picture|photo|logo|background))\b/,
     /\b(remove|erase|delete)\s+(the\s+)?(background|bg|text|watermark|logo|object|person|people)\b/,
