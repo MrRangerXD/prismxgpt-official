@@ -1,3 +1,88 @@
+/**
+ * =============================================================================
+ * src/routes/chat.tsx — Main chat surface (ChatGPT-style)
+ * =============================================================================
+ *
+ * This file owns the entire client-side chat experience: message list,
+ * composer, sidebar wiring, and — critically — the image-generation
+ * lifecycle. It is intentionally a single route file because most of the
+ * state is cross-cutting (threads, active generation, streaming status)
+ * and splitting it further would just move prop-drilling around.
+ *
+ * ARCHITECTURE OVERVIEW
+ * ---------------------
+ *
+ * 1. THREAD STORAGE
+ *    - Local:   `@/lib/chat-store` — localStorage, source of truth for the
+ *               current tab. Also survives offline.
+ *    - Cloud:   `@/lib/chat-sync`  — debounced upsert into `user_chat_state`
+ *               so history follows the user across devices.
+ *    - Writes are throttled while streaming to avoid re-rendering the
+ *      sidebar on every token.
+ *
+ * 2. MESSAGE STREAMING
+ *    - Powered by `@ai-sdk/react`'s `useChat` hitting `POST /api/chat`.
+ *    - `sanitizeMessageForWire` strips inline `data:` URLs from history
+ *      before sending so long image-heavy chats don't blow the payload cap.
+ *
+ * 3. IMAGE INTENT ROUTING  (the ONLY place chat can branch into images)
+ *    - `detectImageIntent(text)`       → NEW image generation
+ *    - `isExplicitImageEdit(text)` + a prior completed image →  EDIT
+ *    - Anything else → normal chat. NEVER reuses a prior image, NEVER
+ *      triggers polling, NEVER shows a progress card.
+ *    - The classifier looks ONLY at the current user message. History,
+ *      active-generation state, and previous images cannot influence it.
+ *
+ * 4. IMAGE LIFECYCLE (immutable, refresh-safe)
+ *    a. `generateImageInline` mints a client-side `generationId` (UUID) and
+ *       IMMEDIATELY inserts a placeholder assistant message whose text is
+ *       a machine-readable marker:
+ *         `⟪imggen:pending:<uuid>⟫`   for fresh generations
+ *         `⟪imgedit:pending:<uuid>⟫`  for edits
+ *       The marker is persisted synchronously (force-flush to storage +
+ *       cloud) so a refresh at any moment can resume.
+ *    b. `POST /api/image` upserts a row keyed by `generationId` (status
+ *       = processing) and calls the image provider. On success it uploads
+ *       the PNG to the public `chat-images` bucket and returns the URL.
+ *    c. The recovery poller (see #5) OR the POST completion swaps the
+ *       marker for standard markdown `![generated image](<url>)` and
+ *       force-persists again. The row is then read-only history.
+ *    d. Edits pass `parentId` (parsed from the previous assistant message
+ *       id `a_<uuid>`) so `image_generations.parent_id` preserves
+ *       provenance and the previous image is never mutated.
+ *
+ * 5. RECOVERY POLLER
+ *    - Effect scans the current thread for `⟪(imggen|imgedit):pending:…⟫`
+ *      markers and polls `GET /api/image?id=<uuid>` until each row is
+ *      completed or failed.
+ *    - Depends on `pendingKey` (a fingerprint) NOT on `messages`, so it
+ *      does not tear down on every streaming token.
+ *    - Handles a POST/GET race by tolerating 404 for ~16s (8 retries).
+ *    - Auto-fail: if a row is stuck in `processing` > 2 minutes the API
+ *      itself flips it to `failed` on the next GET so the UI can show
+ *      a retry action instead of a hanging card.
+ *
+ * 6. MODALS (settings, projects, image editor, etc.)
+ *    - All lazy-loaded via `React.lazy` + `<Suspense>` and only mounted
+ *      while their `open` flag is true, keeping the initial chat bundle
+ *      lean.
+ *
+ * INVARIANTS
+ * ----------
+ * - Placeholder markers are the ONLY transient chat state. They are always
+ *   either finalized (into an image URL / error text) or recoverable via
+ *   the poller. They never leak across threads.
+ * - `active_generation` and other in-memory scratch state are cleared on
+ *   finalization to prevent context leaks between messages.
+ * - The `bootstrap.sql` file is the schema source of truth (see the
+ *   `image_generations` table + `chat-images` bucket).
+ *
+ * If you're modifying image behavior, also review:
+ *   - src/lib/image-intent.ts   (intent classifier + typo tolerance)
+ *   - src/routes/api/image.ts   (server lifecycle + auto-recovery)
+ *   - src/lib/chat-sync.ts      (debounced cloud persistence)
+ * =============================================================================
+ */
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowUp, PanelLeft, Menu, Square, Plus, ImageIcon, Globe, Telescope, Paperclip, X, Copy, Check, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, UploadCloud, Mic } from "lucide-react";
