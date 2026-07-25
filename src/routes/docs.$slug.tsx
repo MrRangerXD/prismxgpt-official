@@ -4,7 +4,7 @@
  * TOC scroll-spy, prev/next, related articles, recently viewed, and
  * reader actions (copy link, share, print, fullscreen, edit page for admins).
  */
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/use-profile";
@@ -118,6 +118,14 @@ function DocPageView() {
       categoryTitle: cat?.title ?? "",
     };
   }, [page, tree]);
+
+  // Prefetch prev/next route data so navigation feels instant.
+  const router = useRouter();
+  useEffect(() => {
+    if (prev) router.preloadRoute({ to: "/docs/$slug", params: { slug: prev.slug } }).catch(() => {});
+    if (next) router.preloadRoute({ to: "/docs/$slug", params: { slug: next.slug } }).catch(() => {});
+  }, [prev, next, router]);
+
 
   // Related: explicit related_slugs first, else tag overlap.
   const related = useMemo(() => {

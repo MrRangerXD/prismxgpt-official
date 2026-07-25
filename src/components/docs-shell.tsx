@@ -342,10 +342,26 @@ function PageTreeItem({
   onNavigate: () => void;
 }) {
   const activeRef = useRef<HTMLAnchorElement | null>(null);
+  // Detect if any descendant matches the active slug so we auto-expand ancestor branches.
+  const hasActiveDescendant = useMemo(() => {
+    if (!activeSlug) return false;
+    const stack = [...(tree.pagesByParent.get(page.id) ?? [])];
+    while (stack.length) {
+      const n = stack.pop()!;
+      if (n.slug === activeSlug) return true;
+      const kids = tree.pagesByParent.get(n.id);
+      if (kids) stack.push(...kids);
+    }
+    return false;
+  }, [activeSlug, page.id, tree.pagesByParent]);
   const [open, setOpen] = useState(true);
+  useEffect(() => {
+    if (hasActiveDescendant) setOpen(true);
+  }, [hasActiveDescendant]);
   useEffect(() => {
     if (isActive && activeRef.current) activeRef.current.scrollIntoView({ block: "nearest" });
   }, [isActive]);
+
   return (
     <div>
       <div className="flex items-center">
@@ -431,6 +447,10 @@ function CategorySection({
 
 /* --------------------------- Shell --------------------------- */
 
+const paletteBus: { open: () => void } = { open: () => {} };
+export function openDocsPalette() { paletteBus.open(); }
+
+
 export function DocsShell({
   activeSlug,
   children,
@@ -444,6 +464,7 @@ export function DocsShell({
 }) {
   const [mobileNav, setMobileNav] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [sidebarWidth, setSidebarWidth] = useState(256);
   const resizing = useRef(false);
@@ -511,6 +532,13 @@ export function DocsShell({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [paletteOpen]);
+
+  // Bind the external open-bus so `openDocsPalette()` triggers this instance.
+  useEffect(() => {
+    paletteBus.open = () => setPaletteOpen(true);
+    return () => { paletteBus.open = () => {}; };
+  }, []);
+
 
   return (
     <div className="min-h-screen bg-background text-foreground">
