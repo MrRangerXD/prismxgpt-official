@@ -373,7 +373,7 @@ export function DocMarkdown({ content }: { content: string }) {
       ),
       details: (props: { children?: React.ReactNode }) => (
         <details className="my-4 rounded-xl border border-border bg-card px-4 py-2 [&[open]>summary>svg]:rotate-90">
-          {props.children}
+          {props.children as React.ReactNode}
         </details>
       ),
       summary: (props: { children?: React.ReactNode }) => (
