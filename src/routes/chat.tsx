@@ -1028,8 +1028,14 @@ export function ChatPage() {
           res = await callImageApi();
         }
       } catch (netErr) {
-        console.error("[image] network", netErr);
-        throw new Error("I couldn't reach the image service. Check your connection and try again.");
+        // Fetch aborted (usually because the user refreshed) or the network
+        // dropped mid-request. The server may still have received the POST
+        // and be processing the generation. Leave the pending marker in
+        // place — the recovery poller will finalize (or time out) on the
+        // next load instead of persisting a misleading "couldn't reach"
+        // error that survives the refresh.
+        console.warn("[image] request interrupted; leaving marker for recovery poller", netErr);
+        return;
       }
 
       const payload = await res.json().catch(() => null) as {
@@ -1056,9 +1062,6 @@ export function ChatPage() {
     } catch (e) {
       console.error("[image] failed", e);
       const msg = e instanceof Error ? e.message : "Image generation is temporarily unavailable. Please try again in a moment.";
-      // Don't overwrite the pending marker with an error if the server row
-      // might still be processing — the recovery poller will finalize it.
-      // But if the fetch itself errored out, surface the error now.
       setMessages((prev) => {
         const next = prev.map((m) =>
           m.id === asstId
@@ -1070,6 +1073,7 @@ export function ChatPage() {
       });
     }
   };
+
 
 
   // Core send: create thread if none active (fallback for typing straight into
