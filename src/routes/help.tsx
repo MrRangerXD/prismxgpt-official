@@ -20,10 +20,10 @@ export const Route = createFileRoute("/help")({
       { name: "description", content: "Guides, FAQs and support for PrismXGPT — get started, manage your account, learn about AI features, projects, invites, billing." },
       { property: "og:title", content: "Help Center — PrismXGPT" },
       { property: "og:description", content: "Guides, FAQs and support for PrismXGPT." },
-      { property: "og:url", content: "https://prismgpt.lovable.app/help" },
+      { property: "og:url", content: "https://prismxgpt.lovable.app/help" },
       { property: "og:type", content: "website" },
     ],
-    links: [{ rel: "canonical", href: "https://prismgpt.lovable.app/help" }],
+    links: [{ rel: "canonical", href: "https://prismxgpt.lovable.app/help" }],
     scripts: [
       {
         type: "application/ld+json",

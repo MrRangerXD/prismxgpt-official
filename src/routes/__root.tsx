@@ -90,8 +90,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "PrismXGPT — Premium ChatGPT-style AI Assistant" },
       { name: "twitter:description", content: "PrismXGPT is a modern AI assistant for chat, writing, code and research. Free forever with an optional premium plan." },
-      { property: "og:image", content: "https://prismgpt.lovable.app/og-image.png" },
-      { name: "twitter:image", content: "https://prismgpt.lovable.app/og-image.png" },
+      { property: "og:image", content: "https://prismxgpt.lovable.app/og-image.png" },
+      { name: "twitter:image", content: "https://prismxgpt.lovable.app/og-image.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -114,16 +114,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
             {
               "@type": "Organization",
               name: "PrismXGPT",
-              url: "https://prismgpt.lovable.app",
-              logo: "https://prismgpt.lovable.app/icon-512.png",
+              url: "https://prismxgpt.lovable.app",
+              logo: "https://prismxgpt.lovable.app/icon-512.png",
             },
             {
               "@type": "WebSite",
               name: "PrismXGPT",
-              url: "https://prismgpt.lovable.app",
+              url: "https://prismxgpt.lovable.app",
               potentialAction: {
                 "@type": "SearchAction",
-                target: "https://prismgpt.lovable.app/chat?q={search_term_string}",
+                target: "https://prismxgpt.lovable.app/chat?q={search_term_string}",
                 "query-input": "required name=search_term_string",
               },
             },

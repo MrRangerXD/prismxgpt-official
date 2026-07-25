@@ -13,10 +13,10 @@ export const Route = createFileRoute("/login")({
       { name: "description", content: "Log in to your PrismXGPT account to continue your AI conversations." },
       { property: "og:title", content: "Log in — PrismXGPT" },
       { property: "og:description", content: "Log in to your PrismXGPT account." },
-      { property: "og:url", content: "https://prismgpt.lovable.app/login" },
+      { property: "og:url", content: "https://prismxgpt.lovable.app/login" },
       { property: "og:type", content: "website" },
     ],
-    links: [{ rel: "canonical", href: "https://prismgpt.lovable.app/login" }],
+    links: [{ rel: "canonical", href: "https://prismxgpt.lovable.app/login" }],
   }),
   component: LoginPage,
 });

@@ -7,4 +7,4 @@ Disallow: /projects/
 Disallow: /share/
 Disallow: /api/
 
-Sitemap: https://prismgpt.lovable.app/sitemap.xml
+Sitemap: https://prismxgpt.lovable.app/sitemap.xml

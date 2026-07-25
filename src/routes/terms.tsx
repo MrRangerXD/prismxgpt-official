@@ -9,10 +9,10 @@ export const Route = createFileRoute("/terms")({
       { name: "description", content: "PrismXGPT terms of service: the rules, responsibilities, disclaimers and legal terms that apply when you use PrismXGPT." },
       { property: "og:title", content: "Terms of Service — PrismXGPT" },
       { property: "og:description", content: "The rules and terms for using PrismXGPT." },
-      { property: "og:url", content: "https://prismgpt.lovable.app/terms" },
+      { property: "og:url", content: "https://prismxgpt.lovable.app/terms" },
       { property: "og:type", content: "website" },
     ],
-    links: [{ rel: "canonical", href: "https://prismgpt.lovable.app/terms" }],
+    links: [{ rel: "canonical", href: "https://prismxgpt.lovable.app/terms" }],
   }),
   component: TermsPage,
 });
