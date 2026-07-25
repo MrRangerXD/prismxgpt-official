@@ -26,6 +26,8 @@ export type ImageIntent = {
   confidence: number;
 };
 
+export type MessageIntent = "TEXT" | "IMAGE_CREATE" | "IMAGE_EDIT";
+
 // Verbs that, on their own, strongly imply "produce an image" regardless
 // of the object noun. "Draw a dragon", "sketch a castle", "illustrate a
 // scene" — all image requests even though the noun isn't in IMAGE_NOUNS.
@@ -200,7 +202,8 @@ export function isExplicitImageEdit(rawText: string): boolean {
   const t = rawText.trim().toLowerCase();
   if (!t || t.length > 400) return false;
   const patterns: RegExp[] = [
-    /\bedit(\s+(it|this|that|the\s+(image|picture|photo|logo)))?\b/,
+    /^(please\s+)?edit[.!?]*$/,
+    /\bedit\s+(it|this|that|the\s+(image|picture|photo|logo))\b/,
     /\bcontinue\s+editing\b/,
     /\b(make|turn|change|recolor|repaint)\s+(it|this|that|the\s+(image|picture|photo|logo|background))\b/,
     /\b(remove|erase|delete)\s+(the\s+)?(background|bg|text|watermark|logo|object|person|people)\b/,
@@ -215,4 +218,10 @@ export function isExplicitImageEdit(rawText: string): boolean {
     /\bchange\s+(the\s+)?(style|color|colour|background|bg|text|font|mood|tone|palette)\b/,
   ];
   return patterns.some((re) => re.test(t));
+}
+
+export function classifyMessageIntent(rawText: string): MessageIntent {
+  if (isExplicitImageEdit(rawText)) return "IMAGE_EDIT";
+  const intent = detectImageIntent(rawText);
+  return intent.isImage ? "IMAGE_CREATE" : "TEXT";
 }

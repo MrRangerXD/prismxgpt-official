@@ -27,6 +27,7 @@ type SupabaseAny = { from(name: string): any; rpc(name: string, args?: unknown):
 // ---------------------------------------------------------------------------
 
 const STUCK_MS = 2 * 60 * 1000;
+const FINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
 function friendly(status: number, upstreamMsg?: string): { status: number; error: string } {
   if (status === 401) return { status: 401, error: "Please sign in again to generate images." };
@@ -44,35 +45,83 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 async function runGeneration(params: {
   generationId: string;
   userId: string;
+  messageId?: string;
   prompt: string;
   inputImageUrl?: string;
   parentId?: string;
 }): Promise<{ status: number; body: Record<string, unknown> }> {
-  const { generationId, userId, prompt, inputImageUrl, parentId } = params;
+  const { generationId, userId, messageId, prompt, inputImageUrl, parentId } = params;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-  // Upsert the lifecycle row as processing (idempotent — a second POST with
-  // the same id becomes a no-op reservation, letting the eventual response
-  // reconcile whichever caller wins).
+  const readExisting = async () => (supabaseAdmin as unknown as SupabaseAny)
+    .from("image_generations")
+    .select("id,status,image_url,error,storage_path")
+    .eq("id", generationId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  const existingRes = await readExisting();
+  const existing = existingRes?.data as { status?: string; image_url?: string | null; error?: string | null; storage_path?: string | null } | null | undefined;
+  if (existing?.status && FINAL_STATUSES.has(existing.status)) {
+    return {
+      status: existing.status === "completed" ? 200 : 400,
+      body: {
+        generationId,
+        status: existing.status,
+        imageUrl: existing.image_url ?? undefined,
+        storagePath: existing.storage_path ?? undefined,
+        error: existing.error ?? undefined,
+      },
+    };
+  }
+  if (existing?.status === "queued" || existing?.status === "processing") {
+    return { status: 202, body: { generationId, status: existing.status } };
+  }
+
+  // Reserve the lifecycle row exactly once. A duplicate POST for the same
+  // client-owned id returns the existing processing/completed state and never
+  // calls the provider twice.
   const baseRow = {
     id: generationId,
     user_id: userId,
+    message_id: messageId ?? null,
     prompt,
     input_url: inputImageUrl ?? null,
     status: "processing",
+    progress: 10,
+    provider_request_id: generationId,
     error: null,
   };
   // Try with parent_id first; if the referenced parent generation doesn't
   // exist (older image predates the lifecycle table, or the row was cleaned
   // up), the FK check fails — retry without it so edits still succeed.
-  const upsertRes = await (supabaseAdmin as unknown as SupabaseAny)
+  const reserve = async (withParent: boolean) => (supabaseAdmin as unknown as SupabaseAny)
     .from("image_generations")
-    .upsert({ ...baseRow, parent_id: parentId ?? null }, { onConflict: "id" });
-  if (upsertRes?.error) {
-    console.warn("[api/image] upsert with parent_id failed, retrying without", upsertRes.error?.message);
-    await (supabaseAdmin as unknown as SupabaseAny)
-      .from("image_generations")
-      .upsert({ ...baseRow, parent_id: null }, { onConflict: "id" });
+    .insert({ ...baseRow, parent_id: withParent ? parentId ?? null : null });
+  let reserveRes = await reserve(true);
+  if (reserveRes?.error) {
+    const code = reserveRes.error?.code;
+    if (code === "23503" && parentId) {
+      console.warn("[api/image] parent_id missing, retrying edit without FK", reserveRes.error?.message);
+      reserveRes = await reserve(false);
+    }
+    if (reserveRes?.error?.code === "23505") {
+      const reread = await readExisting();
+      const row = reread?.data as { status?: string; image_url?: string | null; error?: string | null; storage_path?: string | null } | null | undefined;
+      return {
+        status: row?.status === "completed" ? 200 : row?.status === "failed" || row?.status === "cancelled" ? 400 : 202,
+        body: {
+          generationId,
+          status: row?.status ?? "processing",
+          imageUrl: row?.image_url ?? undefined,
+          storagePath: row?.storage_path ?? undefined,
+          error: row?.error ?? undefined,
+        },
+      };
+    }
+    if (reserveRes?.error) {
+      console.error("[api/image] lifecycle reservation failed", reserveRes.error);
+      return { status: 500, body: { generationId, status: "failed", error: "Could not start image generation. Please retry." } };
+    }
   }
 
 
@@ -84,9 +133,35 @@ async function runGeneration(params: {
       .eq("user_id", userId);
   };
 
+  // Quota is consumed only after this generation id has been reserved. A
+  // duplicate POST for the same generation short-circuits above before this
+  // point, so network retries cannot burn multiple quota units.
+  try {
+    const { data: roles } = await (supabaseAdmin as unknown as SupabaseAny)
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId);
+    const isPaid = ((roles ?? []) as Array<{ role: string }>).some((r) =>
+      ["admin", "premium", "pro"].includes(r.role),
+    );
+    if (!isPaid) {
+      const { data: remaining, error: qErr } = await (supabaseAdmin as unknown as SupabaseAny).rpc(
+        "consume_image_quota",
+        { _limit: 3, _user_id: userId },
+      );
+      if (!qErr && typeof remaining === "number" && remaining < 0) {
+        const msg = "Free plan limit reached: 3 images per day. Upgrade for unlimited image generation.";
+        await finalize({ status: "failed", progress: 100, error: msg });
+        return { status: 429, body: { generationId, status: "failed", error: msg } };
+      }
+    }
+  } catch (e) {
+    console.error("[api/image] quota check failed (fail-open)", e);
+  }
+
   const key = process.env.LOVABLE_API_KEY;
   if (!key) {
-    await finalize({ status: "failed", error: "Image generation isn't configured." });
+    await finalize({ status: "failed", progress: 100, error: "Image generation isn't configured." });
     return { status: 503, body: { generationId, status: "failed", error: "Image generation isn't configured right now. Please try again shortly." } };
   }
 
@@ -125,7 +200,7 @@ async function runGeneration(params: {
   } catch (e) {
     console.error("[api/image] network error", e);
     const msg = "I couldn't reach the image service. Please try again in a moment.";
-    await finalize({ status: "failed", error: msg });
+    await finalize({ status: "failed", progress: 100, error: msg });
     return { status: 502, body: { generationId, status: "failed", error: msg } };
   }
 
@@ -133,7 +208,7 @@ async function runGeneration(params: {
     const text = await upstream.text().catch(() => "");
     console.error("[api/image] upstream error", upstream.status, text);
     const f = friendly(upstream.status, text);
-    await finalize({ status: "failed", error: f.error });
+    await finalize({ status: "failed", progress: 100, provider_job_id: upstream.headers.get("x-request-id") ?? null, error: f.error });
     return { status: f.status, body: { generationId, status: "failed", error: f.error } };
   }
 
@@ -143,14 +218,14 @@ async function runGeneration(params: {
   } catch (e) {
     console.error("[api/image] bad json", e);
     const msg = "The image service returned an unexpected response. Please try again.";
-    await finalize({ status: "failed", error: msg });
+    await finalize({ status: "failed", progress: 100, provider_job_id: upstream.headers.get("x-request-id") ?? null, error: msg });
     return { status: 502, body: { generationId, status: "failed", error: msg } };
   }
 
   const b64 = json.data?.[0]?.b64_json;
   if (!b64) {
     const msg = "No image was returned. Please try a different prompt.";
-    await finalize({ status: "failed", error: msg });
+    await finalize({ status: "failed", progress: 100, provider_job_id: upstream.headers.get("x-request-id") ?? null, error: msg });
     return { status: 502, body: { generationId, status: "failed", error: msg } };
   }
 
@@ -189,7 +264,7 @@ async function runGeneration(params: {
   }
 
   const finalUrl = publicImageUrl ?? `data:image/png;base64,${b64}`;
-  await finalize({ status: "completed", image_url: finalUrl, storage_path: storagePath });
+  await finalize({ status: "completed", progress: 100, image_url: finalUrl, thumbnail: finalUrl, storage_path: storagePath, provider_job_id: upstream.headers.get("x-request-id") ?? null });
   return {
     status: 200,
     body: { generationId, status: "completed", imageUrl: finalUrl, storagePath },
@@ -212,7 +287,7 @@ export const Route = createFileRoute("/api/image")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data: row, error } = await (supabaseAdmin as unknown as SupabaseAny)
           .from("image_generations")
-          .select("id,user_id,status,image_url,error,created_at")
+          .select("id,user_id,status,image_url,error,created_at,updated_at")
           .eq("id", id)
           .eq("user_id", auth.userId)
           .maybeSingle();
@@ -225,14 +300,23 @@ export const Route = createFileRoute("/api/image")({
         // Auto-recover: if a generation has been stuck in processing longer
         // than STUCK_MS, mark it failed so the client can render a Retry
         // action instead of a card that never resolves.
+        if (row.status === "processing" && row.image_url) {
+          await (supabaseAdmin as unknown as SupabaseAny)
+            .from("image_generations")
+            .update({ status: "completed", progress: 100 })
+            .eq("id", id)
+            .eq("user_id", auth.userId);
+          return Response.json({ status: "completed", imageUrl: row.image_url });
+        }
+
         if (
           row.status === "processing" &&
-          Date.now() - new Date(row.created_at as string).getTime() > STUCK_MS
+          Date.now() - new Date((row.updated_at as string) || (row.created_at as string)).getTime() > STUCK_MS
         ) {
           const msg = "Image generation timed out. Please try again.";
           await (supabaseAdmin as unknown as SupabaseAny)
             .from("image_generations")
-            .update({ status: "failed", error: msg })
+            .update({ status: "failed", progress: 100, error: msg })
             .eq("id", id)
             .eq("user_id", auth.userId);
           return Response.json({ status: "failed", error: msg });
@@ -253,6 +337,7 @@ export const Route = createFileRoute("/api/image")({
 
         let body: {
           generationId?: string;
+          messageId?: string;
           prompt?: string;
           inputImage?: string;
           parentId?: string;
@@ -284,8 +369,9 @@ export const Route = createFileRoute("/api/image")({
           prompt = kept.join("\n").slice(0, 8000);
         }
 
-        // Feature kill-switch + free-plan quota — same behavior as before,
-        // just guarded so a missing table/RPC never blocks generation.
+        // Feature kill-switch — guarded so a missing settings table never
+        // blocks generation. Quota is consumed inside runGeneration only
+        // after the generation id has been reserved for idempotency.
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { data: cfg } = await (supabaseAdmin as unknown as SupabaseAny)
@@ -304,34 +390,10 @@ export const Route = createFileRoute("/api/image")({
           console.error("[api/image] feature flag check failed", e);
         }
 
-        try {
-          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const { data: roles } = await (supabaseAdmin as unknown as SupabaseAny)
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", auth.userId);
-          const isPaid = ((roles ?? []) as Array<{ role: string }>).some((r) =>
-            ["admin", "premium", "pro"].includes(r.role),
-          );
-          if (!isPaid) {
-            const { data: remaining, error: qErr } = await supabaseAdmin.rpc(
-              "consume_image_quota",
-              { _limit: 3, _user_id: auth.userId },
-            );
-            if (!qErr && typeof remaining === "number" && remaining < 0) {
-              return Response.json(
-                { error: "Free plan limit reached: 3 images per day. Upgrade for unlimited image generation." },
-                { status: 429 },
-              );
-            }
-          }
-        } catch (e) {
-          console.error("[api/image] quota check failed (fail-open)", e);
-        }
-
         const result = await runGeneration({
           generationId,
           userId: auth.userId,
+          messageId: body.messageId,
           prompt,
           inputImageUrl: body.inputImage,
           parentId: body.parentId,

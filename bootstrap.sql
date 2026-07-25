@@ -858,23 +858,68 @@ CREATE TABLE IF NOT EXISTS public.image_generations (
   id           uuid PRIMARY KEY,
   user_id      uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   parent_id    uuid REFERENCES public.image_generations(id) ON DELETE SET NULL,
+  message_id   text,
+  provider_request_id text,
+  provider_job_id     text,
   prompt       text NOT NULL,
   input_url    text,
   status       text NOT NULL DEFAULT 'processing'
-               CHECK (status IN ('queued','processing','completed','failed')),
+               CHECK (status IN ('queued','processing','completed','failed','cancelled')),
+  progress     integer NOT NULL DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
   image_url    text,
+  thumbnail    text,
   storage_path text,
   error        text,
   created_at   timestamptz NOT NULL DEFAULT now(),
   updated_at   timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE public.image_generations ADD COLUMN IF NOT EXISTS parent_id uuid;
+ALTER TABLE public.image_generations ADD COLUMN IF NOT EXISTS message_id text;
+ALTER TABLE public.image_generations ADD COLUMN IF NOT EXISTS provider_request_id text;
+ALTER TABLE public.image_generations ADD COLUMN IF NOT EXISTS provider_job_id text;
 ALTER TABLE public.image_generations ADD COLUMN IF NOT EXISTS input_url text;
+ALTER TABLE public.image_generations ADD COLUMN IF NOT EXISTS progress integer NOT NULL DEFAULT 0;
 ALTER TABLE public.image_generations ADD COLUMN IF NOT EXISTS storage_path text;
+ALTER TABLE public.image_generations ADD COLUMN IF NOT EXISTS thumbnail text;
 ALTER TABLE public.image_generations ADD COLUMN IF NOT EXISTS error text;
+
+DO $$
+DECLARE c record;
+BEGIN
+  FOR c IN
+    SELECT conname
+    FROM pg_constraint
+    WHERE conrelid = 'public.image_generations'::regclass
+      AND contype = 'c'
+      AND pg_get_constraintdef(oid) ILIKE '%status%'
+  LOOP
+    EXECUTE format('ALTER TABLE public.image_generations DROP CONSTRAINT IF EXISTS %I', c.conname);
+  END LOOP;
+END $$;
+
+ALTER TABLE public.image_generations
+  ADD CONSTRAINT image_generations_status_check
+  CHECK (status IN ('queued','processing','completed','failed','cancelled'));
+
+DO $$
+BEGIN
+  ALTER TABLE public.image_generations
+    ADD CONSTRAINT image_generations_progress_check CHECK (progress >= 0 AND progress <= 100);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  ALTER TABLE public.image_generations
+    ADD CONSTRAINT image_generations_parent_id_fkey
+    FOREIGN KEY (parent_id) REFERENCES public.image_generations(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE INDEX IF NOT EXISTS image_generations_user_idx
   ON public.image_generations(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS image_generations_status_idx
+  ON public.image_generations(user_id, status, updated_at DESC);
 
 GRANT SELECT, INSERT, UPDATE ON public.image_generations TO authenticated;
 GRANT ALL ON public.image_generations TO service_role;

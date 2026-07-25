@@ -26,8 +26,7 @@
  *      before sending so long image-heavy chats don't blow the payload cap.
  *
  * 3. IMAGE INTENT ROUTING  (the ONLY place chat can branch into images)
- *    - `detectImageIntent(text)`       → NEW image generation
- *    - `isExplicitImageEdit(text)` + a prior completed image →  EDIT
+ *    - `classifyMessageIntent(text)` → TEXT / IMAGE_CREATE / IMAGE_EDIT
  *    - Anything else → normal chat. NEVER reuses a prior image, NEVER
  *      triggers polling, NEVER shows a progress card.
  *    - The classifier looks ONLY at the current user message. History,
@@ -72,8 +71,9 @@
  * - Placeholder markers are the ONLY transient chat state. They are always
  *   either finalized (into an image URL / error text) or recoverable via
  *   the poller. They never leak across threads.
- * - `active_generation` and other in-memory scratch state are cleared on
- *   finalization to prevent context leaks between messages.
+ * - Pending markers are the only active image state; replacing/removing the
+ *   marker on completion/failure immediately stops polling and returns chat
+ *   to normal text routing.
  * - The `bootstrap.sql` file is the schema source of truth (see the
  *   `image_generations` table + `chat-images` bucket).
  *
@@ -95,6 +95,7 @@ import { PrismSidebar } from "@/components/prism-sidebar";
 import { PrismXLogo } from "@/components/prismx-logo";
 import { AnnouncementBanner } from "@/components/announcement-banner";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { Button } from "@/components/ui/button";
 
 // Modals are code-split — none are visible on first paint, and several pull
 // heavy dependencies (image editor, project pickers, settings forms). Lazy
@@ -120,7 +121,7 @@ import {
 } from "@/lib/chat-store";
 import { loadThreadsFromCloud, saveThreadsToCloud } from "@/lib/chat-sync";
 import { supabase } from "@/integrations/supabase/client";
-import { detectImageIntent, isExplicitImageEdit } from "@/lib/image-intent";
+import { classifyMessageIntent } from "@/lib/image-intent";
 
 type SpeechRecognitionEventLike = {
   resultIndex: number;
@@ -165,6 +166,41 @@ function sanitizeMessageForWire<T>(m: T): T {
   }
   if (typeof msg.content === "string") msg.content = replaceInText(msg.content);
   return m;
+}
+
+function isImageLifecycleText(text: string): boolean {
+  const t = text.trim();
+  if (!t) return true;
+  return (
+    t === "⟪imggen:generating⟫" ||
+    t === "⟪imggen:editing⟫" ||
+    /^⟪(?:imggen|imgedit):pending:[0-9a-f-]{36}⟫$/i.test(t) ||
+    /^⟪(?:imggen|imgedit):failed:[0-9a-f-]{36}:/i.test(t) ||
+    /^(generating your image|creating image|editing image|interrupted|loading|generating\.\.\.|creating\.\.\.)[.…\s]*$/i.test(t)
+  );
+}
+
+function isTransientImageLifecycleMessage(m: UIMessage): boolean {
+  if (m.role !== "assistant") return false;
+  const parts = (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts;
+  if (!Array.isArray(parts) || parts.length === 0) return false;
+  return parts.every((p) => p.type === "text" && typeof p.text === "string" && isImageLifecycleText(p.text));
+}
+
+function imageFailureMarker(kind: "imggen" | "imgedit", generationId: string, message: string): string {
+  return `⟪${kind}:failed:${generationId}:${encodeURIComponent(message).slice(0, 500)}⟫`;
+}
+
+function parseImageFailureMarker(text: string): { kind: "imggen" | "imgedit"; generationId: string; message: string } | null {
+  const match = text.trim().match(/^⟪(imggen|imgedit):failed:([0-9a-f-]{36}):(.+)⟫$/i);
+  if (!match) return null;
+  let message = "Image generation failed. Please retry.";
+  try {
+    message = decodeURIComponent(match[3]);
+  } catch {
+    message = match[3] || message;
+  }
+  return { kind: match[1].toLowerCase() as "imggen" | "imgedit", generationId: match[2], message };
 }
 
 function extractMessageContent(m: unknown): { role: "user" | "assistant"; content: string } | null {
@@ -412,7 +448,9 @@ export function ChatPage() {
               // keep them in local state for display; the model only needs
               // a short reference to know an image was produced.
               if (Array.isArray(parsed.messages)) {
-                parsed.messages = parsed.messages.map(sanitizeMessageForWire);
+                parsed.messages = parsed.messages
+                  .filter((m: UIMessage) => !isTransientImageLifecycleMessage(m))
+                  .map(sanitizeMessageForWire);
               }
               nextInit.body = JSON.stringify(parsed);
             } catch {
@@ -507,11 +545,8 @@ export function ChatPage() {
     // wait so we don't wipe the pre-existing messages with an empty array.
     if (!t && urlChatId && threads.length === 0 && user.userId) return;
     lastHydratedRef.current = chatId;
-    // Drop stale image-generation placeholders left over from a previous
-    // session. Completed generations were already rewritten to a real image
-    // part before persistence, so filtering marker-only bubbles never
-    // removes a finished image — it just prevents the loading card from
-    // being restored on refresh.
+    // Drop unrecoverable legacy placeholders left over from a previous
+    // session. Completed generations are standard markdown images and stay.
     const isImgGenPlaceholder = (m: UIMessage) => {
       const parts = (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts;
       if (!Array.isArray(parts) || parts.length === 0) return false;
@@ -519,13 +554,13 @@ export function ChatPage() {
         if (p.type !== "text" || typeof p.text !== "string") return false;
         const t = p.text.trim();
         if (!t) return true;
-        // Legacy markers with no generation id can never be recovered — drop.
         if (t === "⟪imggen:generating⟫" || t === "⟪imggen:editing⟫") return true;
         // Pending markers WITH an id are the recoverable ones — KEEP them
-        // so the polling effect below can resolve them from the DB.
+        // so the polling effect below can resolve them from the DB. Failed
+        // markers are terminal history with a Retry button, so keep those too.
         if (/^⟪(imggen|imgedit):pending:[0-9a-f-]{36}⟫$/i.test(t)) return false;
-        // Defensive: strip any leftover "Generating your image…" strings.
-        return /^(generating your image|creating image|editing image|interrupted|loading|generating\.\.\.|creating\.\.\.)[.…\s]*$/i.test(t);
+        if (/^⟪(?:imggen|imgedit):failed:[0-9a-f-]{36}:/i.test(t)) return false;
+        return isImageLifecycleText(t);
       });
     };
     const sanitized = t
@@ -543,39 +578,43 @@ export function ChatPage() {
    // derive a stable fingerprint of pending markers so the effect only
    // re-runs when the set of pending generations actually changes.
    const recoveryTrackedRef = useRef<Set<string>>(new Set());
-   const pendingGenerations = useMemo(() => {
-     const out: Array<{ msgId: string; genId: string }> = [];
+     const pendingGenerations = useMemo(() => {
+      const out: Array<{ msgId: string; genId: string; kind: "imggen" | "imgedit" }> = [];
      for (const m of messages) {
        if (m.role !== "assistant") continue;
        const parts = (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts ?? [];
        for (const p of parts) {
          if (p.type !== "text" || typeof p.text !== "string") continue;
-         const match = p.text.trim().match(/^⟪(?:imggen|imgedit):pending:([0-9a-f-]{36})⟫$/i);
-         if (match) out.push({ msgId: m.id, genId: match[1] });
+          const match = p.text.trim().match(/^⟪(imggen|imgedit):pending:([0-9a-f-]{36})⟫$/i);
+          if (match) out.push({ msgId: m.id, genId: match[2], kind: match[1].toLowerCase() as "imggen" | "imgedit" });
        }
      }
      return out;
    }, [messages]);
-   const pendingKey = pendingGenerations.map((p) => `${p.msgId}:${p.genId}`).join("|");
+    const pendingKey = pendingGenerations.map((p) => `${p.msgId}:${p.genId}:${p.kind}`).join("|");
    useEffect(() => {
      if (pendingGenerations.length === 0) return;
      let cancelled = false;
      const timers: Array<ReturnType<typeof setTimeout>> = [];
      const seen = recoveryTrackedRef.current;
+      const trackedThisRun = new Set<string>();
 
-     const finalize = (msgId: string, text: string) => {
+      const finalize = (msgId: string, genId: string, text: string, remove = false) => {
+        seen.delete(`${msgId}:${genId}`);
        setMessages((prev) => {
-         const next = prev.map((m) =>
-           m.id === msgId
-             ? ({ ...m, parts: [{ type: "text", text }] } as unknown as UIMessage)
-             : m,
-         );
+          const next = remove
+            ? prev.filter((m) => m.id !== msgId)
+            : prev.map((m) =>
+                m.id === msgId
+                  ? ({ ...m, parts: [{ type: "text", text }] } as unknown as UIMessage)
+                  : m,
+              );
          queueMicrotask(() => syncActiveThreadMessages(next, true));
          return next;
        });
      };
 
-     const pollOnce = async (msgId: string, genId: string, attempt: number) => {
+      const pollOnce = async (msgId: string, genId: string, kind: "imggen" | "imgedit", attempt: number) => {
        if (cancelled) return;
        try {
          const { data } = await supabase.auth.getSession();
@@ -587,10 +626,10 @@ export function ChatPage() {
          if (cancelled) return;
          if (res.status === 404) {
            if (attempt < 8) {
-             timers.push(setTimeout(() => pollOnce(msgId, genId, attempt + 1), 2000));
+              timers.push(setTimeout(() => pollOnce(msgId, genId, kind, attempt + 1), 2000));
              return;
            }
-           finalize(msgId, "Image generation was interrupted. Please try again.");
+            finalize(msgId, genId, "", true);
            return;
          }
          const payload = (await res.json().catch(() => null)) as {
@@ -598,37 +637,46 @@ export function ChatPage() {
            imageUrl?: string;
            error?: string;
          } | null;
-         if (!payload) return;
+          if (!payload) {
+            timers.push(setTimeout(() => pollOnce(msgId, genId, kind, attempt + 1), 3000));
+            return;
+          }
          if (payload.status === "completed" && payload.imageUrl) {
-           finalize(msgId, `![generated image](${payload.imageUrl})`);
+            finalize(msgId, genId, `![generated image](${payload.imageUrl})`);
            return;
          }
-         if (payload.status === "failed") {
-           finalize(msgId, payload.error || "Image generation failed. Please try again.");
+          if (payload.status === "failed" || payload.status === "cancelled") {
+            finalize(msgId, genId, imageFailureMarker(kind, genId, payload.error || "Image generation failed. Please retry."));
            return;
          }
          if (attempt > 60) {
-           finalize(msgId, "Image generation timed out. Please try again.");
+            finalize(msgId, genId, imageFailureMarker(kind, genId, "Image generation timed out. Please retry."));
            return;
          }
          const delay = Math.min(4000, 1500 + attempt * 100);
-         timers.push(setTimeout(() => pollOnce(msgId, genId, attempt + 1), delay));
+          timers.push(setTimeout(() => pollOnce(msgId, genId, kind, attempt + 1), delay));
        } catch (e) {
          if (cancelled) return;
          console.error("[image] recovery poll error", e);
-         timers.push(setTimeout(() => pollOnce(msgId, genId, attempt + 1), 3000));
+          if (attempt > 60) {
+            finalize(msgId, genId, imageFailureMarker(kind, genId, "Image generation timed out. Please retry."));
+            return;
+          }
+          timers.push(setTimeout(() => pollOnce(msgId, genId, kind, attempt + 1), 3000));
        }
      };
 
-     for (const { msgId, genId } of pendingGenerations) {
+      for (const { msgId, genId, kind } of pendingGenerations) {
        const key = `${msgId}:${genId}`;
        if (seen.has(key)) continue;
        seen.add(key);
-       pollOnce(msgId, genId, 0);
+        trackedThisRun.add(key);
+        pollOnce(msgId, genId, kind, 0);
      }
 
      return () => {
        cancelled = true;
+        for (const key of trackedThisRun) seen.delete(key);
        for (const t of timers) clearTimeout(t);
      };
      // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -938,7 +986,7 @@ export function ChatPage() {
 
 
 
-  // Image-intent detection lives in `@/lib/image-intent` (fuzzy + typo-tolerant).
+  // Current-message intent classification lives in `@/lib/image-intent`.
   // Returns the URL of the most recently *completed* generated image so
   // explicit edit prompts can reuse it. We match http(s) URLs (public bucket)
   // and legacy data URLs (older messages). Placeholders and progress text
@@ -952,7 +1000,7 @@ export function ChatPage() {
       const parts = (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts ?? [];
       for (const p of parts) {
         if (p.type === "text" && typeof p.text === "string") {
-          const match = p.text.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/);
+          const match = p.text.match(/!\[(?:generated|edited) image\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/i);
           if (match) {
             // Assistant image messages created by generateImageInline use
             // id `a_<uuid>`; parse that back so we can persist provenance.
@@ -996,7 +1044,9 @@ export function ChatPage() {
     const generationId =
       typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}-0000-0000-0000-000000000000`;
+        : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) =>
+            (Number(c) ^ (Math.random() * 16 >> (Number(c) / 4))).toString(16),
+          );
     const marker = inputImage
       ? `⟪imgedit:pending:${generationId}⟫`
       : `⟪imggen:pending:${generationId}⟫`;
@@ -1016,7 +1066,7 @@ export function ChatPage() {
       return fetch("/api/image", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ generationId, prompt, ...(inputImage ? { inputImage } : {}), ...(parentId ? { parentId } : {}) }),
+        body: JSON.stringify({ generationId, messageId: asstId, prompt, ...(inputImage ? { inputImage } : {}), ...(parentId ? { parentId } : {}) }),
       });
     };
 
@@ -1045,8 +1095,11 @@ export function ChatPage() {
         status?: string;
         error?: string;
       } | null;
+      if (res.status === 202 || payload?.status === "queued" || payload?.status === "processing") {
+        return;
+      }
       const finalUrl = payload?.imageUrl || payload?.dataUrl;
-      if (!res.ok || !finalUrl) {
+      if (!res.ok || !finalUrl || payload?.status === "failed" || payload?.status === "cancelled") {
         const msg = payload?.error || "Image generation is temporarily unavailable. Please try again in a moment.";
         throw new Error(msg);
       }
@@ -1063,10 +1116,11 @@ export function ChatPage() {
     } catch (e) {
       console.error("[image] failed", e);
       const msg = e instanceof Error ? e.message : "Image generation is temporarily unavailable. Please try again in a moment.";
+      const failure = imageFailureMarker(inputImage ? "imgedit" : "imggen", generationId, msg);
       setMessages((prev) => {
         const next = prev.map((m) =>
           m.id === asstId
-            ? ({ ...m, parts: [{ type: "text", text: msg }] } as unknown as UIMessage)
+            ? ({ ...m, parts: [{ type: "text", text: failure }] } as unknown as UIMessage)
             : m,
         );
         queueMicrotask(() => syncActiveThreadMessages(next, true));
@@ -1074,6 +1128,30 @@ export function ChatPage() {
       });
     }
   };
+
+  const retryImageMessage = useCallback((assistantMessageId: string) => {
+    const idx = messages.findIndex((m) => m.id === assistantMessageId);
+    if (idx < 0) return;
+    const failedText = getMessageText(messages[idx]);
+    const failed = parseImageFailureMarker(failedText);
+    if (!failed) return;
+    const priorUser = messages.slice(0, idx).reverse().find((m) => m.role === "user");
+    const prompt = priorUser ? getMessageText(priorUser).trim() : "";
+    if (!prompt) {
+      toast.error("I couldn't find the original image prompt to retry.");
+      return;
+    }
+    if (failed.kind === "imgedit") {
+      const source = extractLastGeneratedImage(messages.slice(0, idx));
+      if (!source) {
+        toast.error("I couldn't find the image to edit. Generate a new image first.");
+        return;
+      }
+      void generateImageInline(prompt, source.url, source.parentId);
+      return;
+    }
+    void generateImageInline(prompt);
+  }, [messages]);
 
 
 
@@ -1101,23 +1179,16 @@ export function ChatPage() {
     }
 
 
-    // Image intent short-circuit.
-    //  1. Explicit edit ("edit it", "make it blue", "remove background", …)
-    //     reuses the most recent completed image as input. This is the ONLY
-    //     path that touches the previous generation.
-    //  2. A fresh explicit image request ("generate a logo", "draw a cat",
-    //     "anime girl") starts a brand-new generation with no input image.
-    //  3. Everything else — greetings, follow-ups, questions, thanks — falls
-    //     through to normal chat and NEVER reuses a completed image or
-    //     triggers image generation.
+    // Route ONLY the current user message. Previous images are used solely as
+    // edit input after the current text is classified as IMAGE_EDIT.
     if (files.length === 0) {
-      const lastImg = extractLastGeneratedImage(messages);
-      if (lastImg && isExplicitImageEdit(text)) {
+      const intent = classifyMessageIntent(text);
+      const lastImg = intent === "IMAGE_EDIT" ? extractLastGeneratedImage(messages) : undefined;
+      if (intent === "IMAGE_EDIT" && lastImg) {
         await generateImageInline(text, lastImg.url, lastImg.parentId);
         return;
       }
-      const intent = detectImageIntent(text);
-      if (intent.isImage && intent.confidence >= 0.7) {
+      if (intent === "IMAGE_CREATE") {
         await generateImageInline(text);
         return;
       }
@@ -1280,7 +1351,7 @@ export function ChatPage() {
             ) : (
               <div className="space-y-6">
                 {messages.map((m) => (
-                  <MessageBubble key={m.id} message={m} text={getMessageText(m)} />
+                  <MessageBubble key={m.id} message={m} text={getMessageText(m)} onRetryImage={retryImageMessage} />
                 ))}
                 {isBusy && messages[messages.length - 1]?.role === "user" && (
                   <div className="flex gap-3">
@@ -1683,7 +1754,7 @@ function sanitizeAssistantText(raw: string): string {
 }
 
 const MessageBubble = memo(
-  function MessageBubble({ message, text }: { message: UIMessage; text: string }) {
+  function MessageBubble({ message, text, onRetryImage }: { message: UIMessage; text: string; onRetryImage?: (messageId: string) => void }) {
     if (message.role === "user") {
       return (
         <div className="flex justify-end">
@@ -1697,6 +1768,7 @@ const MessageBubble = memo(
     }
     const t = text.trim();
     const pendingMatch = t.match(/^⟪(imggen|imgedit):pending:([0-9a-f-]{36})⟫$/i);
+    const failed = parseImageFailureMarker(t);
     if (pendingMatch || t === "⟪imggen:generating⟫" || t === "⟪imggen:editing⟫") {
       const mode: "editing" | "generating" =
         pendingMatch?.[1] === "imgedit" || t === "⟪imggen:editing⟫" ? "editing" : "generating";
@@ -1704,6 +1776,26 @@ const MessageBubble = memo(
         <div className="flex gap-3">
           <PrismXLogo size="sm" />
           <ImageGenProgress mode={mode} />
+        </div>
+      );
+    }
+    if (failed) {
+      return (
+        <div className="flex gap-3">
+          <PrismXLogo size="sm" />
+          <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm">
+            <div className="font-medium text-foreground">Image generation failed</div>
+            <div className="mt-1 text-muted-foreground">{failed.message}</div>
+            <Button
+              type="button"
+              onClick={() => onRetryImage?.(message.id)}
+              variant="outline"
+              size="sm"
+              className="mt-3"
+            >
+              Retry
+            </Button>
+          </div>
         </div>
       );
     }
