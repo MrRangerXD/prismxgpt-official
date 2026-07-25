@@ -28,10 +28,10 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "PrismXGPT is a modern AI assistant for chat, writing, code and research. Free forever with an optional premium plan." },
       { property: "og:title", content: "PrismXGPT — Premium ChatGPT-style AI Assistant" },
       { property: "og:description", content: "PrismXGPT is a modern AI assistant for chat, writing, code and research. Free forever with an optional premium plan." },
-      { property: "og:url", content: "https://prismgpt.lovable.app/" },
+      { property: "og:url", content: "https://prismxgpt.lovable.app/" },
       { property: "og:type", content: "website" },
     ],
-    links: [{ rel: "canonical", href: "https://prismgpt.lovable.app/" }],
+    links: [{ rel: "canonical", href: "https://prismxgpt.lovable.app/" }],
     scripts: [
       {
         type: "application/ld+json",
@@ -42,7 +42,7 @@ export const Route = createFileRoute("/")({
           applicationCategory: "BusinessApplication",
           operatingSystem: "Web",
           description: "Modern AI assistant for chat, writing, code, research and image generation.",
-          url: "https://prismgpt.lovable.app/",
+          url: "https://prismxgpt.lovable.app/",
           offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
         }),
       },

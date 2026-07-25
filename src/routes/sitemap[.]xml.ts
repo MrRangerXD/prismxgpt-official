@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
 
-const BASE_URL = "https://prismgpt.lovable.app";
+const BASE_URL = "https://prismxgpt.lovable.app";
 
 interface SitemapEntry {
   path: string;

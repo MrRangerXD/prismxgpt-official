@@ -13,10 +13,10 @@ export const Route = createFileRoute("/signup")({
       { name: "description", content: "Create your free PrismXGPT account and start chatting with AI in seconds." },
       { property: "og:title", content: "Sign up — PrismXGPT" },
       { property: "og:description", content: "Create your free PrismXGPT account." },
-      { property: "og:url", content: "https://prismgpt.lovable.app/signup" },
+      { property: "og:url", content: "https://prismxgpt.lovable.app/signup" },
       { property: "og:type", content: "website" },
     ],
-    links: [{ rel: "canonical", href: "https://prismgpt.lovable.app/signup" }],
+    links: [{ rel: "canonical", href: "https://prismxgpt.lovable.app/signup" }],
   }),
   component: SignupPage,
 });
