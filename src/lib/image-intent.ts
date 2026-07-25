@@ -209,9 +209,10 @@ export function isExplicitImageEdit(rawText: string): boolean {
     /\b(hi-?res|hd|4k|8k)\s+(it|this|that|the\s+(image|picture|photo))?\b/,
     /\b(improve|enhance|refine|sharpen|clean\s+up)\s+(the\s+)?(quality|image|picture|photo|resolution|colors?|details?)\b/,
     /\badd\s+.+\s+to\s+(it|this|that|the\s+(image|picture|photo|logo))\b/,
-    /\bcrop\s+(it|this|that|the\s+(image|picture|photo))\b/,
+    /\bcrop\b/,
     /\b(rotate|flip|blur|brighten|darken)\s+(it|this|that|the\s+(image|picture|photo))\b/,
     /\bmake\s+(it|this|that)\s+(blue|red|green|yellow|orange|purple|pink|black|white|brighter|darker|lighter|bigger|smaller|transparent)\b/,
+    /\bchange\s+(the\s+)?(style|color|colour|background|bg|text|font|mood|tone|palette)\b/,
   ];
   return patterns.some((re) => re.test(t));
 }
