@@ -882,7 +882,7 @@ export function ChatPage() {
     try { window.localStorage.setItem(IMG_QUOTA_KEY, JSON.stringify(next)); } catch { /* ignore */ }
   };
 
-  const generateImageInline = async (prompt: string, inputImage?: string) => {
+  const generateImageInline = async (prompt: string, inputImage?: string, parentId?: string) => {
     const isFree = !user.isPremium;
     if (isFree) {
       const q = readImgQuota();
