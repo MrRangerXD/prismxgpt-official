@@ -9,7 +9,10 @@ export const Route = createFileRoute("/privacy")({
       { name: "description", content: "PrismXGPT privacy policy: what data we collect, how we use it, how we protect it, and the rights you have over your information." },
       { property: "og:title", content: "Privacy Policy — PrismXGPT" },
       { property: "og:description", content: "How PrismXGPT collects, uses and protects your data." },
+      { property: "og:url", content: "https://prismgpt.lovable.app/privacy" },
+      { property: "og:type", content: "website" },
     ],
+    links: [{ rel: "canonical", href: "https://prismgpt.lovable.app/privacy" }],
   }),
   component: PrivacyPage,
 });
