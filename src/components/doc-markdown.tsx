@@ -435,7 +435,12 @@ export function DocMarkdown({ content }: { content: string }) {
 
   return (
     <div className="max-w-none">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml={false} components={components as never}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        skipHtml={false}
+        components={components as never}
+      >
         {processed}
       </ReactMarkdown>
     </div>
