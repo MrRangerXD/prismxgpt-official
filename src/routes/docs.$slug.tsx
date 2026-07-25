@@ -45,21 +45,37 @@ function pushRecent(slug: string, title: string) {
   } catch { /* noop */ }
 }
 
+function prettifySlug(slug: string): string {
+  return slug
+    .split("-")
+    .map((w) => (w.length > 0 ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(" ");
+}
+
 export const Route = createFileRoute("/docs/$slug")({
-  head: ({ params }) => ({
-    meta: [
-      { title: `${params.slug} — PrismXGPT Docs` },
-      { name: "description", content: `Documentation page: ${params.slug}` },
-      { property: "og:title", content: `${params.slug} — PrismXGPT Docs` },
-      { property: "og:description", content: `Documentation page: ${params.slug}` },
-      { property: "og:type", content: "article" },
-      { property: "og:url", content: `https://prismxgpt.lovable.app/docs/${params.slug}` },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-    links: [{ rel: "canonical", href: `https://prismxgpt.lovable.app/docs/${params.slug}` }],
-  }),
+  head: ({ params }) => {
+    const pretty = prettifySlug(params.slug);
+    const title = `${pretty} — PrismXGPT Docs`;
+    const description = `${pretty}: guide, reference and examples in the PrismXGPT documentation.`;
+    const url = `https://prismxgpt.lovable.app/docs/${params.slug}`;
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        { property: "og:type", content: "article" },
+        { property: "og:url", content: url },
+        { property: "og:image", content: "https://prismxgpt.lovable.app/og-image.png" },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:image", content: "https://prismxgpt.lovable.app/og-image.png" },
+      ],
+      links: [{ rel: "canonical", href: url }],
+    };
+  },
   component: DocPageView,
 });
+
 
 function DocPageView() {
   const { slug } = Route.useParams();
