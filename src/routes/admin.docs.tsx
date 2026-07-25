@@ -176,12 +176,29 @@ function DocsAdminPage() {
     }
   };
 
+  const movePage = async (p: Page, dir: -1 | 1) => {
+    const siblings = pages
+      .filter((x) => x.category_id === p.category_id)
+      .sort((a, b) => a.sort_order - b.sort_order);
+    const idx = siblings.findIndex((x) => x.id === p.id);
+    const swap = siblings[idx + dir];
+    if (!swap) return;
+    const a = p.sort_order;
+    const b = swap.sort_order;
+    const [{ error: e1 }, { error: e2 }] = await Promise.all([
+      supabase.from("documentation_pages" as never).update({ sort_order: b } as never).eq("id" as never, p.id as never),
+      supabase.from("documentation_pages" as never).update({ sort_order: a } as never).eq("id" as never, swap.id as never),
+    ]);
+    if (e1 || e2) toast.error((e1 || e2)!.message);
+    else load();
+  };
+
   const groups: Array<{ cat: Cat | null; items: Page[] }> = [
     ...cats.map((c) => ({
       cat: c,
-      items: pages.filter((p) => p.category_id === c.id),
+      items: pages.filter((p) => p.category_id === c.id).sort((a, b) => a.sort_order - b.sort_order),
     })),
-    { cat: null, items: pages.filter((p) => !p.category_id) },
+    { cat: null, items: pages.filter((p) => !p.category_id).sort((a, b) => a.sort_order - b.sort_order) },
   ];
 
   return (
