@@ -1,7 +1,7 @@
 /**
  * Small error-safety helpers used across the app.
  *
- * The goal is consistency: instead of scattering ad-hoc `try/catch { /* ignore */ }`
+ * The goal is consistency: instead of scattering ad-hoc `try/catch` no-op
  * blocks, callers can express intent — "parse this if you can, otherwise
  * fall back" — in one line and share the same behavior everywhere.
  *
