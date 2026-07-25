@@ -12,6 +12,8 @@ import {
   Pencil,
   Eye,
   EyeOff,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/docs")({
