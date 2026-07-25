@@ -587,7 +587,11 @@ export function DocsShell({
           }`}
         >
           {loading ? (
-            <div className="text-sm text-muted-foreground">Loading…</div>
+            <div className="space-y-2" aria-hidden>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="h-6 w-full animate-pulse rounded-md bg-accent/40" style={{ width: `${60 + ((i * 7) % 40)}%` }} />
+              ))}
+            </div>
           ) : (
             <nav className="space-y-5" aria-label="Documentation navigation">
               <Link
