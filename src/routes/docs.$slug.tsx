@@ -236,11 +236,8 @@ function DocPageView() {
                     {fullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
                     {fullscreen ? "Exit" : "Focus"}
                   </button>
-                  {isAdmin && (
-                    <Link to="/admin/docs/$id" params={{ id: page.id }} className="inline-flex items-center gap-1 rounded-md border border-brand/40 bg-brand/10 px-2 py-1 text-brand hover:bg-brand/20">
-                      <Pencil className="h-3 w-3" /> Edit page
-                    </Link>
-                  )}
+
+
                 </div>
               </div>
             </div>
