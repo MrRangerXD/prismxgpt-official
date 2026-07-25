@@ -90,6 +90,7 @@ function Landing() {
           <div className="hidden items-center gap-8 md:flex">
             <a href="#features" className="text-sm text-muted-foreground transition hover:text-foreground">Features</a>
             <a href="#pricing" className="text-sm text-muted-foreground transition hover:text-foreground">Pricing</a>
+            <Link to="/docs" className="text-sm text-muted-foreground transition hover:text-foreground">Documentation</Link>
             <a href="#faq" className="text-sm text-muted-foreground transition hover:text-foreground">FAQ</a>
           </div>
 
