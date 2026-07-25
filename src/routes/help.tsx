@@ -18,6 +18,25 @@ export const Route = createFileRoute("/help")({
     meta: [
       { title: "Help Center — PrismXGPT" },
       { name: "description", content: "Guides, FAQs and support for PrismXGPT — get started, manage your account, learn about AI features, projects, invites, billing." },
+      { property: "og:title", content: "Help Center — PrismXGPT" },
+      { property: "og:description", content: "Guides, FAQs and support for PrismXGPT." },
+      { property: "og:url", content: "https://prismgpt.lovable.app/help" },
+      { property: "og:type", content: "website" },
+    ],
+    links: [{ rel: "canonical", href: "https://prismgpt.lovable.app/help" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: [
+            { "@type": "Question", name: "What is PrismXGPT?", acceptedAnswer: { "@type": "Answer", text: "PrismXGPT is a premium AI assistant for chat, writing, code, and research." } },
+            { "@type": "Question", name: "How do I start my first chat?", acceptedAnswer: { "@type": "Answer", text: "Sign in, click New chat in the sidebar, type your question and hit Send." } },
+            { "@type": "Question", name: "Is PrismXGPT free?", acceptedAnswer: { "@type": "Answer", text: "Yes — PrismXGPT is free forever with an optional premium plan for higher limits." } },
+          ],
+        }),
+      },
     ],
   }),
   component: HelpPage,

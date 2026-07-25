@@ -105,7 +105,32 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap",
       },
     ],
-
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "Organization",
+              name: "PrismXGPT",
+              url: "https://prismgpt.lovable.app",
+              logo: "https://prismgpt.lovable.app/icon-512.png",
+            },
+            {
+              "@type": "WebSite",
+              name: "PrismXGPT",
+              url: "https://prismgpt.lovable.app",
+              potentialAction: {
+                "@type": "SearchAction",
+                target: "https://prismgpt.lovable.app/chat?q={search_term_string}",
+                "query-input": "required name=search_term_string",
+              },
+            },
+          ],
+        }),
+      },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,

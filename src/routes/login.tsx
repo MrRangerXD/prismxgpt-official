@@ -10,8 +10,13 @@ export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
       { title: "Log in — PrismXGPT" },
-      { name: "description", content: "Log in to your PrismXGPT account." },
+      { name: "description", content: "Log in to your PrismXGPT account to continue your AI conversations." },
+      { property: "og:title", content: "Log in — PrismXGPT" },
+      { property: "og:description", content: "Log in to your PrismXGPT account." },
+      { property: "og:url", content: "https://prismgpt.lovable.app/login" },
+      { property: "og:type", content: "website" },
     ],
+    links: [{ rel: "canonical", href: "https://prismgpt.lovable.app/login" }],
   }),
   component: LoginPage,
 });

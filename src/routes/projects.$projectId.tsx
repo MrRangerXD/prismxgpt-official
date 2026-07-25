@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/use-profile";
 
 export const Route = createFileRoute("/projects/$projectId")({
-  head: () => ({ meta: [{ title: "Project — PrismXGPT" }] }),
+  head: () => ({ meta: [{ title: "Project — PrismXGPT" }, { name: "robots", content: "noindex,nofollow" }] }),
   component: ProjectPage,
   errorComponent: ({ error }) => (
     <div className="p-10 text-sm text-muted-foreground">Error: {String(error)}</div>

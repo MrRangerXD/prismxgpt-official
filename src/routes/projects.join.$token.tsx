@@ -5,7 +5,7 @@ import { useProfile } from "@/hooks/use-profile";
 import { joinProjectByShareToken } from "@/lib/project-share.functions";
 
 export const Route = createFileRoute("/projects/join/$token")({
-  head: () => ({ meta: [{ title: "Join project — PrismXGPT" }] }),
+  head: () => ({ meta: [{ title: "Join project — PrismXGPT" }, { name: "robots", content: "noindex,nofollow" }] }),
   component: JoinPage,
 });
 
