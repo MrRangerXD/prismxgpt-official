@@ -447,6 +447,9 @@ function CategorySection({
 
 /* --------------------------- Shell --------------------------- */
 
+const paletteBus = { open: () => {} as () => void };
+export function openDocsPalette() { paletteBus.open(); }
+
 export function DocsShell({
   activeSlug,
   children,
@@ -460,6 +463,7 @@ export function DocsShell({
 }) {
   const [mobileNav, setMobileNav] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [sidebarWidth, setSidebarWidth] = useState(256);
   const resizing = useRef(false);
