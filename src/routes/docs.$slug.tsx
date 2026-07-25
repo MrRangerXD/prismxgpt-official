@@ -119,6 +119,14 @@ function DocPageView() {
     };
   }, [page, tree]);
 
+  // Prefetch prev/next route data so navigation feels instant.
+  const router = useRouter();
+  useEffect(() => {
+    if (prev) router.preloadRoute({ to: "/docs/$slug", params: { slug: prev.slug } }).catch(() => {});
+    if (next) router.preloadRoute({ to: "/docs/$slug", params: { slug: next.slug } }).catch(() => {});
+  }, [prev, next, router]);
+
+
   // Related: explicit related_slugs first, else tag overlap.
   const related = useMemo(() => {
     if (!page) return [] as DocPage[];
