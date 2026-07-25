@@ -483,8 +483,15 @@ export function ChatPage() {
         });
         if (cancelled) return;
         if (res.status === 404) {
-          // No server row — likely a legacy marker or a request the server
-          // never received. Mark failed so the card stops spinning.
+          // No server row yet. Two cases:
+          //  (a) POST hasn't upserted yet (race after refresh) — retry a few
+          //      times before giving up so we don't false-finalize.
+          //  (b) Legacy marker that never had a server row — give up after
+          //      ~20s of retries.
+          if (attempt < 8) {
+            timers.push(setTimeout(() => pollOnce(msgId, genId, attempt + 1), 2000));
+            return;
+          }
           finalize(msgId, "Image generation was interrupted. Please try again.");
           return;
         }
@@ -836,7 +843,9 @@ export function ChatPage() {
   // explicit edit prompts can reuse it. We match http(s) URLs (public bucket)
   // and legacy data URLs (older messages). Placeholders and progress text
   // never match because they don't contain markdown image syntax.
-  const extractLastGeneratedImage = (msgs: UIMessage[]): string | undefined => {
+  const extractLastGeneratedImage = (
+    msgs: UIMessage[],
+  ): { url: string; parentId?: string } | undefined => {
     for (let i = msgs.length - 1; i >= 0; i--) {
       const m = msgs[i];
       if (m.role !== "assistant") continue;
@@ -844,7 +853,12 @@ export function ChatPage() {
       for (const p of parts) {
         if (p.type === "text" && typeof p.text === "string") {
           const match = p.text.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/);
-          if (match) return match[1];
+          if (match) {
+            // Assistant image messages created by generateImageInline use
+            // id `a_<uuid>`; parse that back so we can persist provenance.
+            const idMatch = /^a_([0-9a-f-]{36})$/i.exec(m.id);
+            return { url: match[1], parentId: idMatch?.[1] };
+          }
         }
       }
     }
@@ -868,7 +882,7 @@ export function ChatPage() {
     try { window.localStorage.setItem(IMG_QUOTA_KEY, JSON.stringify(next)); } catch { /* ignore */ }
   };
 
-  const generateImageInline = async (prompt: string, inputImage?: string) => {
+  const generateImageInline = async (prompt: string, inputImage?: string, parentId?: string) => {
     const isFree = !user.isPremium;
     if (isFree) {
       const q = readImgQuota();
@@ -902,7 +916,7 @@ export function ChatPage() {
       return fetch("/api/image", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ generationId, prompt, ...(inputImage ? { inputImage } : {}) }),
+        body: JSON.stringify({ generationId, prompt, ...(inputImage ? { inputImage } : {}), ...(parentId ? { parentId } : {}) }),
       });
     };
 
@@ -995,7 +1009,7 @@ export function ChatPage() {
     if (files.length === 0) {
       const lastImg = extractLastGeneratedImage(messages);
       if (lastImg && isExplicitImageEdit(text)) {
-        await generateImageInline(text, lastImg);
+        await generateImageInline(text, lastImg.url, lastImg.parentId);
         return;
       }
       const intent = detectImageIntent(text);
