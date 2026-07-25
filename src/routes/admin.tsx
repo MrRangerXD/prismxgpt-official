@@ -362,12 +362,8 @@ function AdminPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Link
-              to="/admin/docs"
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent"
-            >
-              <Megaphone className="h-3.5 w-3.5" /> Documentation
-            </Link>
+
+
             <button
               onClick={async () => {
                 await supabase.auth.signOut();
