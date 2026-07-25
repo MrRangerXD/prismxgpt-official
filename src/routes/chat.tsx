@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowUp, PanelLeft, Menu, Square, Plus, ImageIcon, Globe, Telescope, Paperclip, X, Copy, Check, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, UploadCloud, Mic } from "lucide-react";
 import { toast } from "sonner";
 import { useChat } from "@ai-sdk/react";
@@ -8,17 +8,21 @@ import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { PrismSidebar } from "@/components/prism-sidebar";
 import { PrismXLogo } from "@/components/prismx-logo";
-import { PlusModal } from "@/components/plus-modal";
-import { ProfileEditModal } from "@/components/profile-edit-modal";
-import { SearchModal } from "@/components/search-modal";
-import { LibraryModal } from "@/components/library-modal";
-import { ProjectsModal } from "@/components/projects-modal";
-import { ImageModal } from "@/components/image-modal";
 import { AnnouncementBanner } from "@/components/announcement-banner";
-import { SettingsModal } from "@/components/settings-modal";
-import { MoveToProjectModal } from "@/components/move-to-project-modal";
-import { RenameChatModal } from "@/components/rename-chat-modal";
-import { CreateChatModal } from "@/components/create-chat-modal";
+
+// Modals are code-split — none are visible on first paint, and several pull
+// heavy dependencies (image editor, project pickers, settings forms). Lazy
+// loading trims the initial chat bundle and defers their JS until opened.
+const PlusModal = lazy(() => import("@/components/plus-modal").then((m) => ({ default: m.PlusModal })));
+const ProfileEditModal = lazy(() => import("@/components/profile-edit-modal").then((m) => ({ default: m.ProfileEditModal })));
+const SearchModal = lazy(() => import("@/components/search-modal").then((m) => ({ default: m.SearchModal })));
+const LibraryModal = lazy(() => import("@/components/library-modal").then((m) => ({ default: m.LibraryModal })));
+const ProjectsModal = lazy(() => import("@/components/projects-modal").then((m) => ({ default: m.ProjectsModal })));
+const ImageModal = lazy(() => import("@/components/image-modal").then((m) => ({ default: m.ImageModal })));
+const SettingsModal = lazy(() => import("@/components/settings-modal").then((m) => ({ default: m.SettingsModal })));
+const MoveToProjectModal = lazy(() => import("@/components/move-to-project-modal").then((m) => ({ default: m.MoveToProjectModal })));
+const RenameChatModal = lazy(() => import("@/components/rename-chat-modal").then((m) => ({ default: m.RenameChatModal })));
+const CreateChatModal = lazy(() => import("@/components/create-chat-modal").then((m) => ({ default: m.CreateChatModal })));
 
 
 import { useProfile } from "@/hooks/use-profile";
@@ -283,7 +287,10 @@ export function ChatPage() {
   }, [user.userId, urlChatId]);
 
 
-  const active = threads.find((t) => t.id === activeId) ?? null;
+  const active = useMemo(
+    () => threads.find((t) => t.id === activeId) ?? null,
+    [threads, activeId],
+  );
 
   // Refs so the memoized transport reads the latest mode without recreating.
   const modeRef = useRef(mode);
@@ -441,100 +448,106 @@ export function ChatPage() {
   }, [chatId, threads, urlChatId, user.userId, setMessages]);
 
   // Recovery poller: for every pending image-generation marker in the current
-  // thread, poll GET /api/image?id=<id> until the row is completed/failed.
-  // This is what makes "refresh mid-edit" resume without losing progress.
-  const recoveryTrackedRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    const pending: Array<{ msgId: string; genId: string }> = [];
-    for (const m of messages) {
-      if (m.role !== "assistant") continue;
-      const parts = (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts ?? [];
-      for (const p of parts) {
-        if (p.type !== "text" || typeof p.text !== "string") continue;
-        const match = p.text.trim().match(/^⟪(?:imggen|imgedit):pending:([0-9a-f-]{36})⟫$/i);
-        if (match) pending.push({ msgId: m.id, genId: match[1] });
-      }
-    }
-    if (pending.length === 0) return;
-    let cancelled = false;
-    const timers: Array<ReturnType<typeof setTimeout>> = [];
-    const seen = recoveryTrackedRef.current;
+   // thread, poll GET /api/image?id=<id> until the row is completed/failed.
+   // This is what makes "refresh mid-edit" resume without losing progress.
+   //
+   // Perf: the effect used to depend on `messages` directly, which caused it
+   // to tear down/rebuild every streaming token (60+ times/sec). We now
+   // derive a stable fingerprint of pending markers so the effect only
+   // re-runs when the set of pending generations actually changes.
+   const recoveryTrackedRef = useRef<Set<string>>(new Set());
+   const pendingGenerations = useMemo(() => {
+     const out: Array<{ msgId: string; genId: string }> = [];
+     for (const m of messages) {
+       if (m.role !== "assistant") continue;
+       const parts = (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts ?? [];
+       for (const p of parts) {
+         if (p.type !== "text" || typeof p.text !== "string") continue;
+         const match = p.text.trim().match(/^⟪(?:imggen|imgedit):pending:([0-9a-f-]{36})⟫$/i);
+         if (match) out.push({ msgId: m.id, genId: match[1] });
+       }
+     }
+     return out;
+   }, [messages]);
+   const pendingKey = pendingGenerations.map((p) => `${p.msgId}:${p.genId}`).join("|");
+   useEffect(() => {
+     if (pendingGenerations.length === 0) return;
+     let cancelled = false;
+     const timers: Array<ReturnType<typeof setTimeout>> = [];
+     const seen = recoveryTrackedRef.current;
 
-    const finalize = (msgId: string, text: string) => {
-      setMessages((prev) => {
-        const next = prev.map((m) =>
-          m.id === msgId
-            ? ({ ...m, parts: [{ type: "text", text }] } as unknown as UIMessage)
-            : m,
-        );
-        queueMicrotask(() => syncActiveThreadMessages(next, true));
-        return next;
-      });
-    };
+     const finalize = (msgId: string, text: string) => {
+       setMessages((prev) => {
+         const next = prev.map((m) =>
+           m.id === msgId
+             ? ({ ...m, parts: [{ type: "text", text }] } as unknown as UIMessage)
+             : m,
+         );
+         queueMicrotask(() => syncActiveThreadMessages(next, true));
+         return next;
+       });
+     };
 
-    const pollOnce = async (msgId: string, genId: string, attempt: number) => {
-      if (cancelled) return;
-      try {
-        const { data } = await supabase.auth.getSession();
-        const token = data.session?.access_token;
-        if (!token) return; // will retry on next hydration when auth is ready
-        const res = await fetch(`/api/image?id=${encodeURIComponent(genId)}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (cancelled) return;
-        if (res.status === 404) {
-          // No server row yet. Two cases:
-          //  (a) POST hasn't upserted yet (race after refresh) — retry a few
-          //      times before giving up so we don't false-finalize.
-          //  (b) Legacy marker that never had a server row — give up after
-          //      ~20s of retries.
-          if (attempt < 8) {
-            timers.push(setTimeout(() => pollOnce(msgId, genId, attempt + 1), 2000));
-            return;
-          }
-          finalize(msgId, "Image generation was interrupted. Please try again.");
-          return;
-        }
-        const payload = (await res.json().catch(() => null)) as {
-          status?: string;
-          imageUrl?: string;
-          error?: string;
-        } | null;
-        if (!payload) return;
-        if (payload.status === "completed" && payload.imageUrl) {
-          finalize(msgId, `![generated image](${payload.imageUrl})`);
-          return;
-        }
-        if (payload.status === "failed") {
-          finalize(msgId, payload.error || "Image generation failed. Please try again.");
-          return;
-        }
-        // still processing — poll again with mild backoff, cap ~3 min.
-        if (attempt > 60) {
-          finalize(msgId, "Image generation timed out. Please try again.");
-          return;
-        }
-        const delay = Math.min(4000, 1500 + attempt * 100);
-        timers.push(setTimeout(() => pollOnce(msgId, genId, attempt + 1), delay));
-      } catch (e) {
-        if (cancelled) return;
-        console.error("[image] recovery poll error", e);
-        timers.push(setTimeout(() => pollOnce(msgId, genId, attempt + 1), 3000));
-      }
-    };
+     const pollOnce = async (msgId: string, genId: string, attempt: number) => {
+       if (cancelled) return;
+       try {
+         const { data } = await supabase.auth.getSession();
+         const token = data.session?.access_token;
+         if (!token) return;
+         const res = await fetch(`/api/image?id=${encodeURIComponent(genId)}`, {
+           headers: { Authorization: `Bearer ${token}` },
+         });
+         if (cancelled) return;
+         if (res.status === 404) {
+           if (attempt < 8) {
+             timers.push(setTimeout(() => pollOnce(msgId, genId, attempt + 1), 2000));
+             return;
+           }
+           finalize(msgId, "Image generation was interrupted. Please try again.");
+           return;
+         }
+         const payload = (await res.json().catch(() => null)) as {
+           status?: string;
+           imageUrl?: string;
+           error?: string;
+         } | null;
+         if (!payload) return;
+         if (payload.status === "completed" && payload.imageUrl) {
+           finalize(msgId, `![generated image](${payload.imageUrl})`);
+           return;
+         }
+         if (payload.status === "failed") {
+           finalize(msgId, payload.error || "Image generation failed. Please try again.");
+           return;
+         }
+         if (attempt > 60) {
+           finalize(msgId, "Image generation timed out. Please try again.");
+           return;
+         }
+         const delay = Math.min(4000, 1500 + attempt * 100);
+         timers.push(setTimeout(() => pollOnce(msgId, genId, attempt + 1), delay));
+       } catch (e) {
+         if (cancelled) return;
+         console.error("[image] recovery poll error", e);
+         timers.push(setTimeout(() => pollOnce(msgId, genId, attempt + 1), 3000));
+       }
+     };
 
-    for (const { msgId, genId } of pending) {
-      const key = `${msgId}:${genId}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      pollOnce(msgId, genId, 0);
-    }
+     for (const { msgId, genId } of pendingGenerations) {
+       const key = `${msgId}:${genId}`;
+       if (seen.has(key)) continue;
+       seen.add(key);
+       pollOnce(msgId, genId, 0);
+     }
 
-    return () => {
-      cancelled = true;
-      for (const t of timers) clearTimeout(t);
-    };
-  }, [messages, setMessages, syncActiveThreadMessages]);
+     return () => {
+       cancelled = true;
+       for (const t of timers) clearTimeout(t);
+     };
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [pendingKey, setMessages, syncActiveThreadMessages]);
+
+
 
 
   // Persist messages back to storage. Streaming updates are throttled so the
@@ -1375,59 +1388,70 @@ export function ChatPage() {
 
 
 
-      <PlusModal open={showPlus} onClose={() => setShowPlus(false)} />
-      <ProfileEditModal
-        open={showProfile}
-        onClose={() => setShowProfile(false)}
-        profile={user.profile}
-        onSaved={() => user.refresh()}
-      />
-      <SearchModal
-        open={showSearch}
-        onClose={() => setShowSearch(false)}
-        threads={threads}
-        onSelect={handleSelect}
-        onNewChat={handleNewChat}
-      />
-      <LibraryModal open={showLibrary} onClose={() => setShowLibrary(false)} />
-      <ProjectsModal open={showProjects} onClose={() => setShowProjects(false)} />
-      <ImageModal open={showImage} onClose={() => setShowImage(false)} />
-      <SettingsModal
-        open={showSettings}
-        onClose={() => setShowSettings(false)}
-        profile={user.profile}
-        onSaved={() => user.refresh()}
-        onClearHistory={() => {
-          if (!user.userId) return;
-          persist([]);
-          setActiveId(null);
-          setChatId(newThreadId());
-          setMessages([]);
-          toast.success("Chat history cleared");
-          navigate({ to: "/chat" });
-        }}
-      />
-      <MoveToProjectModal
-        open={moveTargetId !== null}
-        onClose={() => setMoveTargetId(null)}
-        chatTitle={threads.find((t) => t.id === moveTargetId)?.title ?? ""}
-        onMove={performMove}
-      />
-
-
-      <RenameChatModal
-        open={!!renameModal}
-        currentName={renameModal?.currentName ?? ""}
-        onClose={() => setRenameModal(null)}
-        onSave={confirmRename}
-      />
-
-      <CreateChatModal
-        open={showCreateChat}
-        onClose={() => setShowCreateChat(false)}
-        onContinue={handleCreateContinue}
-        onSkip={handleCreateSkip}
-      />
+      <Suspense fallback={null}>
+        {showPlus && <PlusModal open={showPlus} onClose={() => setShowPlus(false)} />}
+        {showProfile && (
+          <ProfileEditModal
+            open={showProfile}
+            onClose={() => setShowProfile(false)}
+            profile={user.profile}
+            onSaved={() => user.refresh()}
+          />
+        )}
+        {showSearch && (
+          <SearchModal
+            open={showSearch}
+            onClose={() => setShowSearch(false)}
+            threads={threads}
+            onSelect={handleSelect}
+            onNewChat={handleNewChat}
+          />
+        )}
+        {showLibrary && <LibraryModal open={showLibrary} onClose={() => setShowLibrary(false)} />}
+        {showProjects && <ProjectsModal open={showProjects} onClose={() => setShowProjects(false)} />}
+        {showImage && <ImageModal open={showImage} onClose={() => setShowImage(false)} />}
+        {showSettings && (
+          <SettingsModal
+            open={showSettings}
+            onClose={() => setShowSettings(false)}
+            profile={user.profile}
+            onSaved={() => user.refresh()}
+            onClearHistory={() => {
+              if (!user.userId) return;
+              persist([]);
+              setActiveId(null);
+              setChatId(newThreadId());
+              setMessages([]);
+              toast.success("Chat history cleared");
+              navigate({ to: "/chat" });
+            }}
+          />
+        )}
+        {moveTargetId !== null && (
+          <MoveToProjectModal
+            open={moveTargetId !== null}
+            onClose={() => setMoveTargetId(null)}
+            chatTitle={threads.find((t) => t.id === moveTargetId)?.title ?? ""}
+            onMove={performMove}
+          />
+        )}
+        {renameModal && (
+          <RenameChatModal
+            open={!!renameModal}
+            currentName={renameModal?.currentName ?? ""}
+            onClose={() => setRenameModal(null)}
+            onSave={confirmRename}
+          />
+        )}
+        {showCreateChat && (
+          <CreateChatModal
+            open={showCreateChat}
+            onClose={() => setShowCreateChat(false)}
+            onContinue={handleCreateContinue}
+            onSkip={handleCreateSkip}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }
