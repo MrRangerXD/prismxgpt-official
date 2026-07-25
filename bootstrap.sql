@@ -1084,3 +1084,1244 @@ ON CONFLICT (slug) DO NOTHING;
 -- ============================================================================
 
 
+-- ============================================================================
+-- Comprehensive documentation seed (idempotent).
+-- Every sidebar / navbar / footer link in /docs resolves to one of these.
+-- Admin-edited pages are preserved: ON CONFLICT DO NOTHING.
+-- ============================================================================
+
+INSERT INTO public.documentation_categories (slug, title, description, sort_order) VALUES ('getting-started', 'Getting Started', 'Install PrismXGPT, authenticate, and ship your first request.', 0) ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_categories (slug, title, description, sort_order) VALUES ('product', 'Product', 'Core features: chat, image generation, projects and more.', 1) ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_categories (slug, title, description, sort_order) VALUES ('api-reference', 'API Reference', 'REST endpoints, streaming, errors, rate limits and webhooks.', 2) ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_categories (slug, title, description, sort_order) VALUES ('sdks-examples', 'SDKs & Examples', 'Client libraries, working examples, and guided tutorials.', 3) ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_categories (slug, title, description, sort_order) VALUES ('administration', 'Administration', 'Manage users, roles, plans, billing and analytics.', 4) ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_categories (slug, title, description, sort_order) VALUES ('deployment', 'Deployment', 'Environment setup, storage, production hardening and backups.', 5) ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_categories (slug, title, description, sort_order) VALUES ('resources', 'Resources', 'FAQ, troubleshooting, release notes and glossary.', 6) ON CONFLICT (slug) DO NOTHING;
+
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'installation', 'Installation', 'Add PrismXGPT to a new or existing project.', '# Installation
+
+> Add PrismXGPT to a new or existing project.
+
+## Overview
+
+This page covers **Installation** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Installation is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Example
+
+```bash
+npm install @prismxgpt/sdk
+# or
+pip install prismxgpt
+```
+
+## Notes
+
+- Installation respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 1, c.id, now(), ARRAY['setup','cli']::text[], true, true, NULL, ARRAY['quick-start','authentication']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'getting-started' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'quick-start', 'Quick Start', 'Send your first request in under five minutes.', '# Quick Start
+
+> Send your first request in under five minutes.
+
+## Overview
+
+This page covers **Quick Start** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Quick Start is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Example
+
+```ts
+import { PrismX } from ''@prismxgpt/sdk'';
+const client = new PrismX({ apiKey: process.env.PRISMX_API_KEY! });
+const res = await client.chat.create({ model: ''prismx-1'', input: ''Hello!'' });
+console.log(res.output_text);
+```
+
+## Notes
+
+- Quick Start respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 2, c.id, now(), ARRAY['setup']::text[], true, true, NULL, ARRAY['installation','authentication']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'getting-started' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'authentication', 'Authentication', 'API keys, sessions, and secure server-to-server auth.', '# Authentication
+
+> API keys, sessions, and secure server-to-server auth.
+
+## Overview
+
+This page covers **Authentication** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Authentication is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Example
+
+```bash
+curl https://api.prismxgpt.dev/v1/models \
+  -H "Authorization: Bearer $PRISMX_API_KEY"
+```
+
+## Notes
+
+- Authentication respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 3, c.id, now(), ARRAY['auth','security']::text[], false, false, NULL, ARRAY['quick-start','rest-api']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'getting-started' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'chat', 'Chat', 'Build streaming multi-turn conversations with tools and memory.', '# Chat
+
+> Build streaming multi-turn conversations with tools and memory.
+
+## Overview
+
+This page covers **Chat** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Chat is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Example
+
+```ts
+for await (const chunk of client.chat.stream({ model: ''prismx-1'', input: ''Explain SSE'' })) {
+  process.stdout.write(chunk.delta ?? '''');
+}
+```
+
+## Notes
+
+- Chat respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 1, c.id, now(), ARRAY['chat','streaming']::text[], true, false, NULL, ARRAY['streaming','models']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'product' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'image-generation', 'Image Generation', 'Create original images from text prompts.', '# Image Generation
+
+> Create original images from text prompts.
+
+## Overview
+
+This page covers **Image Generation** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Image Generation is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Example
+
+```ts
+const img = await client.images.generate({ prompt: ''A prism refracting light'', size: ''1024x1024'' });
+console.log(img.url);
+```
+
+## Notes
+
+- Image Generation respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 2, c.id, now(), ARRAY['images']::text[], true, false, NULL, ARRAY['image-editing']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'product' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'image-editing', 'Image Editing', 'Iterate on any image with reversible, non-destructive edits.', '# Image Editing
+
+> Iterate on any image with reversible, non-destructive edits.
+
+## Overview
+
+This page covers **Image Editing** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Image Editing is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Example
+
+```ts
+const edited = await client.images.edit({ image_id: img.id, prompt: ''make the background midnight blue'' });
+```
+
+## Notes
+
+- Image Editing respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 3, c.id, now(), ARRAY['images']::text[], false, false, NULL, ARRAY['image-generation']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'product' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'voice', 'Voice', 'Speech-to-text input and text-to-speech playback.', '# Voice
+
+> Speech-to-text input and text-to-speech playback.
+
+## Overview
+
+This page covers **Voice** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Voice is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Example
+
+```ts
+const audio = await client.audio.speech.create({ voice: ''aurora'', input: ''Hello!'' });
+```
+
+## Notes
+
+- Voice respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 4, c.id, now(), ARRAY['voice']::text[], false, false, NULL, ARRAY['chat']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'product' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'projects', 'Projects', 'Group chats, files and instructions into shared workspaces.', '# Projects
+
+> Group chats, files and instructions into shared workspaces.
+
+## Overview
+
+This page covers **Projects** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Projects is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Projects respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 5, c.id, now(), ARRAY['projects']::text[], false, true, NULL, ARRAY['library','memory']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'product' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'library', 'Library', 'A searchable archive of every image, upload and document.', '# Library
+
+> A searchable archive of every image, upload and document.
+
+## Overview
+
+This page covers **Library** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Library is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Library respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 6, c.id, now(), ARRAY['library']::text[], false, false, NULL, ARRAY['projects']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'product' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'memory', 'Memory', 'Persistent facts the assistant remembers across sessions.', '# Memory
+
+> Persistent facts the assistant remembers across sessions.
+
+## Overview
+
+This page covers **Memory** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Memory is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Memory respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 7, c.id, now(), ARRAY['memory']::text[], false, false, NULL, ARRAY['chat','projects']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'product' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'models', 'Models', 'Reference: available models, capabilities and pricing.', '# Models
+
+> Reference: available models, capabilities and pricing.
+
+## Overview
+
+This page covers **Models** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Models is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Models respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 8, c.id, now(), ARRAY['models']::text[], false, false, NULL, ARRAY['chat','rate-limits']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'product' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'prompt-library', 'Prompt Library', 'Curated prompts and templates you can reuse.', '# Prompt Library
+
+> Curated prompts and templates you can reuse.
+
+## Overview
+
+This page covers **Prompt Library** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Prompt Library is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Prompt Library respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 9, c.id, now(), ARRAY['prompts']::text[], false, false, NULL, ARRAY['chat']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'product' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'api-overview', 'API Overview', 'How the REST API is organized and versioned.', '# API Overview
+
+> How the REST API is organized and versioned.
+
+## Overview
+
+This page covers **API Overview** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+API Overview is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- API Overview respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 1, c.id, now(), ARRAY['api']::text[], true, true, 'api', ARRAY['rest-api','authentication']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'api-reference' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'rest-api', 'REST API', 'Full reference for every REST endpoint.', '# REST API
+
+> Full reference for every REST endpoint.
+
+## Overview
+
+This page covers **REST API** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+REST API is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Example
+
+```http
+POST /v1/chat
+Authorization: Bearer $PRISMX_API_KEY
+Content-Type: application/json
+
+{ "model": "prismx-1", "input": "Hello!" }
+```
+
+## Notes
+
+- REST API respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 2, c.id, now(), ARRAY['api','rest']::text[], false, false, 'api', ARRAY['api-overview','streaming']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'api-reference' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'streaming', 'Streaming', 'Server-sent events for incremental chat responses.', '# Streaming
+
+> Server-sent events for incremental chat responses.
+
+## Overview
+
+This page covers **Streaming** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Streaming is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Example
+
+```ts
+const res = await fetch(''/v1/chat/stream'', { method: ''POST'', body: JSON.stringify({ input: ''Hi'' }) });
+const reader = res.body!.getReader();
+```
+
+## Notes
+
+- Streaming respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 3, c.id, now(), ARRAY['api','streaming']::text[], false, false, 'api', ARRAY['rest-api','chat']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'api-reference' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'errors', 'Errors', 'Standardized error codes and how to handle them.', '# Errors
+
+> Standardized error codes and how to handle them.
+
+## Overview
+
+This page covers **Errors** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Errors is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Example
+
+```json
+{ "error": { "code": "rate_limited", "message": "Slow down", "retry_after": 12 } }
+```
+
+## Notes
+
+- Errors respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 4, c.id, now(), ARRAY['api','errors']::text[], false, false, 'api', ARRAY['rate-limits','troubleshooting']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'api-reference' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'rate-limits', 'Rate Limits', 'Per-plan quotas, headers and backoff strategy.', '# Rate Limits
+
+> Per-plan quotas, headers and backoff strategy.
+
+## Overview
+
+This page covers **Rate Limits** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Rate Limits is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Example
+
+```http
+HTTP/1.1 429 Too Many Requests
+X-RateLimit-Remaining: 0
+Retry-After: 30
+```
+
+## Notes
+
+- Rate Limits respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 5, c.id, now(), ARRAY['api','limits']::text[], false, false, 'api', ARRAY['errors','plans']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'api-reference' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'webhooks', 'Webhooks', 'Receive push notifications for asynchronous events.', '# Webhooks
+
+> Receive push notifications for asynchronous events.
+
+## Overview
+
+This page covers **Webhooks** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Webhooks is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Example
+
+```ts
+app.post(''/webhooks/prismx'', (req, res) => {
+  const evt = verifySignature(req);
+  res.sendStatus(200);
+});
+```
+
+## Notes
+
+- Webhooks respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 6, c.id, now(), ARRAY['api','webhooks']::text[], false, false, 'api', ARRAY['rest-api']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'api-reference' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'sdks-overview', 'SDKs', 'First-party TypeScript and Python client libraries.', '# SDKs
+
+> First-party TypeScript and Python client libraries.
+
+## Overview
+
+This page covers **SDKs** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+SDKs is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Example
+
+```bash
+npm install @prismxgpt/sdk
+pip install prismxgpt
+```
+
+## Notes
+
+- SDKs respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 1, c.id, now(), ARRAY['sdk']::text[], true, false, 'sdk', ARRAY['quick-start','examples-overview']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'sdks-examples' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'examples-overview', 'Examples', 'Copy-paste ready samples for common workflows.', '# Examples
+
+> Copy-paste ready samples for common workflows.
+
+## Overview
+
+This page covers **Examples** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Examples is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Examples respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 2, c.id, now(), ARRAY['examples']::text[], true, false, 'examples', ARRAY['guides-overview','sdks-overview']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'sdks-examples' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'guides-overview', 'Guides', 'Long-form guides for end-to-end product patterns.', '# Guides
+
+> Long-form guides for end-to-end product patterns.
+
+## Overview
+
+This page covers **Guides** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Guides is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Guides respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 3, c.id, now(), ARRAY['guides']::text[], true, false, 'tutorials', ARRAY['examples-overview','chat']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'sdks-examples' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'administration', 'Administration', 'Admin dashboard overview and daily operations.', '# Administration
+
+> Admin dashboard overview and daily operations.
+
+## Overview
+
+This page covers **Administration** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Administration is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Administration respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 1, c.id, now(), ARRAY['admin']::text[], false, false, NULL, ARRAY['users','plans']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'administration' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'users', 'Users', 'Create, invite, suspend and search users.', '# Users
+
+> Create, invite, suspend and search users.
+
+## Overview
+
+This page covers **Users** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Users is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Users respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 2, c.id, now(), ARRAY['admin','users']::text[], false, false, NULL, ARRAY['roles','administration']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'administration' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'roles', 'Roles', 'Role-based access control and the permissions model.', '# Roles
+
+> Role-based access control and the permissions model.
+
+## Overview
+
+This page covers **Roles** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Roles is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Roles respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 3, c.id, now(), ARRAY['admin','rbac']::text[], false, false, NULL, ARRAY['users','security']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'administration' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'plans', 'Plans', 'Configure pricing plans, limits and entitlements.', '# Plans
+
+> Configure pricing plans, limits and entitlements.
+
+## Overview
+
+This page covers **Plans** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Plans is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Plans respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 4, c.id, now(), ARRAY['admin','plans']::text[], false, false, NULL, ARRAY['billing','rate-limits']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'administration' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'billing', 'Billing', 'Invoices, receipts, tax and refunds.', '# Billing
+
+> Invoices, receipts, tax and refunds.
+
+## Overview
+
+This page covers **Billing** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Billing is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Billing respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 5, c.id, now(), ARRAY['billing']::text[], false, false, NULL, ARRAY['plans']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'administration' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'analytics', 'Analytics', 'Usage, retention and feature-adoption dashboards.', '# Analytics
+
+> Usage, retention and feature-adoption dashboards.
+
+## Overview
+
+This page covers **Analytics** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Analytics is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Analytics respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 6, c.id, now(), ARRAY['analytics']::text[], false, false, NULL, ARRAY['administration']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'administration' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'feature-flags', 'Feature Flags', 'Ship features safely behind toggles and percentage rollouts.', '# Feature Flags
+
+> Ship features safely behind toggles and percentage rollouts.
+
+## Overview
+
+This page covers **Feature Flags** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Feature Flags is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Feature Flags respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 7, c.id, now(), ARRAY['flags']::text[], false, false, NULL, ARRAY['administration']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'administration' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'deployment', 'Deployment', 'Ship PrismXGPT to production on the platform of your choice.', '# Deployment
+
+> Ship PrismXGPT to production on the platform of your choice.
+
+## Overview
+
+This page covers **Deployment** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Deployment is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Deployment respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 1, c.id, now(), ARRAY['deploy']::text[], false, false, NULL, ARRAY['production','environment-variables']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'deployment' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'supabase', 'Supabase', 'Wire the app to a Supabase project (Lovable Cloud).', '# Supabase
+
+> Wire the app to a Supabase project (Lovable Cloud).
+
+## Overview
+
+This page covers **Supabase** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Supabase is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Supabase respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 2, c.id, now(), ARRAY['supabase']::text[], false, false, NULL, ARRAY['environment-variables','storage']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'deployment' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'storage', 'Storage', 'Object storage buckets, policies and signed URLs.', '# Storage
+
+> Object storage buckets, policies and signed URLs.
+
+## Overview
+
+This page covers **Storage** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Storage is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Storage respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 3, c.id, now(), ARRAY['storage']::text[], false, false, NULL, ARRAY['supabase']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'deployment' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'environment-variables', 'Environment Variables', 'All required and optional environment variables, per surface.', '# Environment Variables
+
+> All required and optional environment variables, per surface.
+
+## Overview
+
+This page covers **Environment Variables** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Environment Variables is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Example
+
+```bash
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_PUBLISHABLE_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...   # server only
+```
+
+## Notes
+
+- Environment Variables respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 4, c.id, now(), ARRAY['env']::text[], false, false, NULL, ARRAY['deployment','production']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'deployment' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'production', 'Production', 'A checklist for hardening before you flip the switch.', '# Production
+
+> A checklist for hardening before you flip the switch.
+
+## Overview
+
+This page covers **Production** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Production is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Production respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 5, c.id, now(), ARRAY['prod']::text[], false, false, NULL, ARRAY['security','backups']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'deployment' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'security', 'Security', 'Threat model, defaults and recommended hardening.', '# Security
+
+> Threat model, defaults and recommended hardening.
+
+## Overview
+
+This page covers **Security** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Security is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Security respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 6, c.id, now(), ARRAY['security']::text[], false, false, NULL, ARRAY['roles','backups']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'deployment' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'backups', 'Backups', 'Point-in-time recovery, exports and disaster planning.', '# Backups
+
+> Point-in-time recovery, exports and disaster planning.
+
+## Overview
+
+This page covers **Backups** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Backups is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Backups respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 7, c.id, now(), ARRAY['backups']::text[], false, false, NULL, ARRAY['production','security']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'deployment' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'faq', 'FAQ', 'Answers to the most common questions.', '# FAQ
+
+> Answers to the most common questions.
+
+## Overview
+
+This page covers **FAQ** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+FAQ is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- FAQ respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 1, c.id, now(), ARRAY['faq']::text[], false, false, 'community', ARRAY['troubleshooting']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'resources' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'troubleshooting', 'Troubleshooting', 'Diagnose common issues and their fixes.', '# Troubleshooting
+
+> Diagnose common issues and their fixes.
+
+## Overview
+
+This page covers **Troubleshooting** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Troubleshooting is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Troubleshooting respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 2, c.id, now(), ARRAY['support']::text[], false, false, 'community', ARRAY['errors','faq']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'resources' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'release-notes', 'Release Notes', 'Detailed changelog of every release.', '# Release Notes
+
+> Detailed changelog of every release.
+
+## Overview
+
+This page covers **Release Notes** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Release Notes is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Release Notes respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 3, c.id, now(), ARRAY['releases']::text[], false, false, 'changelog', ARRAY['changelog']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'resources' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'changelog', 'Changelog', 'What''s new, what changed, what''s coming next.', '# Changelog
+
+> What''s new, what changed, what''s coming next.
+
+## Overview
+
+This page covers **Changelog** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Changelog is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Changelog respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 4, c.id, now(), ARRAY['releases']::text[], true, false, 'changelog', ARRAY['release-notes']::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'resources' ON CONFLICT (slug) DO NOTHING;
+INSERT INTO public.documentation_pages (slug, title, description, content, status, visibility, sort_order, category_id, published_at, tags, is_featured, is_pinned, homepage_section, related_slugs, author, reading_minutes) SELECT 'glossary', 'Glossary', 'Terminology used throughout the platform.', '# Glossary
+
+> Terminology used throughout the platform.
+
+## Overview
+
+This page covers **Glossary** in PrismXGPT. Use it as a reference while you build, and follow the linked related pages for deeper dives.
+
+## How it works
+
+Glossary is designed around three principles: predictability, safety and speed. Every request is idempotent by default, every response is versioned, and every mutation is auditable from the admin dashboard.
+
+## Notes
+
+- Glossary respects your project''s active plan limits.
+- All timestamps are ISO 8601 UTC.
+- Field names are `snake_case` in JSON and `camelCase` in the SDKs.
+
+## Best practices
+
+1. Always handle transient errors with exponential backoff.
+2. Store secrets in server-side environment variables — never in the client bundle.
+3. Prefer streaming for anything user-facing to reduce time-to-first-token.
+
+## Related
+
+See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
+', 'published', 'public', 5, c.id, now(), ARRAY['glossary']::text[], false, false, NULL, ARRAY[]::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'resources' ON CONFLICT (slug) DO NOTHING;
+
