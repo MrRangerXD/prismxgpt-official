@@ -3,15 +3,6 @@ import { X, ImageIcon, Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-function dataUrlToBlob(dataUrl: string): Blob {
-  const [head, b64] = dataUrl.split(",");
-  const mime = /data:(.*?);base64/.exec(head)?.[1] ?? "image/png";
-  const bin = atob(b64);
-  const arr = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-  return new Blob([arr], { type: mime });
-}
-
 export function ImageModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,45 +18,39 @@ export function ImageModal({ open, onClose }: { open: boolean; onClose: () => vo
     try {
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
-      const userId = sess.session?.user.id;
-      if (!token || !userId) throw new Error("Please sign in to generate images");
+      if (!token) throw new Error("Please sign in to generate images");
+
+      // The /api/image POST handler requires a client-owned UUID and
+      // returns `imageUrl` (public storage URL), not `dataUrl`. Without
+      // the id it 400s with "Missing generation id"; without reading
+      // `imageUrl` the modal always errored even on successful generations.
+      // Server-side already persists the image to the user's library, so
+      // no duplicate upload is needed here.
+      const generationId =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}-0000-0000-0000-000000000000`;
+
       const res = await fetch("/api/image", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ prompt: text }),
+        body: JSON.stringify({ generationId, prompt: text }),
       });
-      const payload = (await res.json().catch(() => null)) as { dataUrl?: string; error?: string } | null;
-      if (!res.ok || !payload?.dataUrl) {
-        throw new Error(payload?.error || "Image generation is temporarily unavailable. Please try again in a moment.");
+      const payload = (await res.json().catch(() => null)) as {
+        imageUrl?: string;
+        status?: string;
+        error?: string;
+      } | null;
+      if (!res.ok || !payload?.imageUrl) {
+        throw new Error(
+          payload?.error ||
+            "Image generation is temporarily unavailable. Please try again in a moment.",
+        );
       }
-      setImage(payload.dataUrl);
-
-
-      // Save to library (best effort)
-      try {
-        const blob = dataUrlToBlob(payload.dataUrl);
-        const path = `${userId}/${Date.now()}-${crypto.randomUUID()}.png`;
-        const up = await supabase.storage.from("library").upload(path, blob, {
-          contentType: blob.type,
-          upsert: false,
-        });
-        if (!up.error) {
-          await supabase.from("library_items" as never).insert({
-            user_id: userId,
-            kind: "image",
-            title: text.slice(0, 80),
-            prompt: text,
-            storage_path: path,
-            mime_type: blob.type,
-            size_bytes: blob.size,
-          } as never);
-        }
-      } catch {
-        // ignore library save errors
-      }
+      setImage(payload.imageUrl);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Image generation failed");
     } finally {
@@ -73,12 +58,25 @@ export function ImageModal({ open, onClose }: { open: boolean; onClose: () => vo
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!image) return;
-    const a = document.createElement("a");
-    a.href = image;
-    a.download = `prismxgpt-${Date.now()}.png`;
-    a.click();
+    try {
+      // Public storage URLs need fetch + blob so the browser respects the
+      // `download` attribute cross-origin; anchor href alone opens the image.
+      const res = await fetch(image);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `prismxgpt-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Fallback: open in a new tab so the user can save manually.
+      window.open(image, "_blank", "noopener");
+    }
   };
 
   return (
