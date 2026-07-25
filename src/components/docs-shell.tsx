@@ -533,11 +533,18 @@ function CategorySection({
 const paletteBus: { open: () => void } = { open: () => {} };
 export function openDocsPalette() { paletteBus.open(); }
 
-const TOP_NAV: Array<{ label: string; to: string; active?: boolean }> = [
-  { label: "Docs", to: "/docs", active: true },
-  { label: "API", to: "/docs" },
-  { label: "Guides", to: "/docs" },
-  { label: "Changelog", to: "/docs" },
+/**
+ * Top navigation — each item must resolve to a real, published page.
+ * Home is `/docs`; every other tab targets a seeded landing slug that
+ * exists in `documentation_pages`.
+ */
+const TOP_NAV: Array<{ label: string; slug: string | null }> = [
+  { label: "Docs", slug: null },
+  { label: "API", slug: "api-overview" },
+  { label: "Guides", slug: "guides-overview" },
+  { label: "Examples", slug: "examples-overview" },
+  { label: "SDKs", slug: "sdks-overview" },
+  { label: "Changelog", slug: "changelog" },
 ];
 
 export function DocsShell({
@@ -670,19 +677,27 @@ export function DocsShell({
           </Link>
 
           <nav className="ml-4 hidden items-center gap-1 md:flex">
-            {TOP_NAV.map((n) => (
-              <Link
-                key={n.label}
-                to={n.to}
-                className={`rounded-md px-2.5 py-1.5 text-[13px] font-medium transition ${
-                  n.active
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                }`}
-              >
-                {n.label}
-              </Link>
-            ))}
+            {TOP_NAV.map((n) => {
+              const isActive = n.slug === null ? activeSlug === null : activeSlug === n.slug;
+              const className = `rounded-md px-2.5 py-1.5 text-[13px] font-medium transition ${
+                isActive
+                  ? "text-foreground bg-accent/60"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              }`;
+              return n.slug === null ? (
+                <Link key={n.label} to="/docs" className={className}>{n.label}</Link>
+              ) : (
+                <Link
+                  key={n.label}
+                  to="/docs/$slug"
+                  params={{ slug: n.slug }}
+                  preload="intent"
+                  className={className}
+                >
+                  {n.label}
+                </Link>
+              );
+            })}
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
@@ -912,19 +927,19 @@ function DocsFooter() {
 
         <FooterCol title="Documentation" links={[
           { label: "Overview", to: "/docs" },
-          { label: "Quick start", to: "/docs" },
-          { label: "API reference", to: "/docs" },
-          { label: "SDKs", to: "/docs" },
+          { label: "Quick start", slug: "quick-start" },
+          { label: "API reference", slug: "api-overview" },
+          { label: "SDKs", slug: "sdks-overview" },
         ]} />
         <FooterCol title="Product" links={[
-          { label: "Chat", to: "/chat" },
-          { label: "Projects", to: "/chat" },
-          { label: "Pricing", to: "/" },
+          { label: "Chat", slug: "chat" },
+          { label: "Image generation", slug: "image-generation" },
+          { label: "Projects", slug: "projects" },
         ]} />
         <FooterCol title="Resources" links={[
-          { label: "Help center", to: "/help" },
-          { label: "Changelog", to: "/docs" },
-          { label: "Community", to: "/help" },
+          { label: "FAQ", slug: "faq" },
+          { label: "Changelog", slug: "changelog" },
+          { label: "Troubleshooting", slug: "troubleshooting" },
         ]} />
         <FooterCol title="Company" links={[
           { label: "Home", to: "/" },
@@ -944,14 +959,29 @@ function DocsFooter() {
   );
 }
 
-function FooterCol({ title, links }: { title: string; links: Array<{ label: string; to: string }> }) {
+type FooterLink = { label: string; to?: string; slug?: string };
+
+function FooterCol({ title, links }: { title: string; links: FooterLink[] }) {
   return (
     <div>
       <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">{title}</div>
       <ul className="space-y-2 text-sm">
         {links.map((l) => (
           <li key={l.label}>
-            <Link to={l.to} className="text-foreground/80 transition hover:text-brand">{l.label}</Link>
+            {l.slug ? (
+              <Link
+                to="/docs/$slug"
+                params={{ slug: l.slug }}
+                preload="intent"
+                className="text-foreground/80 transition hover:text-brand"
+              >
+                {l.label}
+              </Link>
+            ) : (
+              <Link to={l.to as never} className="text-foreground/80 transition hover:text-brand">
+                {l.label}
+              </Link>
+            )}
           </li>
         ))}
       </ul>
