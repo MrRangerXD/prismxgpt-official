@@ -298,6 +298,20 @@ function DocsAdminPage() {
                         <Eye className="h-3.5 w-3.5" />
                       )}
                     </button>
+                    <button
+                      onClick={() => movePage(p, -1)}
+                      className="rounded-md border border-border p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      title="Move up"
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => movePage(p, 1)}
+                      className="rounded-md border border-border p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      title="Move down"
+                    >
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </button>
                     <Link
                       to="/admin/docs/$id"
                       params={{ id: p.id }}
