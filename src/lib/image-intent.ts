@@ -223,5 +223,5 @@ export function isExplicitImageEdit(rawText: string): boolean {
 export function classifyMessageIntent(rawText: string): MessageIntent {
   if (isExplicitImageEdit(rawText)) return "IMAGE_EDIT";
   const intent = detectImageIntent(rawText);
-  return intent.isImage && intent.confidence >= 0.8 ? "IMAGE_CREATE" : "TEXT";
+  return intent.isImage ? "IMAGE_CREATE" : "TEXT";
 }

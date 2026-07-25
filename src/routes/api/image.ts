@@ -369,8 +369,9 @@ export const Route = createFileRoute("/api/image")({
           prompt = kept.join("\n").slice(0, 8000);
         }
 
-        // Feature kill-switch + free-plan quota — same behavior as before,
-        // just guarded so a missing table/RPC never blocks generation.
+        // Feature kill-switch — guarded so a missing settings table never
+        // blocks generation. Quota is consumed inside runGeneration only
+        // after the generation id has been reserved for idempotency.
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { data: cfg } = await (supabaseAdmin as unknown as SupabaseAny)

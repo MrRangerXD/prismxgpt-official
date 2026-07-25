@@ -26,8 +26,7 @@
  *      before sending so long image-heavy chats don't blow the payload cap.
  *
  * 3. IMAGE INTENT ROUTING  (the ONLY place chat can branch into images)
- *    - `detectImageIntent(text)`       → NEW image generation
- *    - `isExplicitImageEdit(text)` + a prior completed image →  EDIT
+ *    - `classifyMessageIntent(text)` → TEXT / IMAGE_CREATE / IMAGE_EDIT
  *    - Anything else → normal chat. NEVER reuses a prior image, NEVER
  *      triggers polling, NEVER shows a progress card.
  *    - The classifier looks ONLY at the current user message. History,
