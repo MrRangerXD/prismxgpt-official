@@ -186,6 +186,22 @@ function isTransientImageLifecycleMessage(m: UIMessage): boolean {
   return parts.every((p) => p.type === "text" && typeof p.text === "string" && isImageLifecycleText(p.text));
 }
 
+function imageFailureMarker(kind: "imggen" | "imgedit", generationId: string, message: string): string {
+  return `⟪${kind}:failed:${generationId}:${encodeURIComponent(message).slice(0, 500)}⟫`;
+}
+
+function parseImageFailureMarker(text: string): { kind: "imggen" | "imgedit"; generationId: string; message: string } | null {
+  const match = text.trim().match(/^⟪(imggen|imgedit):failed:([0-9a-f-]{36}):(.+)⟫$/i);
+  if (!match) return null;
+  let message = "Image generation failed. Please retry.";
+  try {
+    message = decodeURIComponent(match[3]);
+  } catch {
+    message = match[3] || message;
+  }
+  return { kind: match[1].toLowerCase() as "imggen" | "imgedit", generationId: match[2], message };
+}
+
 function extractMessageContent(m: unknown): { role: "user" | "assistant"; content: string } | null {
   const mm = m as {
     role?: string;
@@ -624,11 +640,12 @@ export function ChatPage() {
            return;
          }
           if (payload.status === "failed" || payload.status === "cancelled") {
-            finalize(msgId, genId, payload.error || "Image generation failed. Please retry.");
+            const kind = msgId.startsWith("a_") ? "imggen" : "imggen";
+            finalize(msgId, genId, imageFailureMarker(kind, genId, payload.error || "Image generation failed. Please retry."));
            return;
          }
          if (attempt > 60) {
-            finalize(msgId, genId, "Image generation timed out. Please retry.");
+            finalize(msgId, genId, imageFailureMarker("imggen", genId, "Image generation timed out. Please retry."));
            return;
          }
          const delay = Math.min(4000, 1500 + attempt * 100);
@@ -1090,10 +1107,11 @@ export function ChatPage() {
     } catch (e) {
       console.error("[image] failed", e);
       const msg = e instanceof Error ? e.message : "Image generation is temporarily unavailable. Please try again in a moment.";
+      const failure = imageFailureMarker(inputImage ? "imgedit" : "imggen", generationId, msg);
       setMessages((prev) => {
         const next = prev.map((m) =>
           m.id === asstId
-            ? ({ ...m, parts: [{ type: "text", text: msg }] } as unknown as UIMessage)
+            ? ({ ...m, parts: [{ type: "text", text: failure }] } as unknown as UIMessage)
             : m,
         );
         queueMicrotask(() => syncActiveThreadMessages(next, true));
@@ -1101,6 +1119,30 @@ export function ChatPage() {
       });
     }
   };
+
+  const retryImageMessage = useCallback((assistantMessageId: string) => {
+    const idx = messages.findIndex((m) => m.id === assistantMessageId);
+    if (idx < 0) return;
+    const failedText = getMessageText(messages[idx]);
+    const failed = parseImageFailureMarker(failedText);
+    if (!failed) return;
+    const priorUser = messages.slice(0, idx).reverse().find((m) => m.role === "user");
+    const prompt = priorUser ? getMessageText(priorUser).trim() : "";
+    if (!prompt) {
+      toast.error("I couldn't find the original image prompt to retry.");
+      return;
+    }
+    if (failed.kind === "imgedit") {
+      const source = extractLastGeneratedImage(messages.slice(0, idx));
+      if (!source) {
+        toast.error("I couldn't find the image to edit. Generate a new image first.");
+        return;
+      }
+      void generateImageInline(prompt, source.url, source.parentId);
+      return;
+    }
+    void generateImageInline(prompt);
+  }, [messages]);
 
 
 
@@ -1300,7 +1342,7 @@ export function ChatPage() {
             ) : (
               <div className="space-y-6">
                 {messages.map((m) => (
-                  <MessageBubble key={m.id} message={m} text={getMessageText(m)} />
+                  <MessageBubble key={m.id} message={m} text={getMessageText(m)} onRetryImage={retryImageMessage} />
                 ))}
                 {isBusy && messages[messages.length - 1]?.role === "user" && (
                   <div className="flex gap-3">
@@ -1703,7 +1745,7 @@ function sanitizeAssistantText(raw: string): string {
 }
 
 const MessageBubble = memo(
-  function MessageBubble({ message, text }: { message: UIMessage; text: string }) {
+  function MessageBubble({ message, text, onRetryImage }: { message: UIMessage; text: string; onRetryImage?: (messageId: string) => void }) {
     if (message.role === "user") {
       return (
         <div className="flex justify-end">
@@ -1717,6 +1759,7 @@ const MessageBubble = memo(
     }
     const t = text.trim();
     const pendingMatch = t.match(/^⟪(imggen|imgedit):pending:([0-9a-f-]{36})⟫$/i);
+    const failed = parseImageFailureMarker(t);
     if (pendingMatch || t === "⟪imggen:generating⟫" || t === "⟪imggen:editing⟫") {
       const mode: "editing" | "generating" =
         pendingMatch?.[1] === "imgedit" || t === "⟪imggen:editing⟫" ? "editing" : "generating";
@@ -1724,6 +1767,24 @@ const MessageBubble = memo(
         <div className="flex gap-3">
           <PrismXLogo size="sm" />
           <ImageGenProgress mode={mode} />
+        </div>
+      );
+    }
+    if (failed) {
+      return (
+        <div className="flex gap-3">
+          <PrismXLogo size="sm" />
+          <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm">
+            <div className="font-medium text-foreground">Image generation failed</div>
+            <div className="mt-1 text-muted-foreground">{failed.message}</div>
+            <button
+              type="button"
+              onClick={() => onRetryImage?.(message.id)}
+              className="mt-3 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-accent"
+            >
+              Retry
+            </button>
+          </div>
         </div>
       );
     }

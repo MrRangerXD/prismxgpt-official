@@ -53,12 +53,13 @@ async function runGeneration(params: {
   const { generationId, userId, messageId, prompt, inputImageUrl, parentId } = params;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-  const existingRes = await (supabaseAdmin as unknown as SupabaseAny)
+  const readExisting = async () => (supabaseAdmin as unknown as SupabaseAny)
     .from("image_generations")
     .select("id,status,image_url,error,storage_path")
     .eq("id", generationId)
     .eq("user_id", userId)
     .maybeSingle();
+  const existingRes = await readExisting();
   const existing = existingRes?.data as { status?: string; image_url?: string | null; error?: string | null; storage_path?: string | null } | null | undefined;
   if (existing?.status && FINAL_STATUSES.has(existing.status)) {
     return {
@@ -76,9 +77,9 @@ async function runGeneration(params: {
     return { status: 202, body: { generationId, status: existing.status } };
   }
 
-  // Upsert the lifecycle row as processing (idempotent — a second POST with
-  // the same id becomes a no-op reservation, letting the eventual response
-  // reconcile whichever caller wins).
+  // Reserve the lifecycle row exactly once. A duplicate POST for the same
+  // client-owned id returns the existing processing/completed state and never
+  // calls the provider twice.
   const baseRow = {
     id: generationId,
     user_id: userId,
@@ -93,14 +94,34 @@ async function runGeneration(params: {
   // Try with parent_id first; if the referenced parent generation doesn't
   // exist (older image predates the lifecycle table, or the row was cleaned
   // up), the FK check fails — retry without it so edits still succeed.
-  const upsertRes = await (supabaseAdmin as unknown as SupabaseAny)
+  const reserve = async (withParent: boolean) => (supabaseAdmin as unknown as SupabaseAny)
     .from("image_generations")
-    .upsert({ ...baseRow, parent_id: parentId ?? null }, { onConflict: "id" });
-  if (upsertRes?.error) {
-    console.warn("[api/image] upsert with parent_id failed, retrying without", upsertRes.error?.message);
-    await (supabaseAdmin as unknown as SupabaseAny)
-      .from("image_generations")
-      .upsert({ ...baseRow, parent_id: null }, { onConflict: "id" });
+    .insert({ ...baseRow, parent_id: withParent ? parentId ?? null : null });
+  let reserveRes = await reserve(true);
+  if (reserveRes?.error) {
+    const code = reserveRes.error?.code;
+    if (code === "23503" && parentId) {
+      console.warn("[api/image] parent_id missing, retrying edit without FK", reserveRes.error?.message);
+      reserveRes = await reserve(false);
+    }
+    if (reserveRes?.error?.code === "23505") {
+      const reread = await readExisting();
+      const row = reread?.data as { status?: string; image_url?: string | null; error?: string | null; storage_path?: string | null } | null | undefined;
+      return {
+        status: row?.status === "completed" ? 200 : row?.status === "failed" || row?.status === "cancelled" ? 400 : 202,
+        body: {
+          generationId,
+          status: row?.status ?? "processing",
+          imageUrl: row?.image_url ?? undefined,
+          storagePath: row?.storage_path ?? undefined,
+          error: row?.error ?? undefined,
+        },
+      };
+    }
+    if (reserveRes?.error) {
+      console.error("[api/image] lifecycle reservation failed", reserveRes.error);
+      return { status: 500, body: { generationId, status: "failed", error: "Could not start image generation. Please retry." } };
+    }
   }
 
 
