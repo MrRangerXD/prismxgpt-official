@@ -94,6 +94,7 @@ import remarkGfm from "remark-gfm";
 import { PrismSidebar } from "@/components/prism-sidebar";
 import { PrismXLogo } from "@/components/prismx-logo";
 import { AnnouncementBanner } from "@/components/announcement-banner";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 // Modals are code-split — none are visible on first paint, and several pull
 // heavy dependencies (image editor, project pickers, settings forms). Lazy
@@ -1478,7 +1479,15 @@ export function ChatPage() {
 
 
 
-      <Suspense fallback={null}>
+      {/*
+       * Lazy modal shell. Wrapped in an ErrorBoundary so that a broken
+       * modal (e.g. a runtime error inside SettingsModal) never white-
+       * screens the whole chat surface — the modal quietly unmounts and
+       * the rest of the app keeps working.
+       */}
+      <ErrorBoundary boundary="chat_modals" fallback={null}>
+        <Suspense fallback={null}>
+
         {showPlus && <PlusModal open={showPlus} onClose={() => setShowPlus(false)} />}
         {showProfile && (
           <ProfileEditModal
@@ -1541,7 +1550,9 @@ export function ChatPage() {
             onSkip={handleCreateSkip}
           />
         )}
-      </Suspense>
+        </Suspense>
+      </ErrorBoundary>
+
     </div>
   );
 }
