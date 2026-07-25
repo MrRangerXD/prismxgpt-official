@@ -1,11 +1,22 @@
 /**
  * DocsShell — shared layout for the public `/docs` surface.
  *
- * Loads categories + published pages from Supabase, renders a sidebar with
- * search, breadcrumbs, and (on a page) prev/next + table of contents.
+ * Premium documentation experience with:
+ *  - Cmd/Ctrl+K search palette with instant results and highlighted matches
+ *  - Sticky reading-progress bar on doc pages
+ *  - Collapsible categories (state persisted in localStorage)
+ *  - Auto-scroll active sidebar item into view
+ *  - Keyboard navigation friendly
  */
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PrismXLogo } from "@/components/prismx-logo";
 import {
@@ -15,6 +26,10 @@ import {
   X,
   BookOpen,
   ChevronRight,
+  ChevronDown,
+  Command,
+  Hash,
+  CornerDownLeft,
 } from "lucide-react";
 
 export type DocCategory = {
@@ -45,6 +60,8 @@ export type DocsTree = {
   pagesByCategory: Map<string | null, DocPage[]>;
   allPages: DocPage[];
 };
+
+const COLLAPSE_KEY = "prismx:docs:collapsed-categories";
 
 export function useDocsTree() {
   const [state, setState] = useState<{
@@ -106,6 +123,267 @@ export function useDocsTree() {
   return state;
 }
 
+/* ------------------------------------------------------------------ */
+/*                    Reading progress bar (top strip)                 */
+/* ------------------------------------------------------------------ */
+
+function ReadingProgress() {
+  const [progress, setProgress] = useState(0);
+  useEffect(() => {
+    const onScroll = () => {
+      const doc = document.documentElement;
+      const total = doc.scrollHeight - doc.clientHeight;
+      const p = total <= 0 ? 0 : Math.min(1, Math.max(0, window.scrollY / total));
+      setProgress(p);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 bg-transparent"
+    >
+      <div
+        className="h-full transition-[width] duration-100 ease-out"
+        style={{ width: `${progress * 100}%`, background: "var(--gradient-brand)" }}
+      />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*                          Command palette                            */
+/* ------------------------------------------------------------------ */
+
+function highlight(text: string, needle: string): ReactNode {
+  if (!needle) return text;
+  const i = text.toLowerCase().indexOf(needle.toLowerCase());
+  if (i < 0) return text;
+  return (
+    <>
+      {text.slice(0, i)}
+      <mark className="rounded bg-brand/25 px-0.5 text-brand">
+        {text.slice(i, i + needle.length)}
+      </mark>
+      {text.slice(i + needle.length)}
+    </>
+  );
+}
+
+function CommandPalette({
+  open,
+  onClose,
+  tree,
+}: {
+  open: boolean;
+  onClose: () => void;
+  tree: DocsTree;
+}) {
+  const navigate = useNavigate();
+  const [q, setQ] = useState("");
+  const [active, setActive] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) {
+      setQ("");
+      setActive(0);
+      setTimeout(() => inputRef.current?.focus(), 0);
+    }
+  }, [open]);
+
+  const results = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (!needle) return tree.allPages.slice(0, 12);
+    return tree.allPages
+      .map((p) => {
+        const hay = `${p.title}\n${p.slug}\n${p.description ?? ""}\n${(p.tags ?? []).join(" ")}`.toLowerCase();
+        const idx = hay.indexOf(needle);
+        return { p, score: idx < 0 ? Infinity : idx };
+      })
+      .filter((r) => r.score !== Infinity)
+      .sort((a, b) => a.score - b.score)
+      .slice(0, 20)
+      .map((r) => r.p);
+  }, [q, tree.allPages]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActive((a) => Math.min(results.length - 1, a + 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActive((a) => Math.max(0, a - 1));
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const p = results[active];
+        if (p) {
+          onClose();
+          navigate({ to: "/docs/$slug", params: { slug: p.slug } });
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, results, active, navigate, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-start justify-center bg-background/70 p-4 pt-24 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-label="Search documentation"
+        className="w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2 border-b border-border px-4">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <input
+            ref={inputRef}
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setActive(0);
+            }}
+            placeholder="Search documentation…"
+            className="w-full bg-transparent py-4 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+          />
+          <kbd className="hidden rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground sm:inline">
+            Esc
+          </kbd>
+        </div>
+        <div className="max-h-[60vh] overflow-y-auto p-2">
+          {results.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              No pages match “{q}”.
+            </div>
+          ) : (
+            results.map((p, i) => (
+              <button
+                key={p.id}
+                onMouseEnter={() => setActive(i)}
+                onClick={() => {
+                  onClose();
+                  navigate({ to: "/docs/$slug", params: { slug: p.slug } });
+                }}
+                className={`flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left transition ${
+                  i === active
+                    ? "bg-brand/10 text-foreground"
+                    : "text-foreground/80 hover:bg-accent"
+                }`}
+              >
+                <Hash className="mt-0.5 h-4 w-4 flex-none text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">
+                    {highlight(p.title, q)}
+                  </div>
+                  {p.description && (
+                    <div className="truncate text-xs text-muted-foreground">
+                      {highlight(p.description, q)}
+                    </div>
+                  )}
+                </div>
+                {i === active && (
+                  <CornerDownLeft className="mt-1 h-3.5 w-3.5 flex-none text-muted-foreground" />
+                )}
+              </button>
+            ))
+          )}
+        </div>
+        <div className="flex items-center justify-between border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
+          <span>
+            <kbd className="rounded border border-border bg-background px-1">↑</kbd>{" "}
+            <kbd className="rounded border border-border bg-background px-1">↓</kbd> navigate
+          </span>
+          <span>
+            <kbd className="rounded border border-border bg-background px-1">↵</kbd> open ·{" "}
+            <kbd className="rounded border border-border bg-background px-1">Esc</kbd> close
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*                            Sidebar                                  */
+/* ------------------------------------------------------------------ */
+
+function CategorySection({
+  cat,
+  pages,
+  activeSlug,
+  collapsed,
+  onToggle,
+  onNavigate,
+}: {
+  cat: DocCategory;
+  pages: DocPage[];
+  activeSlug: string | null;
+  collapsed: boolean;
+  onToggle: () => void;
+  onNavigate: () => void;
+}) {
+  const activeRef = useRef<HTMLAnchorElement | null>(null);
+  useEffect(() => {
+    if (activeRef.current) {
+      activeRef.current.scrollIntoView({ block: "nearest" });
+    }
+  }, [activeSlug]);
+
+  return (
+    <div>
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center justify-between px-2 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition hover:text-foreground"
+      >
+        <span>{cat.title}</span>
+        <ChevronDown
+          className={`h-3 w-3 transition-transform ${collapsed ? "-rotate-90" : ""}`}
+        />
+      </button>
+      {!collapsed && (
+        <div className="space-y-0.5">
+          {pages.map((p) => {
+            const isActive = activeSlug === p.slug;
+            return (
+              <Link
+                key={p.id}
+                ref={isActive ? activeRef : undefined}
+                to="/docs/$slug"
+                params={{ slug: p.slug }}
+                onClick={onNavigate}
+                className={`block rounded-lg px-2 py-1.5 text-sm transition ${
+                  isActive
+                    ? "bg-brand/10 text-brand"
+                    : "text-foreground/80 hover:bg-accent hover:text-foreground"
+                }`}
+              >
+                {p.title}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function DocsShell({
   activeSlug,
   children,
@@ -117,25 +395,65 @@ export function DocsShell({
   tree: DocsTree;
   loading: boolean;
 }) {
-  const navigate = useNavigate();
-  const [q, setQ] = useState("");
   const [mobileNav, setMobileNav] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
-  const filtered = useMemo(() => {
-    if (!q.trim()) return tree.allPages;
-    const needle = q.toLowerCase();
-    return tree.allPages.filter(
-      (p) =>
-        p.title.toLowerCase().includes(needle) ||
-        (p.description ?? "").toLowerCase().includes(needle) ||
-        (p.tags ?? []).some((t) => t.toLowerCase().includes(needle)),
-    );
-  }, [q, tree.allPages]);
+  // Load persisted collapse state
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COLLAPSE_KEY);
+      if (raw) setCollapsed(JSON.parse(raw));
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  // Ensure the category holding the active slug is expanded
+  useEffect(() => {
+    if (!activeSlug) return;
+    const active = tree.allPages.find((p) => p.slug === activeSlug);
+    if (!active?.category_id) return;
+    setCollapsed((c) => (c[active.category_id!] ? { ...c, [active.category_id!]: false } : c));
+  }, [activeSlug, tree.allPages]);
+
+  const toggleCat = useCallback((id: string) => {
+    setCollapsed((c) => {
+      const next = { ...c, [id]: !c[id] };
+      try {
+        localStorage.setItem(COLLAPSE_KEY, JSON.stringify(next));
+      } catch {
+        /* noop */
+      }
+      return next;
+    });
+  }, []);
+
+  // Cmd/Ctrl+K to open palette
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+      if (e.key === "/" && !paletteOpen) {
+        const t = e.target as HTMLElement | null;
+        if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable))
+          return;
+        e.preventDefault();
+        setPaletteOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [paletteOpen]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <ReadingProgress />
+
       {/* Top bar */}
-      <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-border/80 bg-background/85 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
           <button
             className="rounded-md p-1.5 text-muted-foreground hover:bg-accent md:hidden"
@@ -148,17 +466,25 @@ export function DocsShell({
             <PrismXLogo size="sm" />
             <span className="text-sm font-semibold tracking-tight">PrismXGPT</span>
           </Link>
-          <span className="hidden text-xs text-muted-foreground sm:inline">/ Docs</span>
+          <Link
+            to="/docs"
+            className="hidden text-xs text-muted-foreground transition hover:text-foreground sm:inline"
+          >
+            / Docs
+          </Link>
           <div className="ml-auto flex items-center gap-2">
-            <div className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm md:flex">
-              <Search className="h-3.5 w-3.5 text-muted-foreground" />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search docs…"
-                className="w-56 bg-transparent outline-none"
-              />
-            </div>
+            <button
+              onClick={() => setPaletteOpen(true)}
+              className="group flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition hover:border-brand/40 hover:text-foreground"
+              aria-label="Search documentation (Ctrl+K)"
+            >
+              <Search className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Search documentation…</span>
+              <span className="sm:hidden">Search</span>
+              <kbd className="ml-1 hidden items-center gap-0.5 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline-flex">
+                <Command className="h-2.5 w-2.5" />K
+              </kbd>
+            </button>
             <Link
               to="/chat"
               className="hidden rounded-lg px-3 py-1.5 text-xs font-semibold text-brand-foreground sm:inline-flex"
@@ -170,55 +496,20 @@ export function DocsShell({
         </div>
       </header>
 
-      <div className="mx-auto flex max-w-7xl gap-6 px-4 py-8 sm:px-6">
+      <div className="mx-auto flex max-w-7xl gap-8 px-4 py-8 sm:px-6">
         {/* Sidebar */}
         <aside
           className={`fixed inset-y-0 left-0 z-40 w-72 max-w-[85vw] overflow-y-auto border-r border-border bg-card px-4 py-6 transition-transform md:sticky md:top-16 md:z-auto md:h-[calc(100vh-4rem)] md:w-64 md:max-w-none md:translate-x-0 md:border-0 md:bg-transparent md:px-0 md:py-0 ${
             mobileNav ? "translate-x-0" : "-translate-x-full md:translate-x-0"
           }`}
         >
-          <div className="mb-4 flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm md:hidden">
-            <Search className="h-3.5 w-3.5 text-muted-foreground" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search docs…"
-              className="flex-1 bg-transparent outline-none"
-            />
-          </div>
-
           {loading ? (
             <div className="text-sm text-muted-foreground">Loading…</div>
-          ) : q.trim() ? (
-            <div className="space-y-1">
-              <div className="px-2 pb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Results ({filtered.length})
-              </div>
-              {filtered.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => {
-                    setMobileNav(false);
-                    setQ("");
-                    navigate({ to: "/docs/$slug", params: { slug: p.slug } });
-                  }}
-                  className={`w-full rounded-lg px-2 py-1.5 text-left text-sm transition ${
-                    activeSlug === p.slug
-                      ? "bg-brand/10 text-brand"
-                      : "text-foreground/80 hover:bg-accent hover:text-foreground"
-                  }`}
-                >
-                  {p.title}
-                </button>
-              ))}
-              {filtered.length === 0 && (
-                <div className="px-2 py-2 text-xs text-muted-foreground">No pages match.</div>
-              )}
-            </div>
           ) : (
             <nav className="space-y-5">
               <Link
                 to="/docs"
+                onClick={() => setMobileNav(false)}
                 className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium ${
                   !activeSlug ? "bg-brand/10 text-brand" : "text-foreground/80 hover:bg-accent"
                 }`}
@@ -229,28 +520,15 @@ export function DocsShell({
                 const pages = tree.pagesByCategory.get(cat.id) ?? [];
                 if (pages.length === 0) return null;
                 return (
-                  <div key={cat.id}>
-                    <div className="px-2 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {cat.title}
-                    </div>
-                    <div className="space-y-0.5">
-                      {pages.map((p) => (
-                        <Link
-                          key={p.id}
-                          to="/docs/$slug"
-                          params={{ slug: p.slug }}
-                          onClick={() => setMobileNav(false)}
-                          className={`block rounded-lg px-2 py-1.5 text-sm transition ${
-                            activeSlug === p.slug
-                              ? "bg-brand/10 text-brand"
-                              : "text-foreground/80 hover:bg-accent hover:text-foreground"
-                          }`}
-                        >
-                          {p.title}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
+                  <CategorySection
+                    key={cat.id}
+                    cat={cat}
+                    pages={pages}
+                    activeSlug={activeSlug}
+                    collapsed={!!collapsed[cat.id]}
+                    onToggle={() => toggleCat(cat.id)}
+                    onNavigate={() => setMobileNav(false)}
+                  />
                 );
               })}
               {tree.categories.length === 0 && (
@@ -281,6 +559,8 @@ export function DocsShell({
         {/* Content */}
         <main className="min-w-0 flex-1">{children}</main>
       </div>
+
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} tree={tree} />
     </div>
   );
 }
