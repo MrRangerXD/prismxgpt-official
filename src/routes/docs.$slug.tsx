@@ -7,7 +7,6 @@
 import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useProfile } from "@/hooks/use-profile";
 import { DocsShell, Breadcrumbs, useDocsTree, type DocPage } from "@/components/docs-shell";
 import { DocMarkdown, extractHeadings, type Heading } from "@/components/doc-markdown";
 import {
@@ -20,10 +19,10 @@ import {
   Printer,
   Maximize2,
   Minimize2,
-  Pencil,
   User as UserIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+
 
 type FullPage = DocPage & {
   content: string;
@@ -65,7 +64,7 @@ export const Route = createFileRoute("/docs/$slug")({
 function DocPageView() {
   const { slug } = Route.useParams();
   const { tree, loading: treeLoading } = useDocsTree();
-  const { isAdmin } = useProfile();
+  
 
   const [page, setPage] = useState<FullPage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -237,11 +236,8 @@ function DocPageView() {
                     {fullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
                     {fullscreen ? "Exit" : "Focus"}
                   </button>
-                  {isAdmin && (
-                    <Link to="/admin/docs/$id" params={{ id: page.id }} className="inline-flex items-center gap-1 rounded-md border border-brand/40 bg-brand/10 px-2 py-1 text-brand hover:bg-brand/20">
-                      <Pencil className="h-3 w-3" /> Edit page
-                    </Link>
-                  )}
+
+
                 </div>
               </div>
             </div>
