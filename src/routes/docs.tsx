@@ -123,12 +123,18 @@ function DocsIndex() {
         <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg">
           Everything you need to ship — from your first chat and image generation to advanced workflows, projects, and API references.
         </p>
-        <div className="mt-6 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-          <kbd className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 font-mono text-[11px]">
+        <button
+          onClick={openDocsPalette}
+          className="mt-8 flex w-full max-w-2xl items-center gap-3 rounded-2xl border border-border bg-card px-5 py-4 text-left text-sm text-muted-foreground shadow-sm transition hover:border-brand/50 hover:shadow-md focus-visible:border-brand"
+          aria-label="Search documentation"
+        >
+          <Command className="h-4 w-4 text-brand" />
+          <span className="flex-1 truncate">Search guides, APIs, tutorials…</span>
+          <kbd className="hidden items-center gap-1 rounded-md border border-border bg-background px-2 py-1 font-mono text-[11px] sm:inline-flex">
             <Command className="h-3 w-3" />K
           </kbd>
-          <span>to search the docs from anywhere</span>
-        </div>
+        </button>
+
       </section>
 
       {loading ? (
