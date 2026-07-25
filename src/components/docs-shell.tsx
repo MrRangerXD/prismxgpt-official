@@ -587,7 +587,11 @@ export function DocsShell({
           }`}
         >
           {loading ? (
-            <div className="text-sm text-muted-foreground">Loading…</div>
+            <div className="space-y-2" aria-hidden>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="h-6 w-full animate-pulse rounded-md bg-accent/40" style={{ width: `${60 + ((i * 7) % 40)}%` }} />
+              ))}
+            </div>
           ) : (
             <nav className="space-y-5" aria-label="Documentation navigation">
               <Link
@@ -648,8 +652,50 @@ export function DocsShell({
         <main className="min-w-0 flex-1">{children}</main>
       </div>
 
+      <DocsFooter />
+
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} tree={tree} />
     </div>
+  );
+}
+
+function DocsFooter() {
+  return (
+    <footer className="border-t border-border/80 bg-card/30 print:hidden">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-4">
+        <div className="md:col-span-2">
+          <div className="flex items-center gap-2">
+            <PrismXLogo size="sm" />
+            <span className="text-sm font-semibold tracking-tight">PrismXGPT Docs</span>
+          </div>
+          <p className="mt-3 max-w-sm text-xs leading-relaxed text-muted-foreground">
+            The developer platform for chat, image generation, projects and the PrismXGPT API — everything you need to build and ship.
+          </p>
+        </div>
+        <div>
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Documentation</div>
+          <ul className="space-y-1.5 text-sm">
+            <li><Link to="/docs" className="text-foreground/80 hover:text-brand">Overview</Link></li>
+            <li><Link to="/help" className="text-foreground/80 hover:text-brand">Help center</Link></li>
+            <li><Link to="/chat" className="text-foreground/80 hover:text-brand">Open chat</Link></li>
+          </ul>
+        </div>
+        <div>
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Company</div>
+          <ul className="space-y-1.5 text-sm">
+            <li><Link to="/privacy" className="text-foreground/80 hover:text-brand">Privacy</Link></li>
+            <li><Link to="/terms" className="text-foreground/80 hover:text-brand">Terms</Link></li>
+            <li><Link to="/" className="text-foreground/80 hover:text-brand">Home</Link></li>
+          </ul>
+        </div>
+      </div>
+      <div className="border-t border-border/80">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-4 text-xs text-muted-foreground sm:px-6">
+          <span>© {new Date().getFullYear()} PrismXGPT. All rights reserved.</span>
+          <span>Built for developers.</span>
+        </div>
+      </div>
+    </footer>
   );
 }
 

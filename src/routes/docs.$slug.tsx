@@ -188,7 +188,16 @@ function DocPageView() {
   return (
     <DocsShell activeSlug={slug} tree={tree} loading={treeLoading}>
       {loading || !page ? (
-        <div className="text-sm text-muted-foreground">Loading page…</div>
+        <div className="space-y-4">
+          <div className="h-4 w-40 animate-pulse rounded-md bg-accent/40" />
+          <div className="h-10 w-3/4 animate-pulse rounded-md bg-accent/40" />
+          <div className="h-4 w-1/2 animate-pulse rounded-md bg-accent/40" />
+          <div className="mt-8 space-y-3">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="h-4 animate-pulse rounded-md bg-accent/30" style={{ width: `${55 + ((i * 11) % 45)}%` }} />
+            ))}
+          </div>
+        </div>
       ) : (
         <div className={`flex gap-8 ${fullscreen ? "fixed inset-0 z-50 overflow-y-auto bg-background p-6 md:p-12" : ""}`}>
           <article className="min-w-0 flex-1">

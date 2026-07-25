@@ -30,6 +30,8 @@
  */
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import {
   Check,
@@ -433,7 +435,12 @@ export function DocMarkdown({ content }: { content: string }) {
 
   return (
     <div className="max-w-none">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml={false} components={components as never}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        skipHtml={false}
+        components={components as never}
+      >
         {processed}
       </ReactMarkdown>
     </div>
