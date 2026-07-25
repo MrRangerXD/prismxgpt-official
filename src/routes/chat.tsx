@@ -916,7 +916,7 @@ export function ChatPage() {
       return fetch("/api/image", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ generationId, prompt, ...(inputImage ? { inputImage } : {}) }),
+        body: JSON.stringify({ generationId, prompt, ...(inputImage ? { inputImage } : {}), ...(parentId ? { parentId } : {}) }),
       });
     };
 
