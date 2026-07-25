@@ -1,48 +1,116 @@
-// Intelligent image-generation intent detection.
+// Strict image-generation intent classifier.
 //
-// Goal: recognise phrases like "make a loogo", "genrate image", "crate icon",
-// "photo of cat", "anime girl", "pixel art dragon" as image requests without
-// relying on exact keyword matches. Typos, missing letters, and synonyms are
-// tolerated via Damerau-Levenshtein distance against small canonical
-// vocabularies. The user's original text is never rewritten — this utility
-// only classifies intent.
+// ROUTING CONTRACT
+// ----------------
+// The CURRENT user message is the ONLY input. History, previous
+// generations, and active generation state must never influence this
+// decision.
+//
+// Image generation fires only when the current message *explicitly*
+// asks for an image. Everything else — greetings, code requests, HTML,
+// explanations, follow-ups — routes to normal chat and never touches
+// the image provider.
+//
+// The classifier returns a boolean triple:
+//   - `isImage`      → start a NEW image generation
+//   - `isEdit`       → ALWAYS false here; edits use `isExplicitImageEdit`
+//                       and additionally require a previous image URL.
+//   - `confidence`   → coarse score used only for logging / tie-break.
+//
+// Typos and light variants are tolerated (edit-distance 1) but only on
+// the closed vocabularies below — never on arbitrary tokens.
 
 export type ImageIntent = {
   isImage: boolean;
   isEdit: boolean;
-  confidence: number; // 0..1
+  confidence: number;
 };
 
-// Canonical vocabularies. Keep short — fuzzy matching handles variants.
-const VERBS = [
-  "generate", "create", "make", "draw", "design", "render", "paint",
-  "illustrate", "sketch", "build", "produce", "show",
-];
-const NOUNS = [
-  "image", "picture", "photo", "photograph", "logo", "icon", "banner",
-  "wallpaper", "thumbnail", "poster", "illustration", "drawing", "artwork",
-  "painting", "mascot", "avatar", "sticker", "emoji", "portrait", "render",
-  "art", "img", "pic",
-];
-const STYLE_NOUNS = [
-  // Phrases like "anime girl", "pixel art dragon", "cyberpunk city",
-  // "realistic lion" imply an image even without a verb.
-  "anime", "manga", "cartoon", "cyberpunk", "steampunk", "pixel", "3d",
-  "realistic", "photorealistic", "watercolor", "oil", "vector", "isometric",
-  "minimalist", "hyperrealistic", "fantasy", "surreal", "vaporwave",
-];
-const EDIT_VERBS = [
-  "edit", "change", "modify", "update", "adjust", "tweak", "replace",
-  "remove", "add", "swap", "recolor", "redo", "improve", "enhance", "refine",
-  "fix", "crop", "zoom", "rotate", "flip", "blur", "sharpen", "brighten",
-  "darken", "color", "colour", "restyle",
-];
-const OF_PREPS = new Set(["of", "with", "showing", "featuring", "about"]);
+// Verbs that, on their own, strongly imply "produce an image" regardless
+// of the object noun. "Draw a dragon", "sketch a castle", "illustrate a
+// scene" — all image requests even though the noun isn't in IMAGE_NOUNS.
+const STRONG_IMAGE_VERBS = new Set([
+  "draw",
+  "sketch",
+  "illustrate",
+  "paint",
+  "render",
+  "visualize",
+  "visualise",
+  "photograph",
+]);
+
+// Verbs that are ambiguous alone ("make", "create", "build", "generate"
+// are all used constantly in coding contexts: "generate a React
+// component", "create a landing page", "build an API"). These trigger
+// image generation ONLY when paired with an explicit image noun.
+const WEAK_CREATION_VERBS = new Set([
+  "generate",
+  "create",
+  "make",
+  "design",
+  "produce",
+  "give",
+  "need",
+  "want",
+]);
+
+// Words that name an image artifact. Presence of one of these is what
+// disambiguates "create a LOGO" (image) from "create a landing page"
+// (chat). Deliberately narrow — no generic words like "page", "site",
+// "component", "app", "landing", "html", "css", "code".
+const IMAGE_NOUNS = new Set([
+  "image",
+  "images",
+  "picture",
+  "pictures",
+  "photo",
+  "photos",
+  "photograph",
+  "photographs",
+  "logo",
+  "logos",
+  "icon",
+  "icons",
+  "favicon",
+  "banner",
+  "banners",
+  "wallpaper",
+  "wallpapers",
+  "thumbnail",
+  "thumbnails",
+  "poster",
+  "posters",
+  "illustration",
+  "illustrations",
+  "drawing",
+  "drawings",
+  "artwork",
+  "painting",
+  "paintings",
+  "mascot",
+  "avatar",
+  "sticker",
+  "stickers",
+  "emoji",
+  "portrait",
+  "portraits",
+  "img",
+  "pic",
+  "pics",
+  "graphic",
+  "graphics",
+  "visual",
+  "visuals",
+  "cover",
+  "cover-art",
+]);
 
 // Damerau-Levenshtein distance (handles insert/delete/substitute/transpose).
 function editDistance(a: string, b: string): number {
   if (a === b) return 0;
-  const al = a.length, bl = b.length;
+  const al = a.length;
+  const bl = b.length;
   if (!al) return bl;
   if (!bl) return al;
   const dp: number[][] = Array.from({ length: al + 1 }, () => new Array(bl + 1).fill(0));
@@ -51,11 +119,7 @@ function editDistance(a: string, b: string): number {
   for (let i = 1; i <= al; i++) {
     for (let j = 1; j <= bl; j++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      dp[i][j] = Math.min(
-        dp[i - 1][j] + 1,
-        dp[i][j - 1] + 1,
-        dp[i - 1][j - 1] + cost,
-      );
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
       if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
         dp[i][j] = Math.min(dp[i][j], dp[i - 2][j - 2] + 1);
       }
@@ -64,98 +128,90 @@ function editDistance(a: string, b: string): number {
   return dp[al][bl];
 }
 
-// A token fuzzy-matches a vocab word if the edit distance is within a
-// length-scaled threshold. Short words (<=4) allow 1 typo; longer words 2.
-function fuzzyMatch(token: string, vocab: string[]): string | null {
-  const t = token.toLowerCase();
-  let best: { word: string; dist: number } | null = null;
+// Tight fuzzy match: only 1 typo allowed, and only against tokens long
+// enough that a 1-edit match is meaningful (>=5 chars). This keeps
+// short words ("make", "give", "img", "pic") exact-match only so common
+// non-image tokens can't accidentally collide.
+function inVocab(token: string, vocab: Set<string>): boolean {
+  if (vocab.has(token)) return true;
+  if (token.length < 5) return false;
   for (const word of vocab) {
-    const threshold = word.length <= 4 ? 1 : word.length <= 7 ? 2 : 3;
-    const d = editDistance(t, word);
-    if (d <= threshold && (!best || d < best.dist)) best = { word, dist: d };
-    if (best && best.dist === 0) break;
+    if (word.length < 5) continue;
+    if (Math.abs(word.length - token.length) > 1) continue;
+    if (editDistance(token, word) <= 1) return true;
   }
-  return best ? best.word : null;
+  return false;
 }
 
-// Strip punctuation; preserve internal capitalisation to protect brand names
-// during classification (we don't rewrite the prompt anyway).
 function tokenize(text: string): string[] {
   return text
+    .toLowerCase()
     .replace(/[^\p{L}\p{N}\s'-]/gu, " ")
     .split(/\s+/)
     .filter(Boolean);
 }
 
-// A token is likely a proper noun / brand (e.g. "ZenseiNetwork", "PrismXGPT")
-// if it has internal capitals or mixed case beyond the first letter. Skip
-// those from fuzzy matching so brands don't accidentally match a vocab word.
-function looksLikeProperNoun(token: string): boolean {
-  if (token.length < 3) return false;
-  const inner = token.slice(1);
-  return /[A-Z]/.test(inner) || /\d/.test(token);
-}
-
 export function detectImageIntent(rawText: string): ImageIntent {
   const text = rawText.trim();
   if (!text) return { isImage: false, isEdit: false, confidence: 0 };
+  // Long messages are almost always code, docs, or pasted content — not
+  // image prompts. This is a cheap guard against pasted articles that
+  // happen to contain "draw" or "picture".
+  if (text.length > 600) return { isImage: false, isEdit: false, confidence: 0 };
 
   const tokens = tokenize(text);
   if (tokens.length === 0) return { isImage: false, isEdit: false, confidence: 0 };
 
-  let verbHit = false;
+  let strongVerbHit = false;
+  let weakVerbHit = false;
   let nounHit = false;
-  let styleHit = false;
-  let editHit = false;
-  let ofPrepHit = false;
 
   for (const tok of tokens) {
-    if (looksLikeProperNoun(tok)) continue;
-    const lower = tok.toLowerCase();
-    if (OF_PREPS.has(lower)) ofPrepHit = true;
-    if (!verbHit && fuzzyMatch(lower, VERBS)) verbHit = true;
-    if (!nounHit && fuzzyMatch(lower, NOUNS)) nounHit = true;
-    if (!styleHit && fuzzyMatch(lower, STYLE_NOUNS)) styleHit = true;
-    if (!editHit && fuzzyMatch(lower, EDIT_VERBS)) editHit = true;
+    if (!strongVerbHit && inVocab(tok, STRONG_IMAGE_VERBS)) strongVerbHit = true;
+    if (!weakVerbHit && inVocab(tok, WEAK_CREATION_VERBS)) weakVerbHit = true;
+    if (!nounHit && inVocab(tok, IMAGE_NOUNS)) nounHit = true;
   }
 
-  // Confidence heuristic:
-  //  verb + noun          → 0.95  ("make a loogo", "crate icon")
-  //  noun alone           → 0.75  ("logo for X", "banner for Y", "image of cat")
-  //  style + any noun-ish → 0.80  ("anime girl", "pixel art dragon")
-  //  verb + style         → 0.75  ("draw cyberpunk city")
-  //  verb alone           → 0.35  (ambiguous — "make me happy")
+  // Rules:
+  //   strong verb                → image (0.9)   "draw a dragon"
+  //   weak verb + image noun     → image (0.95)  "create a logo"
+  //   image noun + "of/for/with" → image (0.8)   "logo of a fox"
+  //   anything else              → chat
+  //
+  // Notably NOT image:
+  //   weak verb alone            → chat          "make me happy", "create app"
+  //   image noun alone           → chat          "the logo looks great"
+  //   style word alone           → chat          "cyberpunk vibe"
   let confidence = 0;
-  if (verbHit && nounHit) confidence = 0.95;
-  else if (nounHit && ofPrepHit) confidence = 0.85;
-  else if (nounHit) confidence = 0.75;
-  else if (styleHit && verbHit) confidence = 0.8;
-  else if (styleHit) confidence = 0.65;
-  else if (verbHit) confidence = 0.3;
+  if (weakVerbHit && nounHit) confidence = 0.95;
+  else if (strongVerbHit) confidence = 0.9;
+  else if (nounHit && /\b(of|for|with|showing|featuring)\b/i.test(text)) confidence = 0.8;
 
-  const isImage = confidence >= 0.7;
-  const isEdit = isImage && editHit && !verbHit; // "change the color", "remove the tree"
-  return { isImage, isEdit: isEdit || (editHit && isImage), confidence };
+  const isImage = confidence >= 0.8;
+  return { isImage, isEdit: false, confidence };
 }
 
 // Explicit edit-of-previous-image detection. Only these prompts may reuse a
 // prior completed generation as the input to a new one. Normal conversation
-// (e.g. "hi", "what do you think of it?", "thanks") must never trigger this.
+// ("hi", "what do you think of it?", "thanks", "now write HTML") must never
+// trigger this. Callers must ALSO verify that a previous generated image
+// exists in the current thread before treating an edit intent as actionable.
 export function isExplicitImageEdit(rawText: string): boolean {
   const t = rawText.trim().toLowerCase();
   if (!t || t.length > 400) return false;
-  // Phrases that explicitly reference the previous image.
   const patterns: RegExp[] = [
-    /\bedit(\s+(it|this|that|the\s+image|the\s+picture|the\s+photo|the\s+logo))?\b/,
+    /\bedit(\s+(it|this|that|the\s+(image|picture|photo|logo)))?\b/,
     /\bcontinue\s+editing\b/,
     /\b(make|turn|change|recolor|repaint)\s+(it|this|that|the\s+(image|picture|photo|logo|background))\b/,
     /\b(remove|erase|delete)\s+(the\s+)?(background|bg|text|watermark|logo|object|person|people)\b/,
     /\breplace\s+(the\s+)?(text|background|color|colour|logo|face)\b/,
-    /\b(upscale|enlarge|hi-?res|hd|4k|8k)\s+(it|this|that|the\s+(image|picture|photo))\b/,
+    /\b(upscale|enlarge)\b/,
+    /\b(hi-?res|hd|4k|8k)\s+(it|this|that|the\s+(image|picture|photo))?\b/,
     /\b(improve|enhance|refine|sharpen|clean\s+up)\s+(the\s+)?(quality|image|picture|photo|resolution|colors?|details?)\b/,
     /\badd\s+.+\s+to\s+(it|this|that|the\s+(image|picture|photo|logo))\b/,
     /\bcrop\s+(it|this|that|the\s+(image|picture|photo))\b/,
     /\b(rotate|flip|blur|brighten|darken)\s+(it|this|that|the\s+(image|picture|photo))\b/,
+    /\bmake\s+(it|this|that)\s+(blue|red|green|yellow|orange|purple|pink|black|white|brighter|darker|lighter|bigger|smaller|transparent)\b/,
   ];
   return patterns.some((re) => re.test(t));
 }
