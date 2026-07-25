@@ -533,6 +533,13 @@ export function DocsShell({
     return () => window.removeEventListener("keydown", onKey);
   }, [paletteOpen]);
 
+  // Bind the external open-bus so `openDocsPalette()` triggers this instance.
+  useEffect(() => {
+    paletteBus.open = () => setPaletteOpen(true);
+    return () => { paletteBus.open = () => {}; };
+  }, []);
+
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <ReadingProgress />
