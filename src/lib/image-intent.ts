@@ -201,21 +201,29 @@ export function detectImageIntent(rawText: string): ImageIntent {
 export function isExplicitImageEdit(rawText: string): boolean {
   const t = rawText.trim().toLowerCase();
   if (!t || t.length > 400) return false;
+  // Coding / non-image context guard — if the message references code
+  // constructs, never treat it as an image edit even when it contains
+  // "change color" or "make it".
+  if (/\b(div|span|button|component|class(?:name)?|function|const|let|var|import|export|html|css|tsx?|jsx?|api|endpoint|route|query|table|schema|column|prop|state|hook|useeffect|usestate|element|selector|tag|node)\b/.test(t)) {
+    return false;
+  }
   const patterns: RegExp[] = [
     /^(please\s+)?edit[.!?]*$/,
     /\bedit\s+(it|this|that|the\s+(image|picture|photo|logo))\b/,
     /\bcontinue\s+editing\b/,
-    /\b(make|turn|change|recolor|repaint)\s+(it|this|that|the\s+(image|picture|photo|logo|background))\b/,
-    /\b(remove|erase|delete)\s+(the\s+)?(background|bg|text|watermark|logo|object|person|people)\b/,
-    /\breplace\s+(the\s+)?(text|background|color|colour|logo|face)\b/,
+    /\b(turn|recolor|repaint)\s+(it|this|that|the\s+(image|picture|photo|logo|background))\b/,
+    /\bchange\s+(it|this|that|the\s+(image|picture|photo|logo|background))\b/,
+    /\b(remove|erase|delete)\s+(the\s+)?(background|bg|watermark)\b/,
+    /\breplace\s+(the\s+)?(text|background|logo|face)\b/,
     /\b(upscale|enlarge)\b/,
     /\b(hi-?res|hd|4k|8k)\s+(it|this|that|the\s+(image|picture|photo))?\b/,
-    /\b(improve|enhance|refine|sharpen|clean\s+up)\s+(the\s+)?(quality|image|picture|photo|resolution|colors?|details?)\b/,
+    /\b(improve|enhance|refine|sharpen|clean\s+up)\s+(the\s+)?(quality|image|picture|photo|resolution)\b/,
     /\badd\s+.+\s+to\s+(it|this|that|the\s+(image|picture|photo|logo))\b/,
-    /\bcrop\b/,
+    /^crop(\s+(it|this|that|the\s+(image|picture|photo)))?[.!?]*$/,
+    /\bcrop\s+(it|this|that|the\s+(image|picture|photo))\b/,
     /\b(rotate|flip|blur|brighten|darken)\s+(it|this|that|the\s+(image|picture|photo))\b/,
     /\bmake\s+(it|this|that)\s+(blue|red|green|yellow|orange|purple|pink|black|white|brighter|darker|lighter|bigger|smaller|transparent)\b/,
-    /\bchange\s+(the\s+)?(style|color|colour|background|bg|text|font|mood|tone|palette)\b/,
+    /^change\s+(the\s+)?(style|background|bg|palette|mood|tone)[.!?]*$/,
   ];
   return patterns.some((re) => re.test(t));
 }
