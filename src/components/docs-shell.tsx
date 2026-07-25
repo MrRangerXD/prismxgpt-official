@@ -447,8 +447,9 @@ function CategorySection({
 
 /* --------------------------- Shell --------------------------- */
 
-const paletteBus = { open: () => {} as () => void };
+const paletteBus: { open: () => void } = { open: () => {} };
 export function openDocsPalette() { paletteBus.open(); }
+
 
 export function DocsShell({
   activeSlug,
