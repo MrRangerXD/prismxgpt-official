@@ -1379,59 +1379,70 @@ export function ChatPage() {
 
 
 
-      <PlusModal open={showPlus} onClose={() => setShowPlus(false)} />
-      <ProfileEditModal
-        open={showProfile}
-        onClose={() => setShowProfile(false)}
-        profile={user.profile}
-        onSaved={() => user.refresh()}
-      />
-      <SearchModal
-        open={showSearch}
-        onClose={() => setShowSearch(false)}
-        threads={threads}
-        onSelect={handleSelect}
-        onNewChat={handleNewChat}
-      />
-      <LibraryModal open={showLibrary} onClose={() => setShowLibrary(false)} />
-      <ProjectsModal open={showProjects} onClose={() => setShowProjects(false)} />
-      <ImageModal open={showImage} onClose={() => setShowImage(false)} />
-      <SettingsModal
-        open={showSettings}
-        onClose={() => setShowSettings(false)}
-        profile={user.profile}
-        onSaved={() => user.refresh()}
-        onClearHistory={() => {
-          if (!user.userId) return;
-          persist([]);
-          setActiveId(null);
-          setChatId(newThreadId());
-          setMessages([]);
-          toast.success("Chat history cleared");
-          navigate({ to: "/chat" });
-        }}
-      />
-      <MoveToProjectModal
-        open={moveTargetId !== null}
-        onClose={() => setMoveTargetId(null)}
-        chatTitle={threads.find((t) => t.id === moveTargetId)?.title ?? ""}
-        onMove={performMove}
-      />
-
-
-      <RenameChatModal
-        open={!!renameModal}
-        currentName={renameModal?.currentName ?? ""}
-        onClose={() => setRenameModal(null)}
-        onSave={confirmRename}
-      />
-
-      <CreateChatModal
-        open={showCreateChat}
-        onClose={() => setShowCreateChat(false)}
-        onContinue={handleCreateContinue}
-        onSkip={handleCreateSkip}
-      />
+      <Suspense fallback={null}>
+        {showPlus && <PlusModal open={showPlus} onClose={() => setShowPlus(false)} />}
+        {showProfile && (
+          <ProfileEditModal
+            open={showProfile}
+            onClose={() => setShowProfile(false)}
+            profile={user.profile}
+            onSaved={() => user.refresh()}
+          />
+        )}
+        {showSearch && (
+          <SearchModal
+            open={showSearch}
+            onClose={() => setShowSearch(false)}
+            threads={threads}
+            onSelect={handleSelect}
+            onNewChat={handleNewChat}
+          />
+        )}
+        {showLibrary && <LibraryModal open={showLibrary} onClose={() => setShowLibrary(false)} />}
+        {showProjects && <ProjectsModal open={showProjects} onClose={() => setShowProjects(false)} />}
+        {showImage && <ImageModal open={showImage} onClose={() => setShowImage(false)} />}
+        {showSettings && (
+          <SettingsModal
+            open={showSettings}
+            onClose={() => setShowSettings(false)}
+            profile={user.profile}
+            onSaved={() => user.refresh()}
+            onClearHistory={() => {
+              if (!user.userId) return;
+              persist([]);
+              setActiveId(null);
+              setChatId(newThreadId());
+              setMessages([]);
+              toast.success("Chat history cleared");
+              navigate({ to: "/chat" });
+            }}
+          />
+        )}
+        {moveTargetId !== null && (
+          <MoveToProjectModal
+            open={moveTargetId !== null}
+            onClose={() => setMoveTargetId(null)}
+            chatTitle={threads.find((t) => t.id === moveTargetId)?.title ?? ""}
+            onMove={performMove}
+          />
+        )}
+        {renameModal && (
+          <RenameChatModal
+            open={!!renameModal}
+            currentName={renameModal?.currentName ?? ""}
+            onClose={() => setRenameModal(null)}
+            onSave={confirmRename}
+          />
+        )}
+        {showCreateChat && (
+          <CreateChatModal
+            open={showCreateChat}
+            onClose={() => setShowCreateChat(false)}
+            onContinue={handleCreateContinue}
+            onSkip={handleCreateSkip}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }
