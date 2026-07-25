@@ -95,6 +95,7 @@ import { PrismSidebar } from "@/components/prism-sidebar";
 import { PrismXLogo } from "@/components/prismx-logo";
 import { AnnouncementBanner } from "@/components/announcement-banner";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { Button } from "@/components/ui/button";
 
 // Modals are code-split — none are visible on first paint, and several pull
 // heavy dependencies (image editor, project pickers, settings forms). Lazy
@@ -555,8 +556,10 @@ export function ChatPage() {
         if (!t) return true;
         if (t === "⟪imggen:generating⟫" || t === "⟪imggen:editing⟫") return true;
         // Pending markers WITH an id are the recoverable ones — KEEP them
-        // so the polling effect below can resolve them from the DB.
+        // so the polling effect below can resolve them from the DB. Failed
+        // markers are terminal history with a Retry button, so keep those too.
         if (/^⟪(imggen|imgedit):pending:[0-9a-f-]{36}⟫$/i.test(t)) return false;
+        if (/^⟪(?:imggen|imgedit):failed:[0-9a-f-]{36}:/i.test(t)) return false;
         return isImageLifecycleText(t);
       });
     };
@@ -575,20 +578,20 @@ export function ChatPage() {
    // derive a stable fingerprint of pending markers so the effect only
    // re-runs when the set of pending generations actually changes.
    const recoveryTrackedRef = useRef<Set<string>>(new Set());
-   const pendingGenerations = useMemo(() => {
-     const out: Array<{ msgId: string; genId: string }> = [];
+     const pendingGenerations = useMemo(() => {
+      const out: Array<{ msgId: string; genId: string; kind: "imggen" | "imgedit" }> = [];
      for (const m of messages) {
        if (m.role !== "assistant") continue;
        const parts = (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts ?? [];
        for (const p of parts) {
          if (p.type !== "text" || typeof p.text !== "string") continue;
-         const match = p.text.trim().match(/^⟪(?:imggen|imgedit):pending:([0-9a-f-]{36})⟫$/i);
-         if (match) out.push({ msgId: m.id, genId: match[1] });
+          const match = p.text.trim().match(/^⟪(imggen|imgedit):pending:([0-9a-f-]{36})⟫$/i);
+          if (match) out.push({ msgId: m.id, genId: match[2], kind: match[1].toLowerCase() as "imggen" | "imgedit" });
        }
      }
      return out;
    }, [messages]);
-   const pendingKey = pendingGenerations.map((p) => `${p.msgId}:${p.genId}`).join("|");
+    const pendingKey = pendingGenerations.map((p) => `${p.msgId}:${p.genId}:${p.kind}`).join("|");
    useEffect(() => {
      if (pendingGenerations.length === 0) return;
      let cancelled = false;
@@ -611,7 +614,7 @@ export function ChatPage() {
        });
      };
 
-     const pollOnce = async (msgId: string, genId: string, attempt: number) => {
+      const pollOnce = async (msgId: string, genId: string, kind: "imggen" | "imgedit", attempt: number) => {
        if (cancelled) return;
        try {
          const { data } = await supabase.auth.getSession();
@@ -623,7 +626,7 @@ export function ChatPage() {
          if (cancelled) return;
          if (res.status === 404) {
            if (attempt < 8) {
-             timers.push(setTimeout(() => pollOnce(msgId, genId, attempt + 1), 2000));
+              timers.push(setTimeout(() => pollOnce(msgId, genId, kind, attempt + 1), 2000));
              return;
            }
             finalize(msgId, genId, "", true);
@@ -634,35 +637,41 @@ export function ChatPage() {
            imageUrl?: string;
            error?: string;
          } | null;
-         if (!payload) return;
+          if (!payload) {
+            timers.push(setTimeout(() => pollOnce(msgId, genId, kind, attempt + 1), 3000));
+            return;
+          }
          if (payload.status === "completed" && payload.imageUrl) {
             finalize(msgId, genId, `![generated image](${payload.imageUrl})`);
            return;
          }
           if (payload.status === "failed" || payload.status === "cancelled") {
-            const kind = msgId.startsWith("a_") ? "imggen" : "imggen";
             finalize(msgId, genId, imageFailureMarker(kind, genId, payload.error || "Image generation failed. Please retry."));
            return;
          }
          if (attempt > 60) {
-            finalize(msgId, genId, imageFailureMarker("imggen", genId, "Image generation timed out. Please retry."));
+            finalize(msgId, genId, imageFailureMarker(kind, genId, "Image generation timed out. Please retry."));
            return;
          }
          const delay = Math.min(4000, 1500 + attempt * 100);
-         timers.push(setTimeout(() => pollOnce(msgId, genId, attempt + 1), delay));
+          timers.push(setTimeout(() => pollOnce(msgId, genId, kind, attempt + 1), delay));
        } catch (e) {
          if (cancelled) return;
          console.error("[image] recovery poll error", e);
-         timers.push(setTimeout(() => pollOnce(msgId, genId, attempt + 1), 3000));
+          if (attempt > 60) {
+            finalize(msgId, genId, imageFailureMarker(kind, genId, "Image generation timed out. Please retry."));
+            return;
+          }
+          timers.push(setTimeout(() => pollOnce(msgId, genId, kind, attempt + 1), 3000));
        }
      };
 
-     for (const { msgId, genId } of pendingGenerations) {
+      for (const { msgId, genId, kind } of pendingGenerations) {
        const key = `${msgId}:${genId}`;
        if (seen.has(key)) continue;
        seen.add(key);
         trackedThisRun.add(key);
-       pollOnce(msgId, genId, 0);
+        pollOnce(msgId, genId, kind, 0);
      }
 
      return () => {
@@ -1777,13 +1786,15 @@ const MessageBubble = memo(
           <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm">
             <div className="font-medium text-foreground">Image generation failed</div>
             <div className="mt-1 text-muted-foreground">{failed.message}</div>
-            <button
+            <Button
               type="button"
               onClick={() => onRetryImage?.(message.id)}
-              className="mt-3 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-accent"
+              variant="outline"
+              size="sm"
+              className="mt-3"
             >
               Retry
-            </button>
+            </Button>
           </div>
         </div>
       );
