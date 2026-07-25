@@ -677,19 +677,27 @@ export function DocsShell({
           </Link>
 
           <nav className="ml-4 hidden items-center gap-1 md:flex">
-            {TOP_NAV.map((n) => (
-              <Link
-                key={n.label}
-                to={n.to}
-                className={`rounded-md px-2.5 py-1.5 text-[13px] font-medium transition ${
-                  n.active
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                }`}
-              >
-                {n.label}
-              </Link>
-            ))}
+            {TOP_NAV.map((n) => {
+              const isActive = n.slug === null ? activeSlug === null : activeSlug === n.slug;
+              const className = `rounded-md px-2.5 py-1.5 text-[13px] font-medium transition ${
+                isActive
+                  ? "text-foreground bg-accent/60"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              }`;
+              return n.slug === null ? (
+                <Link key={n.label} to="/docs" className={className}>{n.label}</Link>
+              ) : (
+                <Link
+                  key={n.label}
+                  to="/docs/$slug"
+                  params={{ slug: n.slug }}
+                  preload="intent"
+                  className={className}
+                >
+                  {n.label}
+                </Link>
+              );
+            })}
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
