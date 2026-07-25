@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowUp, PanelLeft, Menu, Square, Plus, ImageIcon, Globe, Telescope, Paperclip, X, Copy, Check, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, UploadCloud, Mic } from "lucide-react";
 import { toast } from "sonner";
 import { useChat } from "@ai-sdk/react";
@@ -8,17 +8,21 @@ import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { PrismSidebar } from "@/components/prism-sidebar";
 import { PrismXLogo } from "@/components/prismx-logo";
-import { PlusModal } from "@/components/plus-modal";
-import { ProfileEditModal } from "@/components/profile-edit-modal";
-import { SearchModal } from "@/components/search-modal";
-import { LibraryModal } from "@/components/library-modal";
-import { ProjectsModal } from "@/components/projects-modal";
-import { ImageModal } from "@/components/image-modal";
 import { AnnouncementBanner } from "@/components/announcement-banner";
-import { SettingsModal } from "@/components/settings-modal";
-import { MoveToProjectModal } from "@/components/move-to-project-modal";
-import { RenameChatModal } from "@/components/rename-chat-modal";
-import { CreateChatModal } from "@/components/create-chat-modal";
+
+// Modals are code-split — none are visible on first paint, and several pull
+// heavy dependencies (image editor, project pickers, settings forms). Lazy
+// loading trims the initial chat bundle and defers their JS until opened.
+const PlusModal = lazy(() => import("@/components/plus-modal").then((m) => ({ default: m.PlusModal })));
+const ProfileEditModal = lazy(() => import("@/components/profile-edit-modal").then((m) => ({ default: m.ProfileEditModal })));
+const SearchModal = lazy(() => import("@/components/search-modal").then((m) => ({ default: m.SearchModal })));
+const LibraryModal = lazy(() => import("@/components/library-modal").then((m) => ({ default: m.LibraryModal })));
+const ProjectsModal = lazy(() => import("@/components/projects-modal").then((m) => ({ default: m.ProjectsModal })));
+const ImageModal = lazy(() => import("@/components/image-modal").then((m) => ({ default: m.ImageModal })));
+const SettingsModal = lazy(() => import("@/components/settings-modal").then((m) => ({ default: m.SettingsModal })));
+const MoveToProjectModal = lazy(() => import("@/components/move-to-project-modal").then((m) => ({ default: m.MoveToProjectModal })));
+const RenameChatModal = lazy(() => import("@/components/rename-chat-modal").then((m) => ({ default: m.RenameChatModal })));
+const CreateChatModal = lazy(() => import("@/components/create-chat-modal").then((m) => ({ default: m.CreateChatModal })));
 
 
 import { useProfile } from "@/hooks/use-profile";
