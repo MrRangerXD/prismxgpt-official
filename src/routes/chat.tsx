@@ -120,7 +120,7 @@ import {
 } from "@/lib/chat-store";
 import { loadThreadsFromCloud, saveThreadsToCloud } from "@/lib/chat-sync";
 import { supabase } from "@/integrations/supabase/client";
-import { detectImageIntent, isExplicitImageEdit } from "@/lib/image-intent";
+import { classifyMessageIntent } from "@/lib/image-intent";
 
 type SpeechRecognitionEventLike = {
   resultIndex: number;
@@ -165,6 +165,25 @@ function sanitizeMessageForWire<T>(m: T): T {
   }
   if (typeof msg.content === "string") msg.content = replaceInText(msg.content);
   return m;
+}
+
+function isImageLifecycleText(text: string): boolean {
+  const t = text.trim();
+  if (!t) return true;
+  return (
+    t === "⟪imggen:generating⟫" ||
+    t === "⟪imggen:editing⟫" ||
+    /^⟪(?:imggen|imgedit):pending:[0-9a-f-]{36}⟫$/i.test(t) ||
+    /^⟪(?:imggen|imgedit):failed:[0-9a-f-]{36}:/i.test(t) ||
+    /^(generating your image|creating image|editing image|interrupted|loading|generating\.\.\.|creating\.\.\.)[.…\s]*$/i.test(t)
+  );
+}
+
+function isTransientImageLifecycleMessage(m: UIMessage): boolean {
+  if (m.role !== "assistant") return false;
+  const parts = (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts;
+  if (!Array.isArray(parts) || parts.length === 0) return false;
+  return parts.every((p) => p.type === "text" && typeof p.text === "string" && isImageLifecycleText(p.text));
 }
 
 function extractMessageContent(m: unknown): { role: "user" | "assistant"; content: string } | null {
@@ -412,7 +431,9 @@ export function ChatPage() {
               // keep them in local state for display; the model only needs
               // a short reference to know an image was produced.
               if (Array.isArray(parsed.messages)) {
-                parsed.messages = parsed.messages.map(sanitizeMessageForWire);
+                parsed.messages = parsed.messages
+                  .filter((m: UIMessage) => !isTransientImageLifecycleMessage(m))
+                  .map(sanitizeMessageForWire);
               }
               nextInit.body = JSON.stringify(parsed);
             } catch {
@@ -507,11 +528,8 @@ export function ChatPage() {
     // wait so we don't wipe the pre-existing messages with an empty array.
     if (!t && urlChatId && threads.length === 0 && user.userId) return;
     lastHydratedRef.current = chatId;
-    // Drop stale image-generation placeholders left over from a previous
-    // session. Completed generations were already rewritten to a real image
-    // part before persistence, so filtering marker-only bubbles never
-    // removes a finished image — it just prevents the loading card from
-    // being restored on refresh.
+    // Drop unrecoverable legacy placeholders left over from a previous
+    // session. Completed generations are standard markdown images and stay.
     const isImgGenPlaceholder = (m: UIMessage) => {
       const parts = (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts;
       if (!Array.isArray(parts) || parts.length === 0) return false;
@@ -519,13 +537,11 @@ export function ChatPage() {
         if (p.type !== "text" || typeof p.text !== "string") return false;
         const t = p.text.trim();
         if (!t) return true;
-        // Legacy markers with no generation id can never be recovered — drop.
         if (t === "⟪imggen:generating⟫" || t === "⟪imggen:editing⟫") return true;
         // Pending markers WITH an id are the recoverable ones — KEEP them
         // so the polling effect below can resolve them from the DB.
         if (/^⟪(imggen|imgedit):pending:[0-9a-f-]{36}⟫$/i.test(t)) return false;
-        // Defensive: strip any leftover "Generating your image…" strings.
-        return /^(generating your image|creating image|editing image|interrupted|loading|generating\.\.\.|creating\.\.\.)[.…\s]*$/i.test(t);
+        return isImageLifecycleText(t);
       });
     };
     const sanitized = t
@@ -563,13 +579,15 @@ export function ChatPage() {
      const timers: Array<ReturnType<typeof setTimeout>> = [];
      const seen = recoveryTrackedRef.current;
 
-     const finalize = (msgId: string, text: string) => {
+      const finalize = (msgId: string, text: string, remove = false) => {
        setMessages((prev) => {
-         const next = prev.map((m) =>
-           m.id === msgId
-             ? ({ ...m, parts: [{ type: "text", text }] } as unknown as UIMessage)
-             : m,
-         );
+          const next = remove
+            ? prev.filter((m) => m.id !== msgId)
+            : prev.map((m) =>
+                m.id === msgId
+                  ? ({ ...m, parts: [{ type: "text", text }] } as unknown as UIMessage)
+                  : m,
+              );
          queueMicrotask(() => syncActiveThreadMessages(next, true));
          return next;
        });
@@ -590,7 +608,7 @@ export function ChatPage() {
              timers.push(setTimeout(() => pollOnce(msgId, genId, attempt + 1), 2000));
              return;
            }
-           finalize(msgId, "Image generation was interrupted. Please try again.");
+            finalize(msgId, "", true);
            return;
          }
          const payload = (await res.json().catch(() => null)) as {
@@ -603,12 +621,12 @@ export function ChatPage() {
            finalize(msgId, `![generated image](${payload.imageUrl})`);
            return;
          }
-         if (payload.status === "failed") {
-           finalize(msgId, payload.error || "Image generation failed. Please try again.");
+          if (payload.status === "failed" || payload.status === "cancelled") {
+            finalize(msgId, payload.error || "Image generation failed. Please retry.");
            return;
          }
          if (attempt > 60) {
-           finalize(msgId, "Image generation timed out. Please try again.");
+            finalize(msgId, "Image generation timed out. Please retry.");
            return;
          }
          const delay = Math.min(4000, 1500 + attempt * 100);
@@ -938,7 +956,7 @@ export function ChatPage() {
 
 
 
-  // Image-intent detection lives in `@/lib/image-intent` (fuzzy + typo-tolerant).
+  // Current-message intent classification lives in `@/lib/image-intent`.
   // Returns the URL of the most recently *completed* generated image so
   // explicit edit prompts can reuse it. We match http(s) URLs (public bucket)
   // and legacy data URLs (older messages). Placeholders and progress text
@@ -952,7 +970,7 @@ export function ChatPage() {
       const parts = (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts ?? [];
       for (const p of parts) {
         if (p.type === "text" && typeof p.text === "string") {
-          const match = p.text.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/);
+          const match = p.text.match(/!\[(?:generated|edited) image\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/i);
           if (match) {
             // Assistant image messages created by generateImageInline use
             // id `a_<uuid>`; parse that back so we can persist provenance.
@@ -996,7 +1014,9 @@ export function ChatPage() {
     const generationId =
       typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}-0000-0000-0000-000000000000`;
+        : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) =>
+            (Number(c) ^ (Math.random() * 16 >> (Number(c) / 4))).toString(16),
+          );
     const marker = inputImage
       ? `⟪imgedit:pending:${generationId}⟫`
       : `⟪imggen:pending:${generationId}⟫`;
@@ -1016,7 +1036,7 @@ export function ChatPage() {
       return fetch("/api/image", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ generationId, prompt, ...(inputImage ? { inputImage } : {}), ...(parentId ? { parentId } : {}) }),
+        body: JSON.stringify({ generationId, messageId: asstId, prompt, ...(inputImage ? { inputImage } : {}), ...(parentId ? { parentId } : {}) }),
       });
     };
 
@@ -1046,7 +1066,7 @@ export function ChatPage() {
         error?: string;
       } | null;
       const finalUrl = payload?.imageUrl || payload?.dataUrl;
-      if (!res.ok || !finalUrl) {
+      if (!res.ok || !finalUrl || payload?.status === "failed" || payload?.status === "cancelled") {
         const msg = payload?.error || "Image generation is temporarily unavailable. Please try again in a moment.";
         throw new Error(msg);
       }
@@ -1101,23 +1121,16 @@ export function ChatPage() {
     }
 
 
-    // Image intent short-circuit.
-    //  1. Explicit edit ("edit it", "make it blue", "remove background", …)
-    //     reuses the most recent completed image as input. This is the ONLY
-    //     path that touches the previous generation.
-    //  2. A fresh explicit image request ("generate a logo", "draw a cat",
-    //     "anime girl") starts a brand-new generation with no input image.
-    //  3. Everything else — greetings, follow-ups, questions, thanks — falls
-    //     through to normal chat and NEVER reuses a completed image or
-    //     triggers image generation.
+    // Route ONLY the current user message. Previous images are used solely as
+    // edit input after the current text is classified as IMAGE_EDIT.
     if (files.length === 0) {
-      const lastImg = extractLastGeneratedImage(messages);
-      if (lastImg && isExplicitImageEdit(text)) {
+      const intent = classifyMessageIntent(text);
+      const lastImg = intent === "IMAGE_EDIT" ? extractLastGeneratedImage(messages) : undefined;
+      if (intent === "IMAGE_EDIT" && lastImg) {
         await generateImageInline(text, lastImg.url, lastImg.parentId);
         return;
       }
-      const intent = detectImageIntent(text);
-      if (intent.isImage && intent.confidence >= 0.7) {
+      if (intent === "IMAGE_CREATE") {
         await generateImageInline(text);
         return;
       }
