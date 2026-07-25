@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
-  head: () => ({ meta: [{ title: "Admin — PrismXGPT" }] }),
+  head: () => ({ meta: [{ title: "Admin — PrismXGPT" }, { name: "robots", content: "noindex,nofollow" }] }),
   component: AdminPage,
 });
 

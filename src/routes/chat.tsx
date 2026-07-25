@@ -211,6 +211,7 @@ export const Route = createFileRoute("/chat")({
     meta: [
       { title: "Chat — PrismXGPT" },
       { name: "description", content: "Talk with PrismXGPT — your AI assistant." },
+      { name: "robots", content: "noindex,nofollow" },
     ],
   }),
   component: ChatPage,
