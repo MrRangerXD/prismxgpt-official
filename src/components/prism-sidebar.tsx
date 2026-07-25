@@ -216,15 +216,14 @@ export function PrismSidebar({
                 >
                   <ImageIcon className="h-4 w-4 text-muted-foreground" /> Images
                 </button>
-                <button
-                  onClick={() => {
-                    setMoreOpen(false);
-                    toast.info("Deep research — coming soon");
-                  }}
+                <Link
+                  to="/docs"
+                  onClick={() => setMoreOpen(false)}
                   className="flex w-full items-center gap-3 px-3 py-2 text-sm hover:bg-accent"
                 >
-                  <Telescope className="h-4 w-4 text-muted-foreground" /> Deep research
-                </button>
+                  <Telescope className="h-4 w-4 text-muted-foreground" /> Documentation
+                </Link>
+
               </div>
             </>
           )}
