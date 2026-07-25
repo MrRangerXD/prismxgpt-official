@@ -12,6 +12,12 @@ interface SitemapEntry {
 
 const STATIC_ENTRIES: SitemapEntry[] = [
   { path: "/", changefreq: "weekly", priority: "1.0" },
+  { path: "/features/ai-chat", changefreq: "weekly", priority: "0.9" },
+  { path: "/features/image-generation", changefreq: "weekly", priority: "0.9" },
+  { path: "/features/image-editing", changefreq: "weekly", priority: "0.9" },
+  { path: "/compare/chatgpt-alternative", changefreq: "monthly", priority: "0.8" },
+  { path: "/compare/midjourney-alternative", changefreq: "monthly", priority: "0.8" },
+  { path: "/compare/claude-alternative", changefreq: "monthly", priority: "0.8" },
   { path: "/docs", changefreq: "weekly", priority: "0.8" },
   { path: "/help", changefreq: "monthly", priority: "0.7" },
   { path: "/signup", changefreq: "yearly", priority: "0.6" },
@@ -19,6 +25,7 @@ const STATIC_ENTRIES: SitemapEntry[] = [
   { path: "/privacy", changefreq: "yearly", priority: "0.3" },
   { path: "/terms", changefreq: "yearly", priority: "0.3" },
 ];
+
 
 async function fetchDocSlugs(): Promise<SitemapEntry[]> {
   const url = process.env.SUPABASE_URL;

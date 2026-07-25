@@ -21,7 +21,13 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ShareIdRouteImport } from './routes/share.$id'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
+import { Route as FeaturesImageGenerationRouteImport } from './routes/features.image-generation'
+import { Route as FeaturesImageEditingRouteImport } from './routes/features.image-editing'
+import { Route as FeaturesAiChatRouteImport } from './routes/features.ai-chat'
 import { Route as DocsSlugRouteImport } from './routes/docs.$slug'
+import { Route as CompareMidjourneyAlternativeRouteImport } from './routes/compare.midjourney-alternative'
+import { Route as CompareClaudeAlternativeRouteImport } from './routes/compare.claude-alternative'
+import { Route as CompareChatgptAlternativeRouteImport } from './routes/compare.chatgpt-alternative'
 import { Route as ChatChatIdRouteImport } from './routes/chat_.$chatId'
 import { Route as ApiImageRouteImport } from './routes/api/image'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
@@ -88,11 +94,44 @@ const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   path: '/projects/$projectId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FeaturesImageGenerationRoute = FeaturesImageGenerationRouteImport.update({
+  id: '/features/image-generation',
+  path: '/features/image-generation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeaturesImageEditingRoute = FeaturesImageEditingRouteImport.update({
+  id: '/features/image-editing',
+  path: '/features/image-editing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeaturesAiChatRoute = FeaturesAiChatRouteImport.update({
+  id: '/features/ai-chat',
+  path: '/features/ai-chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DocsSlugRoute = DocsSlugRouteImport.update({
   id: '/$slug',
   path: '/$slug',
   getParentRoute: () => DocsRoute,
 } as any)
+const CompareMidjourneyAlternativeRoute =
+  CompareMidjourneyAlternativeRouteImport.update({
+    id: '/compare/midjourney-alternative',
+    path: '/compare/midjourney-alternative',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const CompareClaudeAlternativeRoute =
+  CompareClaudeAlternativeRouteImport.update({
+    id: '/compare/claude-alternative',
+    path: '/compare/claude-alternative',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const CompareChatgptAlternativeRoute =
+  CompareChatgptAlternativeRouteImport.update({
+    id: '/compare/chatgpt-alternative',
+    path: '/compare/chatgpt-alternative',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ChatChatIdRoute = ChatChatIdRouteImport.update({
   id: '/chat_/$chatId',
   path: '/chat/$chatId',
@@ -133,7 +172,13 @@ export interface FileRoutesByFullPath {
   '/api/chat': typeof ApiChatRoute
   '/api/image': typeof ApiImageRoute
   '/chat/$chatId': typeof ChatChatIdRoute
+  '/compare/chatgpt-alternative': typeof CompareChatgptAlternativeRoute
+  '/compare/claude-alternative': typeof CompareClaudeAlternativeRoute
+  '/compare/midjourney-alternative': typeof CompareMidjourneyAlternativeRoute
   '/docs/$slug': typeof DocsSlugRoute
+  '/features/ai-chat': typeof FeaturesAiChatRoute
+  '/features/image-editing': typeof FeaturesImageEditingRoute
+  '/features/image-generation': typeof FeaturesImageGenerationRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/share/$id': typeof ShareIdRoute
   '/projects/join/$token': typeof ProjectsJoinTokenRoute
@@ -153,7 +198,13 @@ export interface FileRoutesByTo {
   '/api/chat': typeof ApiChatRoute
   '/api/image': typeof ApiImageRoute
   '/chat/$chatId': typeof ChatChatIdRoute
+  '/compare/chatgpt-alternative': typeof CompareChatgptAlternativeRoute
+  '/compare/claude-alternative': typeof CompareClaudeAlternativeRoute
+  '/compare/midjourney-alternative': typeof CompareMidjourneyAlternativeRoute
   '/docs/$slug': typeof DocsSlugRoute
+  '/features/ai-chat': typeof FeaturesAiChatRoute
+  '/features/image-editing': typeof FeaturesImageEditingRoute
+  '/features/image-generation': typeof FeaturesImageGenerationRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/share/$id': typeof ShareIdRoute
   '/projects/join/$token': typeof ProjectsJoinTokenRoute
@@ -174,7 +225,13 @@ export interface FileRoutesById {
   '/api/chat': typeof ApiChatRoute
   '/api/image': typeof ApiImageRoute
   '/chat_/$chatId': typeof ChatChatIdRoute
+  '/compare/chatgpt-alternative': typeof CompareChatgptAlternativeRoute
+  '/compare/claude-alternative': typeof CompareClaudeAlternativeRoute
+  '/compare/midjourney-alternative': typeof CompareMidjourneyAlternativeRoute
   '/docs/$slug': typeof DocsSlugRoute
+  '/features/ai-chat': typeof FeaturesAiChatRoute
+  '/features/image-editing': typeof FeaturesImageEditingRoute
+  '/features/image-generation': typeof FeaturesImageGenerationRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/share/$id': typeof ShareIdRoute
   '/projects/join/$token': typeof ProjectsJoinTokenRoute
@@ -196,7 +253,13 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/image'
     | '/chat/$chatId'
+    | '/compare/chatgpt-alternative'
+    | '/compare/claude-alternative'
+    | '/compare/midjourney-alternative'
     | '/docs/$slug'
+    | '/features/ai-chat'
+    | '/features/image-editing'
+    | '/features/image-generation'
     | '/projects/$projectId'
     | '/share/$id'
     | '/projects/join/$token'
@@ -216,7 +279,13 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/image'
     | '/chat/$chatId'
+    | '/compare/chatgpt-alternative'
+    | '/compare/claude-alternative'
+    | '/compare/midjourney-alternative'
     | '/docs/$slug'
+    | '/features/ai-chat'
+    | '/features/image-editing'
+    | '/features/image-generation'
     | '/projects/$projectId'
     | '/share/$id'
     | '/projects/join/$token'
@@ -236,7 +305,13 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/image'
     | '/chat_/$chatId'
+    | '/compare/chatgpt-alternative'
+    | '/compare/claude-alternative'
+    | '/compare/midjourney-alternative'
     | '/docs/$slug'
+    | '/features/ai-chat'
+    | '/features/image-editing'
+    | '/features/image-generation'
     | '/projects/$projectId'
     | '/share/$id'
     | '/projects/join/$token'
@@ -257,6 +332,12 @@ export interface RootRouteChildren {
   ApiChatRoute: typeof ApiChatRoute
   ApiImageRoute: typeof ApiImageRoute
   ChatChatIdRoute: typeof ChatChatIdRoute
+  CompareChatgptAlternativeRoute: typeof CompareChatgptAlternativeRoute
+  CompareClaudeAlternativeRoute: typeof CompareClaudeAlternativeRoute
+  CompareMidjourneyAlternativeRoute: typeof CompareMidjourneyAlternativeRoute
+  FeaturesAiChatRoute: typeof FeaturesAiChatRoute
+  FeaturesImageEditingRoute: typeof FeaturesImageEditingRoute
+  FeaturesImageGenerationRoute: typeof FeaturesImageGenerationRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   ShareIdRoute: typeof ShareIdRoute
   ProjectsJoinTokenRoute: typeof ProjectsJoinTokenRoute
@@ -349,12 +430,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/features/image-generation': {
+      id: '/features/image-generation'
+      path: '/features/image-generation'
+      fullPath: '/features/image-generation'
+      preLoaderRoute: typeof FeaturesImageGenerationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/features/image-editing': {
+      id: '/features/image-editing'
+      path: '/features/image-editing'
+      fullPath: '/features/image-editing'
+      preLoaderRoute: typeof FeaturesImageEditingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/features/ai-chat': {
+      id: '/features/ai-chat'
+      path: '/features/ai-chat'
+      fullPath: '/features/ai-chat'
+      preLoaderRoute: typeof FeaturesAiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/docs/$slug': {
       id: '/docs/$slug'
       path: '/$slug'
       fullPath: '/docs/$slug'
       preLoaderRoute: typeof DocsSlugRouteImport
       parentRoute: typeof DocsRoute
+    }
+    '/compare/midjourney-alternative': {
+      id: '/compare/midjourney-alternative'
+      path: '/compare/midjourney-alternative'
+      fullPath: '/compare/midjourney-alternative'
+      preLoaderRoute: typeof CompareMidjourneyAlternativeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compare/claude-alternative': {
+      id: '/compare/claude-alternative'
+      path: '/compare/claude-alternative'
+      fullPath: '/compare/claude-alternative'
+      preLoaderRoute: typeof CompareClaudeAlternativeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compare/chatgpt-alternative': {
+      id: '/compare/chatgpt-alternative'
+      path: '/compare/chatgpt-alternative'
+      fullPath: '/compare/chatgpt-alternative'
+      preLoaderRoute: typeof CompareChatgptAlternativeRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/chat_/$chatId': {
       id: '/chat_/$chatId'
@@ -418,6 +541,12 @@ const rootRouteChildren: RootRouteChildren = {
   ApiChatRoute: ApiChatRoute,
   ApiImageRoute: ApiImageRoute,
   ChatChatIdRoute: ChatChatIdRoute,
+  CompareChatgptAlternativeRoute: CompareChatgptAlternativeRoute,
+  CompareClaudeAlternativeRoute: CompareClaudeAlternativeRoute,
+  CompareMidjourneyAlternativeRoute: CompareMidjourneyAlternativeRoute,
+  FeaturesAiChatRoute: FeaturesAiChatRoute,
+  FeaturesImageEditingRoute: FeaturesImageEditingRoute,
+  FeaturesImageGenerationRoute: FeaturesImageGenerationRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   ShareIdRoute: ShareIdRoute,
   ProjectsJoinTokenRoute: ProjectsJoinTokenRoute,
