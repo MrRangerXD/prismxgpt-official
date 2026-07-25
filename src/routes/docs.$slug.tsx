@@ -7,7 +7,6 @@
 import { createFileRoute, Link, notFound, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useProfile } from "@/hooks/use-profile";
 import { DocsShell, Breadcrumbs, useDocsTree, type DocPage } from "@/components/docs-shell";
 import { DocMarkdown, extractHeadings, type Heading } from "@/components/doc-markdown";
 import {
@@ -20,10 +19,10 @@ import {
   Printer,
   Maximize2,
   Minimize2,
-  Pencil,
   User as UserIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+
 
 type FullPage = DocPage & {
   content: string;
