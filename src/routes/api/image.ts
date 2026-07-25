@@ -54,20 +54,27 @@ async function runGeneration(params: {
   // Upsert the lifecycle row as processing (idempotent — a second POST with
   // the same id becomes a no-op reservation, letting the eventual response
   // reconcile whichever caller wins).
-  await (supabaseAdmin as unknown as SupabaseAny)
+  const baseRow = {
+    id: generationId,
+    user_id: userId,
+    prompt,
+    input_url: inputImageUrl ?? null,
+    status: "processing",
+    error: null,
+  };
+  // Try with parent_id first; if the referenced parent generation doesn't
+  // exist (older image predates the lifecycle table, or the row was cleaned
+  // up), the FK check fails — retry without it so edits still succeed.
+  const upsertRes = await (supabaseAdmin as unknown as SupabaseAny)
     .from("image_generations")
-    .upsert(
-      {
-        id: generationId,
-        user_id: userId,
-        parent_id: parentId ?? null,
-        prompt,
-        input_url: inputImageUrl ?? null,
-        status: "processing",
-        error: null,
-      },
-      { onConflict: "id" },
-    );
+    .upsert({ ...baseRow, parent_id: parentId ?? null }, { onConflict: "id" });
+  if (upsertRes?.error) {
+    console.warn("[api/image] upsert with parent_id failed, retrying without", upsertRes.error?.message);
+    await (supabaseAdmin as unknown as SupabaseAny)
+      .from("image_generations")
+      .upsert({ ...baseRow, parent_id: null }, { onConflict: "id" });
+  }
+
 
   const finalize = async (patch: Record<string, unknown>) => {
     await (supabaseAdmin as unknown as SupabaseAny)
