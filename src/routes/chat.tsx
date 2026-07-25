@@ -1009,7 +1009,7 @@ export function ChatPage() {
     if (files.length === 0) {
       const lastImg = extractLastGeneratedImage(messages);
       if (lastImg && isExplicitImageEdit(text)) {
-        await generateImageInline(text, lastImg);
+        await generateImageInline(text, lastImg.url, lastImg.parentId);
         return;
       }
       const intent = detectImageIntent(text);
