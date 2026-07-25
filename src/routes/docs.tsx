@@ -5,7 +5,7 @@
  */
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { DocsShell, useDocsTree, type DocPage } from "@/components/docs-shell";
+import { DocsShell, useDocsTree, openDocsPalette, type DocPage } from "@/components/docs-shell";
 import {
   BookOpen,
   ArrowRight,
