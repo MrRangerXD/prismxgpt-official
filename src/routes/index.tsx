@@ -438,18 +438,46 @@ function Landing() {
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-border">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-8 text-sm text-muted-foreground md:flex-row">
-          <div className="flex items-center gap-2">
-            <PrismXLogo size="sm" />
-            <span>© 2026 PrismXGPT. All rights reserved.</span>
+        <div className="mx-auto max-w-7xl px-6 py-12 grid gap-8 md:grid-cols-4 text-sm">
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <PrismXLogo size="sm" />
+              <span className="font-semibold">PrismXGPT</span>
+            </div>
+            <p className="text-muted-foreground">The premium AI assistant for chat, code, writing and images.</p>
           </div>
-          <div className="flex gap-6">
-            <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
-            <Link to="/terms" className="hover:text-foreground">Terms</Link>
-            <a href="mailto:contact@prismxgpt.com" className="hover:text-foreground">Contact</a>
+          <div>
+            <div className="mb-3 font-semibold">Features</div>
+            <ul className="space-y-2 text-muted-foreground">
+              <li><Link to="/features/ai-chat" className="hover:text-foreground">AI Chat Assistant</Link></li>
+              <li><Link to="/features/image-generation" className="hover:text-foreground">AI Image Generator</Link></li>
+              <li><Link to="/features/image-editing" className="hover:text-foreground">AI Image Editor</Link></li>
+            </ul>
+          </div>
+          <div>
+            <div className="mb-3 font-semibold">Compare</div>
+            <ul className="space-y-2 text-muted-foreground">
+              <li><Link to="/compare/chatgpt-alternative" className="hover:text-foreground">ChatGPT alternative</Link></li>
+              <li><Link to="/compare/midjourney-alternative" className="hover:text-foreground">Midjourney alternative</Link></li>
+              <li><Link to="/compare/claude-alternative" className="hover:text-foreground">Claude alternative</Link></li>
+            </ul>
+          </div>
+          <div>
+            <div className="mb-3 font-semibold">Resources</div>
+            <ul className="space-y-2 text-muted-foreground">
+              <li><Link to="/docs" className="hover:text-foreground">Documentation</Link></li>
+              <li><Link to="/help" className="hover:text-foreground">Help Center</Link></li>
+              <li><Link to="/privacy" className="hover:text-foreground">Privacy</Link></li>
+              <li><Link to="/terms" className="hover:text-foreground">Terms</Link></li>
+              <li><a href="mailto:contact@prismxgpt.com" className="hover:text-foreground">Contact</a></li>
+            </ul>
           </div>
         </div>
+        <div className="border-t border-border/60 py-6 text-center text-xs text-muted-foreground">
+          © {new Date().getFullYear()} PrismXGPT. All rights reserved.
+        </div>
       </footer>
+
     </div>
   );
 }

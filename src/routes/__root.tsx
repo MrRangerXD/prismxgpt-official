@@ -74,7 +74,14 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
+  head: () => {
+    const gsc = import.meta.env.VITE_GSC_VERIFICATION as string | undefined;
+    const bing = import.meta.env.VITE_BING_VERIFICATION as string | undefined;
+    const verificationMeta = [
+      gsc ? { name: "google-site-verification", content: gsc } : null,
+      bing ? { name: "msvalidate.01", content: bing } : null,
+    ].filter(Boolean) as Array<{ name: string; content: string }>;
+    return {
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
@@ -92,7 +99,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:description", content: "PrismXGPT is a modern AI assistant for chat, writing, code and research. Free forever with an optional premium plan." },
       { property: "og:image", content: "https://prismxgpt.lovable.app/og-image.png" },
       { name: "twitter:image", content: "https://prismxgpt.lovable.app/og-image.png" },
+      ...verificationMeta,
     ],
+
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.webmanifest" },
@@ -137,7 +146,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         }),
       },
     ],
-  }),
+    };
+  },
+
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
