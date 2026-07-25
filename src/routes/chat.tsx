@@ -483,8 +483,15 @@ export function ChatPage() {
         });
         if (cancelled) return;
         if (res.status === 404) {
-          // No server row — likely a legacy marker or a request the server
-          // never received. Mark failed so the card stops spinning.
+          // No server row yet. Two cases:
+          //  (a) POST hasn't upserted yet (race after refresh) — retry a few
+          //      times before giving up so we don't false-finalize.
+          //  (b) Legacy marker that never had a server row — give up after
+          //      ~20s of retries.
+          if (attempt < 8) {
+            timers.push(setTimeout(() => pollOnce(msgId, genId, attempt + 1), 2000));
+            return;
+          }
           finalize(msgId, "Image generation was interrupted. Please try again.");
           return;
         }
