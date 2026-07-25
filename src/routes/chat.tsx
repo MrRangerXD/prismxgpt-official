@@ -287,7 +287,10 @@ export function ChatPage() {
   }, [user.userId, urlChatId]);
 
 
-  const active = threads.find((t) => t.id === activeId) ?? null;
+  const active = useMemo(
+    () => threads.find((t) => t.id === activeId) ?? null,
+    [threads, activeId],
+  );
 
   // Refs so the memoized transport reads the latest mode without recreating.
   const modeRef = useRef(mode);
