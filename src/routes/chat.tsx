@@ -433,7 +433,7 @@ export function ChatPage() {
           headers.set("Content-Type", "application/json");
           // Inject the current mode into the request body so the server can
           // steer the model (web search / deep research).
-          let nextInit: RequestInit = { ...init, headers };
+          const nextInit: RequestInit = { ...init, headers };
           if (init?.body && typeof init.body === "string") {
             try {
               const parsed = JSON.parse(init.body);

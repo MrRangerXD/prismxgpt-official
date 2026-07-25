@@ -253,7 +253,7 @@ function ProjectPage() {
     const list = Array.from(fileList).slice(0, 10);
     for (const f of list) {
       if (f.size > 20 * 1024 * 1024) { toast.error(`"${f.name}" exceeds 20MB`); continue; }
-      const path = `${project.id}/${Date.now()}_${f.name.replace(/[^\w.\-]/g, "_")}`;
+      const path = `${project.id}/${Date.now()}_${f.name.replace(/[^\w.-]/g, "_")}`;
       const { error: upErr } = await supabase.storage.from("project-files").upload(path, f, { contentType: f.type || undefined });
       if (upErr) { toast.error(upErr.message); continue; }
       // Best-effort text extraction for text-ish files (browser side).
