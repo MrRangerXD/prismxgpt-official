@@ -33,6 +33,22 @@ export const Route = createFileRoute("/api/v1/chat/completions")({
         if (!Array.isArray(body.messages) || body.messages.length === 0)
           return json({ error: { message: "messages is required" } }, 400);
 
+        // Plan gating: admin bypass + user_can_use_model(uuid,text)
+        const { userCanUseModel } = await import("@/lib/model-access.server");
+        const allowed = await userCanUseModel(auth.userId, model);
+        if (!allowed) {
+          await logApiUsage({
+            apiKeyId: auth.apiKeyId,
+            userId: auth.userId,
+            endpoint: "/api/v1/chat/completions",
+            model,
+            statusCode: 403,
+            latencyMs: Date.now() - started,
+            error: "model_not_allowed",
+          });
+          return json({ error: { code: "model_not_allowed", message: `Your plan does not include ${model}.` } }, 403);
+        }
+
         const key = process.env.LOVABLE_API_KEY;
         if (!key) return json({ error: { message: "Server not configured" } }, 500);
 

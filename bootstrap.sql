@@ -2529,3 +2529,254 @@ RETURNS TABLE (
     );
 $$;
 GRANT EXECUTE ON FUNCTION public.api_key_stats(uuid) TO authenticated;
+
+-- =============================================================
+-- Phase 3A — Developer Platform Excellence (idempotent, additive)
+-- =============================================================
+
+-- Extend api_keys with metadata columns (idempotent).
+ALTER TABLE public.api_keys ADD COLUMN IF NOT EXISTS environment text NOT NULL DEFAULT 'production';
+ALTER TABLE public.api_keys ADD COLUMN IF NOT EXISTS tags text[] NOT NULL DEFAULT '{}';
+ALTER TABLE public.api_keys ADD COLUMN IF NOT EXISTS notes text;
+ALTER TABLE public.api_keys ADD COLUMN IF NOT EXISTS rotated_from uuid REFERENCES public.api_keys(id) ON DELETE SET NULL;
+
+-- Extend api_key_usage with provider & cost tracking (idempotent).
+ALTER TABLE public.api_key_usage ADD COLUMN IF NOT EXISTS provider_id text;
+ALTER TABLE public.api_key_usage ADD COLUMN IF NOT EXISTS cost_usd numeric(12,6) NOT NULL DEFAULT 0;
+
+-- Model catalog status enum
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'model_status') THEN
+    CREATE TYPE public.model_status AS ENUM ('stable','preview','beta','deprecated','maintenance');
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS public.model_providers (
+  id          text PRIMARY KEY,
+  name        text NOT NULL,
+  website     text,
+  logo_url    text,
+  status      text NOT NULL DEFAULT 'active',
+  sort_order  int  NOT NULL DEFAULT 100,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+GRANT SELECT ON public.model_providers TO authenticated;
+GRANT ALL ON public.model_providers TO service_role;
+ALTER TABLE public.model_providers ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Providers readable by authed" ON public.model_providers;
+CREATE POLICY "Providers readable by authed" ON public.model_providers FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Providers admin write" ON public.model_providers;
+CREATE POLICY "Providers admin write" ON public.model_providers FOR ALL TO authenticated
+  USING (private.has_role(auth.uid(),'admin')) WITH CHECK (private.has_role(auth.uid(),'admin'));
+
+CREATE TABLE IF NOT EXISTS public.model_catalog (
+  id                text PRIMARY KEY,
+  provider_id       text NOT NULL REFERENCES public.model_providers(id) ON DELETE CASCADE,
+  name              text NOT NULL,
+  family            text,
+  context_window    int  NOT NULL DEFAULT 0,
+  capabilities      jsonb NOT NULL DEFAULT '{}'::jsonb,
+  pricing           jsonb NOT NULL DEFAULT '{}'::jsonb,
+  status            public.model_status NOT NULL DEFAULT 'stable',
+  enabled           boolean NOT NULL DEFAULT true,
+  hidden            boolean NOT NULL DEFAULT false,
+  default_model     boolean NOT NULL DEFAULT false,
+  fallback_model_id text REFERENCES public.model_catalog(id) ON DELETE SET NULL,
+  priority          int NOT NULL DEFAULT 100,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  updated_at        timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS model_catalog_provider_idx ON public.model_catalog(provider_id);
+CREATE INDEX IF NOT EXISTS model_catalog_enabled_idx  ON public.model_catalog(enabled) WHERE enabled;
+GRANT SELECT ON public.model_catalog TO authenticated;
+GRANT ALL ON public.model_catalog TO service_role;
+ALTER TABLE public.model_catalog ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Catalog readable by authed" ON public.model_catalog;
+CREATE POLICY "Catalog readable by authed" ON public.model_catalog FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Catalog admin write" ON public.model_catalog;
+CREATE POLICY "Catalog admin write" ON public.model_catalog FOR ALL TO authenticated
+  USING (private.has_role(auth.uid(),'admin')) WITH CHECK (private.has_role(auth.uid(),'admin'));
+DROP TRIGGER IF EXISTS model_catalog_updated_at ON public.model_catalog;
+CREATE TRIGGER model_catalog_updated_at BEFORE UPDATE ON public.model_catalog
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.model_plan_access (
+  model_id  text NOT NULL REFERENCES public.model_catalog(id) ON DELETE CASCADE,
+  plan_id   text NOT NULL,
+  allowed   boolean NOT NULL DEFAULT true,
+  PRIMARY KEY (model_id, plan_id)
+);
+GRANT SELECT ON public.model_plan_access TO authenticated;
+GRANT ALL ON public.model_plan_access TO service_role;
+ALTER TABLE public.model_plan_access ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Plan access readable by authed" ON public.model_plan_access;
+CREATE POLICY "Plan access readable by authed" ON public.model_plan_access FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "Plan access admin write" ON public.model_plan_access;
+CREATE POLICY "Plan access admin write" ON public.model_plan_access FOR ALL TO authenticated
+  USING (private.has_role(auth.uid(),'admin')) WITH CHECK (private.has_role(auth.uid(),'admin'));
+
+CREATE TABLE IF NOT EXISTS public.api_key_ip_history (
+  id            bigserial PRIMARY KEY,
+  api_key_id    uuid NOT NULL REFERENCES public.api_keys(id) ON DELETE CASCADE,
+  ip            inet NOT NULL,
+  first_seen    timestamptz NOT NULL DEFAULT now(),
+  last_seen     timestamptz NOT NULL DEFAULT now(),
+  request_count int NOT NULL DEFAULT 1,
+  UNIQUE (api_key_id, ip)
+);
+CREATE INDEX IF NOT EXISTS api_key_ip_key_idx ON public.api_key_ip_history(api_key_id, last_seen DESC);
+GRANT SELECT ON public.api_key_ip_history TO authenticated;
+GRANT ALL ON public.api_key_ip_history TO service_role;
+ALTER TABLE public.api_key_ip_history ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users view own ip history" ON public.api_key_ip_history;
+CREATE POLICY "Users view own ip history" ON public.api_key_ip_history FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM public.api_keys k WHERE k.id = api_key_id AND k.user_id = auth.uid()));
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'webhook_status') THEN
+    CREATE TYPE public.webhook_status AS ENUM ('active','disabled');
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS public.webhooks (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  url          text NOT NULL,
+  secret_hash  text NOT NULL,
+  events       text[] NOT NULL DEFAULT '{}',
+  status       public.webhook_status NOT NULL DEFAULT 'active',
+  description  text,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS webhooks_user_idx ON public.webhooks(user_id, created_at DESC);
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.webhooks TO authenticated;
+GRANT ALL ON public.webhooks TO service_role;
+ALTER TABLE public.webhooks ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users manage own webhooks" ON public.webhooks;
+CREATE POLICY "Users manage own webhooks" ON public.webhooks FOR ALL TO authenticated
+  USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins view all webhooks" ON public.webhooks;
+CREATE POLICY "Admins view all webhooks" ON public.webhooks FOR SELECT TO authenticated
+  USING (private.has_role(auth.uid(),'admin'));
+DROP TRIGGER IF EXISTS webhooks_updated_at ON public.webhooks;
+CREATE TRIGGER webhooks_updated_at BEFORE UPDATE ON public.webhooks
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE TABLE IF NOT EXISTS public.webhook_deliveries (
+  id           bigserial PRIMARY KEY,
+  webhook_id   uuid NOT NULL REFERENCES public.webhooks(id) ON DELETE CASCADE,
+  event        text NOT NULL,
+  status_code  int,
+  attempt      int NOT NULL DEFAULT 1,
+  response_ms  int,
+  error        text,
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS webhook_deliveries_wh_idx ON public.webhook_deliveries(webhook_id, created_at DESC);
+GRANT SELECT ON public.webhook_deliveries TO authenticated;
+GRANT ALL ON public.webhook_deliveries TO service_role;
+ALTER TABLE public.webhook_deliveries ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users view own deliveries" ON public.webhook_deliveries;
+CREATE POLICY "Users view own deliveries" ON public.webhook_deliveries FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM public.webhooks w WHERE w.id = webhook_id AND w.user_id = auth.uid()));
+
+-- Resolve allowed model ids for a user (admin bypass).
+CREATE OR REPLACE FUNCTION public.user_model_access(_user_id uuid)
+RETURNS TABLE (model_id text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT m.id
+    FROM public.model_catalog m
+   WHERE m.enabled = true
+     AND (
+       private.has_role(_user_id, 'admin')
+       OR EXISTS (
+         SELECT 1
+           FROM public.profiles p
+           JOIN public.model_plan_access a
+             ON a.model_id = m.id
+            AND a.plan_id = COALESCE(p.plan::text, 'free')
+          WHERE p.id = _user_id
+            AND a.allowed = true
+       )
+     );
+$$;
+GRANT EXECUTE ON FUNCTION public.user_model_access(uuid) TO authenticated;
+
+-- Boolean helper for hot paths.
+CREATE OR REPLACE FUNCTION public.user_can_use_model(_user_id uuid, _model_id text)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM public.user_model_access(_user_id) WHERE model_id = _model_id);
+$$;
+GRANT EXECUTE ON FUNCTION public.user_can_use_model(uuid,text) TO authenticated;
+
+-- Rotate an API key: caller must own it. Returns nothing (client picks up the
+-- new key via listApiKeys). Rotation copies name/scopes/tags into a fresh key
+-- and marks the old key as revoked.
+CREATE OR REPLACE FUNCTION public.rotate_api_key_meta(_id uuid)
+RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  _uid uuid := auth.uid();
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.api_keys WHERE id = _id AND user_id = _uid) THEN
+    RAISE EXCEPTION 'not owner';
+  END IF;
+  UPDATE public.api_keys SET status = 'revoked' WHERE id = _id;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.rotate_api_key_meta(uuid) TO authenticated;
+
+-- Seed providers (idempotent).
+INSERT INTO public.model_providers(id,name,website,sort_order) VALUES
+  ('openai','OpenAI','https://openai.com',10),
+  ('anthropic','Anthropic','https://anthropic.com',20),
+  ('google','Google','https://ai.google',30),
+  ('xai','xAI','https://x.ai',40),
+  ('deepseek','DeepSeek','https://deepseek.com',50),
+  ('openrouter','OpenRouter','https://openrouter.ai',60),
+  ('local','Local / Ollama','https://ollama.com',70)
+ON CONFLICT (id) DO NOTHING;
+
+-- Seed catalog (idempotent).
+INSERT INTO public.model_catalog(id,provider_id,name,family,context_window,capabilities,pricing,status,priority) VALUES
+  ('openai/gpt-5','openai','GPT-5','gpt-5',400000,'{"chat":true,"vision":true,"reasoning":true,"streaming":true,"function_calling":true}','{"input_per_1k":0.005,"output_per_1k":0.015}','stable',10),
+  ('openai/gpt-5-mini','openai','GPT-5 Mini','gpt-5',400000,'{"chat":true,"vision":true,"streaming":true,"function_calling":true}','{"input_per_1k":0.001,"output_per_1k":0.003}','stable',20),
+  ('openai/gpt-4.1','openai','GPT-4.1','gpt-4',1000000,'{"chat":true,"vision":true,"streaming":true,"function_calling":true}','{"input_per_1k":0.003,"output_per_1k":0.012}','stable',30),
+  ('openai/gpt-4o','openai','GPT-4o','gpt-4',128000,'{"chat":true,"vision":true,"streaming":true,"function_calling":true}','{"input_per_1k":0.0025,"output_per_1k":0.01}','stable',40),
+  ('openai/gpt-4o-mini','openai','GPT-4o Mini','gpt-4',128000,'{"chat":true,"vision":true,"streaming":true,"function_calling":true}','{"input_per_1k":0.00015,"output_per_1k":0.0006}','stable',50),
+  ('openai/o3','openai','o3','o-series',200000,'{"chat":true,"reasoning":true,"streaming":true}','{"input_per_1k":0.005,"output_per_1k":0.02}','stable',60),
+  ('openai/o4-mini','openai','o4-mini','o-series',200000,'{"chat":true,"reasoning":true,"streaming":true}','{"input_per_1k":0.001,"output_per_1k":0.004}','stable',70),
+  ('anthropic/claude-opus-4','anthropic','Claude Opus 4','claude',200000,'{"chat":true,"vision":true,"reasoning":true,"streaming":true,"function_calling":true}','{"input_per_1k":0.015,"output_per_1k":0.075}','stable',10),
+  ('anthropic/claude-sonnet-4','anthropic','Claude Sonnet 4','claude',200000,'{"chat":true,"vision":true,"streaming":true,"function_calling":true}','{"input_per_1k":0.003,"output_per_1k":0.015}','stable',20),
+  ('anthropic/claude-haiku-4','anthropic','Claude Haiku 4','claude',200000,'{"chat":true,"vision":true,"streaming":true,"function_calling":true}','{"input_per_1k":0.0008,"output_per_1k":0.004}','stable',30),
+  ('google/gemini-2.5-pro','google','Gemini 2.5 Pro','gemini',2097152,'{"chat":true,"vision":true,"reasoning":true,"streaming":true,"function_calling":true}','{"input_per_1k":0.00125,"output_per_1k":0.005}','stable',10),
+  ('google/gemini-2.5-flash','google','Gemini 2.5 Flash','gemini',1048576,'{"chat":true,"vision":true,"streaming":true,"function_calling":true}','{"input_per_1k":0.00015,"output_per_1k":0.0006}','stable',20),
+  ('google/gemini-2.5-flash-lite','google','Gemini 2.5 Flash Lite','gemini',1048576,'{"chat":true,"vision":true,"streaming":true}','{"input_per_1k":0.00005,"output_per_1k":0.0002}','stable',30),
+  ('google/gemini-2.5-flash-image','google','Gemini 2.5 Flash Image','gemini-image',32768,'{"image_generation":true,"image_edit":true,"vision":true}','{"image_per_call":0.02}','stable',40),
+  ('xai/grok-2','xai','Grok 2','grok',131072,'{"chat":true,"vision":true,"streaming":true}','{"input_per_1k":0.002,"output_per_1k":0.01}','stable',10),
+  ('deepseek/deepseek-chat','deepseek','DeepSeek Chat','deepseek',128000,'{"chat":true,"streaming":true,"function_calling":true}','{"input_per_1k":0.00027,"output_per_1k":0.0011}','stable',10),
+  ('deepseek/deepseek-reasoner','deepseek','DeepSeek Reasoner','deepseek',128000,'{"chat":true,"reasoning":true,"streaming":true}','{"input_per_1k":0.00055,"output_per_1k":0.00219}','stable',20),
+  ('openrouter/passthrough','openrouter','OpenRouter Passthrough','openrouter',200000,'{"chat":true,"streaming":true}','{}','preview',10),
+  ('local/ollama','local','Ollama (Local)','ollama',32768,'{"chat":true,"streaming":true}','{}','preview',10)
+ON CONFLICT (id) DO NOTHING;
+
+-- Default plan access matrix (idempotent).
+-- free: cheapest / smallest. premium: standard tier. plus: pro tier. pro: all.
+INSERT INTO public.model_plan_access(model_id,plan_id,allowed)
+SELECT m.id, p.plan_id, true
+FROM public.model_catalog m
+CROSS JOIN (VALUES ('free'),('premium'),('plus'),('pro')) AS p(plan_id)
+WHERE
+  (p.plan_id = 'free'    AND m.id IN ('openai/gpt-4o-mini','openai/gpt-5-mini','google/gemini-2.5-flash','google/gemini-2.5-flash-lite','anthropic/claude-haiku-4','deepseek/deepseek-chat'))
+  OR
+  (p.plan_id = 'premium' AND m.id IN ('openai/gpt-4o-mini','openai/gpt-5-mini','openai/gpt-4o','google/gemini-2.5-flash','google/gemini-2.5-flash-lite','google/gemini-2.5-flash-image','anthropic/claude-haiku-4','anthropic/claude-sonnet-4','deepseek/deepseek-chat','deepseek/deepseek-reasoner','xai/grok-2'))
+  OR
+  (p.plan_id = 'plus'    AND m.id IN ('openai/gpt-5','openai/gpt-5-mini','openai/gpt-4.1','openai/gpt-4o','openai/gpt-4o-mini','openai/o4-mini','google/gemini-2.5-pro','google/gemini-2.5-flash','google/gemini-2.5-flash-lite','google/gemini-2.5-flash-image','anthropic/claude-sonnet-4','anthropic/claude-haiku-4','deepseek/deepseek-chat','deepseek/deepseek-reasoner','xai/grok-2'))
+  OR
+  (p.plan_id = 'pro')
+ON CONFLICT (model_id, plan_id) DO NOTHING;
+
