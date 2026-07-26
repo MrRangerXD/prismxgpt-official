@@ -18,7 +18,7 @@ const howItWorks = [
 
 const faqs: Faq[] = [
   { q: "Is PrismXGPT free?", a: "Yes. The free plan gives you unlimited chat with our fast model. Upgrade any time for advanced reasoning, image generation and higher limits." },
-  { q: "How is this different from ChatGPT?", a: "PrismXGPT bundles multi-model chat, image generation and image editing in one interface, with projects, sharing and a modern developer API — all with a generous free tier." },
+  { q: "How is this different from ChatGPT?", a: "PrismXGPT bundles multi-model chat, image generation and image editing in one interface, with projects and sharing — all with a generous free tier." },
   { q: "What can I use the AI chat assistant for?", a: "Writing, coding, research, brainstorming, summarizing documents, translating, learning new topics, drafting emails, planning trips — anything you'd ask a knowledgeable colleague." },
   { q: "Does the AI remember previous conversations?", a: "Within a chat, yes. Across chats, use Projects to share persistent context, files and instructions between conversations." },
   { q: "Is my data private?", a: "Yes. Your chats are encrypted at rest and never used to train models. See our Privacy Policy for full details." },
