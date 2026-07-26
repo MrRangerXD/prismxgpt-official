@@ -67,8 +67,10 @@ export const Route = createFileRoute("/api/v1/chat/completions")({
         }
 
         if (body.stream) {
-          // Pass-through SSE. Log approximate usage on stream end via TransformStream tap.
-          let inputTokens = 0;
+          // Pass-through SSE. Estimate input tokens from prompt; approximate output from bytes.
+          const inputTokens = Math.ceil(
+            (body.messages ?? []).reduce((n, m) => n + (m?.content?.length ?? 0), 0) / 4,
+          );
           let outputChars = 0;
           const reader = upstream.body!.getReader();
           const stream = new ReadableStream({

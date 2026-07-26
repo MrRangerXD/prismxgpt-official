@@ -54,8 +54,8 @@ async function verifyApiKey(plaintext: string, request: Request): Promise<ApiAut
     request.headers.get("cf-connecting-ip") ||
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     null;
-  // fire-and-forget last-used update
-  void admin.from("api_keys").update({ last_used_at: new Date().toISOString(), last_used_ip: ip }).eq("id", row.id);
+  // Await so Cloudflare Workers doesn't drop the pending promise when the response returns.
+  await admin.from("api_keys").update({ last_used_at: new Date().toISOString(), last_used_ip: ip }).eq("id", row.id);
   return { ok: true, userId: row.user_id, apiKeyId: row.id };
 }
 
