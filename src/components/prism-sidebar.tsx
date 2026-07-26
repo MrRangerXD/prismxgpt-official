@@ -347,6 +347,15 @@ export function PrismSidebar({
                 onOpenSettings();
               }}
             />
+            <MenuRow
+              icon={Code2}
+              label="Developer"
+              onClick={() => {
+                setMenuOpen(false);
+                navigate({ to: "/developer" });
+              }}
+            />
+
             {user.isAdmin && (
               <MenuRow
                 icon={Shield}
