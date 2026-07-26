@@ -140,7 +140,7 @@ function AdminPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-  const [tab, setTab] = useState<"users" | "pricing" | "features" | "announcement" | "activity">("users");
+  const [tab, setTab] = useState<"users" | "pricing" | "features" | "announcement" | "activity" | "models">("users");
   const [plans, setPlans] = useState<PlanSetting[]>([]);
   const [features, setFeatures] = useState<Features>(DEFAULT_FEATURES);
   const [homepageAnnouncement, setHomepageAnnouncement] = useState<Announcement>(DEFAULT_ANNOUNCEMENT);
