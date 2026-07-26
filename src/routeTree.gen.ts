@@ -15,7 +15,6 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HelpRouteImport } from './routes/help'
-import { Route as DeveloperRouteImport } from './routes/developer'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
@@ -31,9 +30,6 @@ import { Route as ChatChatIdRouteImport } from './routes/chat_.$chatId'
 import { Route as ApiImageRouteImport } from './routes/api/image'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ProjectsJoinTokenRouteImport } from './routes/projects.join.$token'
-import { Route as ApiV1ModelsRouteImport } from './routes/api/v1/models'
-import { Route as ApiV1ImagesGenerationsRouteImport } from './routes/api/v1/images/generations'
-import { Route as ApiV1ChatCompletionsRouteImport } from './routes/api/v1/chat/completions'
 import { Route as ApiPublicSnapshotIdRouteImport } from './routes/api/public/snapshot.$id'
 
 const TermsRoute = TermsRouteImport.update({
@@ -64,11 +60,6 @@ const LoginRoute = LoginRouteImport.update({
 const HelpRoute = HelpRouteImport.update({
   id: '/help',
   path: '/help',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DeveloperRoute = DeveloperRouteImport.update({
-  id: '/developer',
-  path: '/developer',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatRoute = ChatRouteImport.update({
@@ -149,21 +140,6 @@ const ProjectsJoinTokenRoute = ProjectsJoinTokenRouteImport.update({
   path: '/projects/join/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiV1ModelsRoute = ApiV1ModelsRouteImport.update({
-  id: '/api/v1/models',
-  path: '/api/v1/models',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiV1ImagesGenerationsRoute = ApiV1ImagesGenerationsRouteImport.update({
-  id: '/api/v1/images/generations',
-  path: '/api/v1/images/generations',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiV1ChatCompletionsRoute = ApiV1ChatCompletionsRouteImport.update({
-  id: '/api/v1/chat/completions',
-  path: '/api/v1/chat/completions',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiPublicSnapshotIdRoute = ApiPublicSnapshotIdRouteImport.update({
   id: '/api/public/snapshot/$id',
   path: '/api/public/snapshot/$id',
@@ -174,7 +150,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/chat': typeof ChatRoute
-  '/developer': typeof DeveloperRoute
   '/help': typeof HelpRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
@@ -192,17 +167,13 @@ export interface FileRoutesByFullPath {
   '/features/image-generation': typeof FeaturesImageGenerationRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/share/$id': typeof ShareIdRoute
-  '/api/v1/models': typeof ApiV1ModelsRoute
   '/projects/join/$token': typeof ProjectsJoinTokenRoute
   '/api/public/snapshot/$id': typeof ApiPublicSnapshotIdRoute
-  '/api/v1/chat/completions': typeof ApiV1ChatCompletionsRoute
-  '/api/v1/images/generations': typeof ApiV1ImagesGenerationsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/chat': typeof ChatRoute
-  '/developer': typeof DeveloperRoute
   '/help': typeof HelpRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
@@ -220,18 +191,14 @@ export interface FileRoutesByTo {
   '/features/image-generation': typeof FeaturesImageGenerationRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/share/$id': typeof ShareIdRoute
-  '/api/v1/models': typeof ApiV1ModelsRoute
   '/projects/join/$token': typeof ProjectsJoinTokenRoute
   '/api/public/snapshot/$id': typeof ApiPublicSnapshotIdRoute
-  '/api/v1/chat/completions': typeof ApiV1ChatCompletionsRoute
-  '/api/v1/images/generations': typeof ApiV1ImagesGenerationsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/chat': typeof ChatRoute
-  '/developer': typeof DeveloperRoute
   '/help': typeof HelpRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
@@ -249,11 +216,8 @@ export interface FileRoutesById {
   '/features/image-generation': typeof FeaturesImageGenerationRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/share/$id': typeof ShareIdRoute
-  '/api/v1/models': typeof ApiV1ModelsRoute
   '/projects/join/$token': typeof ProjectsJoinTokenRoute
   '/api/public/snapshot/$id': typeof ApiPublicSnapshotIdRoute
-  '/api/v1/chat/completions': typeof ApiV1ChatCompletionsRoute
-  '/api/v1/images/generations': typeof ApiV1ImagesGenerationsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -261,7 +225,6 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/chat'
-    | '/developer'
     | '/help'
     | '/login'
     | '/privacy'
@@ -279,17 +242,13 @@ export interface FileRouteTypes {
     | '/features/image-generation'
     | '/projects/$projectId'
     | '/share/$id'
-    | '/api/v1/models'
     | '/projects/join/$token'
     | '/api/public/snapshot/$id'
-    | '/api/v1/chat/completions'
-    | '/api/v1/images/generations'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/admin'
     | '/chat'
-    | '/developer'
     | '/help'
     | '/login'
     | '/privacy'
@@ -307,17 +266,13 @@ export interface FileRouteTypes {
     | '/features/image-generation'
     | '/projects/$projectId'
     | '/share/$id'
-    | '/api/v1/models'
     | '/projects/join/$token'
     | '/api/public/snapshot/$id'
-    | '/api/v1/chat/completions'
-    | '/api/v1/images/generations'
   id:
     | '__root__'
     | '/'
     | '/admin'
     | '/chat'
-    | '/developer'
     | '/help'
     | '/login'
     | '/privacy'
@@ -335,18 +290,14 @@ export interface FileRouteTypes {
     | '/features/image-generation'
     | '/projects/$projectId'
     | '/share/$id'
-    | '/api/v1/models'
     | '/projects/join/$token'
     | '/api/public/snapshot/$id'
-    | '/api/v1/chat/completions'
-    | '/api/v1/images/generations'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   ChatRoute: typeof ChatRoute
-  DeveloperRoute: typeof DeveloperRoute
   HelpRoute: typeof HelpRoute
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
@@ -364,11 +315,8 @@ export interface RootRouteChildren {
   FeaturesImageGenerationRoute: typeof FeaturesImageGenerationRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   ShareIdRoute: typeof ShareIdRoute
-  ApiV1ModelsRoute: typeof ApiV1ModelsRoute
   ProjectsJoinTokenRoute: typeof ProjectsJoinTokenRoute
   ApiPublicSnapshotIdRoute: typeof ApiPublicSnapshotIdRoute
-  ApiV1ChatCompletionsRoute: typeof ApiV1ChatCompletionsRoute
-  ApiV1ImagesGenerationsRoute: typeof ApiV1ImagesGenerationsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -413,13 +361,6 @@ declare module '@tanstack/react-router' {
       path: '/help'
       fullPath: '/help'
       preLoaderRoute: typeof HelpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/developer': {
-      id: '/developer'
-      path: '/developer'
-      fullPath: '/developer'
-      preLoaderRoute: typeof DeveloperRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chat': {
@@ -527,27 +468,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsJoinTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/v1/models': {
-      id: '/api/v1/models'
-      path: '/api/v1/models'
-      fullPath: '/api/v1/models'
-      preLoaderRoute: typeof ApiV1ModelsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/v1/images/generations': {
-      id: '/api/v1/images/generations'
-      path: '/api/v1/images/generations'
-      fullPath: '/api/v1/images/generations'
-      preLoaderRoute: typeof ApiV1ImagesGenerationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/v1/chat/completions': {
-      id: '/api/v1/chat/completions'
-      path: '/api/v1/chat/completions'
-      fullPath: '/api/v1/chat/completions'
-      preLoaderRoute: typeof ApiV1ChatCompletionsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/snapshot/$id': {
       id: '/api/public/snapshot/$id'
       path: '/api/public/snapshot/$id'
@@ -562,7 +482,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   ChatRoute: ChatRoute,
-  DeveloperRoute: DeveloperRoute,
   HelpRoute: HelpRoute,
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
@@ -580,11 +499,8 @@ const rootRouteChildren: RootRouteChildren = {
   FeaturesImageGenerationRoute: FeaturesImageGenerationRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   ShareIdRoute: ShareIdRoute,
-  ApiV1ModelsRoute: ApiV1ModelsRoute,
   ProjectsJoinTokenRoute: ProjectsJoinTokenRoute,
   ApiPublicSnapshotIdRoute: ApiPublicSnapshotIdRoute,
-  ApiV1ChatCompletionsRoute: ApiV1ChatCompletionsRoute,
-  ApiV1ImagesGenerationsRoute: ApiV1ImagesGenerationsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

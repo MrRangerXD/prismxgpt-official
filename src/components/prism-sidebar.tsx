@@ -19,7 +19,7 @@ import {
   
   Crown,
   Shield,
-  Code2,
+  
 
   Plus,
   Check,
@@ -347,14 +347,6 @@ export function PrismSidebar({
               onClick={() => {
                 setMenuOpen(false);
                 onOpenSettings();
-              }}
-            />
-            <MenuRow
-              icon={Code2}
-              label="Developer"
-              onClick={() => {
-                setMenuOpen(false);
-                navigate({ to: "/developer" });
               }}
             />
 

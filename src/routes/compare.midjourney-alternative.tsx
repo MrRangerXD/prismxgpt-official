@@ -5,7 +5,7 @@ const features: Feature[] = [
   { title: "No Discord required", desc: "Generate images directly in a modern web chat — no bot commands, no channel spam." },
   { title: "Conversational editing", desc: "Refine any image with follow-up prompts like 'make it blue' or 'remove the background' — no re-generating from scratch." },
   { title: "Free plan with real quotas", desc: "Generate on the free plan without a paid subscription. Upgrade only for higher volume and priority." },
-  { title: "Chat, images and code in one app", desc: "Everything Midjourney does, plus a full AI chat assistant and developer API — one login." },
+  { title: "Chat, images and code in one app", desc: "Everything Midjourney does, plus a full AI chat assistant — one login." },
   { title: "Fast, private downloads", desc: "One-click high-res downloads. Your images stay private by default — no public gallery." },
   { title: "Prompt help built in", desc: "The chat rewrites vague prompts into detailed ones automatically, so beginners get pro results." },
 ];

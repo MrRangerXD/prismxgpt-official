@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { AdminModelsPanel } from "@/components/admin/AdminModelsPanel";
+
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { invalidatePlans } from "@/hooks/use-plans";
@@ -141,7 +141,7 @@ function AdminPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-  const [tab, setTab] = useState<"users" | "pricing" | "features" | "announcement" | "activity" | "models">("users");
+  const [tab, setTab] = useState<"users" | "pricing" | "features" | "announcement" | "activity">("users");
   const [plans, setPlans] = useState<PlanSetting[]>([]);
   const [features, setFeatures] = useState<Features>(DEFAULT_FEATURES);
   const [homepageAnnouncement, setHomepageAnnouncement] = useState<Announcement>(DEFAULT_ANNOUNCEMENT);
@@ -342,7 +342,7 @@ function AdminPage() {
     { id: "users", label: "Users", icon: Shield },
     { id: "pricing", label: "Pricing", icon: DollarSign },
     { id: "features", label: "Features", icon: ToggleLeft },
-    { id: "models", label: "Models", icon: Crown },
+    
     { id: "announcement", label: "Announce", icon: Megaphone },
     { id: "activity", label: "Activity", icon: Activity },
   ] as const;
@@ -686,7 +686,7 @@ function AdminPage() {
           </div>
         )}
 
-        {tab === "models" && <AdminModelsPanel />}
+        
 
         {tab === "activity" && (
           <div className="rounded-2xl border border-border bg-card p-6">
