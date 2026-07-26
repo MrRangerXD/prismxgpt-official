@@ -133,7 +133,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           <div>
             <div className="mb-3 font-semibold">Resources</div>
             <ul className="space-y-2 text-muted-foreground">
-              <li><Link to="/docs" className="hover:text-foreground">Documentation</Link></li>
+              
               <li><Link to="/help" className="hover:text-foreground">Help Center</Link></li>
               <li><Link to="/privacy" className="hover:text-foreground">Privacy</Link></li>
               <li><Link to="/terms" className="hover:text-foreground">Terms</Link></li>
