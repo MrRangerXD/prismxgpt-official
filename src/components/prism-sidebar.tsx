@@ -16,7 +16,7 @@ import {
   Wand2,
   Trash2,
   ImageIcon,
-  Telescope,
+  
   Crown,
   Shield,
   Plus,
