@@ -2697,7 +2697,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
            FROM public.profiles p
            JOIN public.model_plan_access a
              ON a.model_id = m.id
-            AND a.plan_id = COALESCE(p.plan, 'free')
+            AND a.plan_id = COALESCE(p.plan::text, 'free')
           WHERE p.id = _user_id
             AND a.allowed = true
        )
