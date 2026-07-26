@@ -31,6 +31,20 @@ export const Route = createFileRoute("/api/v1/images/generations")({
         const key = process.env.LOVABLE_API_KEY;
         if (!key) return j({ error: { message: "Server not configured" } }, 500);
 
+        const { userCanUseModel } = await import("@/lib/model-access.server");
+        if (!(await userCanUseModel(auth.userId, model))) {
+          await logApiUsage({
+            apiKeyId: auth.apiKeyId,
+            userId: auth.userId,
+            endpoint: "/api/v1/images/generations",
+            model,
+            statusCode: 403,
+            latencyMs: Date.now() - started,
+            error: "model_not_allowed",
+          });
+          return j({ error: { code: "model_not_allowed", message: `Your plan does not include ${model}.` } }, 403);
+        }
+
         const content: Array<Record<string, unknown>> = [{ type: "text", text: prompt }];
         if (body.input_image) content.push({ type: "image_url", image_url: { url: body.input_image } });
 
