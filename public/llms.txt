@@ -8,7 +8,7 @@ PrismXGPT runs on a curated set of top-tier reasoning models, chosen automatical
 
 - [Home](/): Product overview, features, pricing, and FAQ
 - [Help Center](/help): Guides, FAQs, and support for getting started, account, AI features, projects, and billing
-- [Documentation](/docs): Developer and user documentation for PrismXGPT features
+
 - [Privacy Policy](/privacy): How PrismXGPT collects, uses, and protects user data
 - [Terms of Service](/terms): The rules and legal terms for using PrismXGPT
 

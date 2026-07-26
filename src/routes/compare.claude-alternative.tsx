@@ -7,7 +7,7 @@ const features: Feature[] = [
   { title: "Projects with shared context", desc: "Group chats by project, share files and give the assistant persistent knowledge." },
   { title: "Generous free plan", desc: "Real limits on the free tier — chat, images and editing without a credit card." },
   { title: "Vision & document analysis", desc: "Upload images, PDFs and documents. Ask questions, extract data, summarize instantly." },
-  { title: "Modern developer API", desc: "REST API with TypeScript & Python SDKs — see the docs for endpoints and examples." },
+  { title: "Modern developer API", desc: "REST API with TypeScript & Python SDKs with clean examples for developers." },
 ];
 
 const howItWorks = [
@@ -20,7 +20,7 @@ const faqs: Faq[] = [
   { q: "Is PrismXGPT a good Claude alternative?", a: "Yes. PrismXGPT combines strong reasoning, long-form writing, code and vision with built-in image generation and editing — features Claude doesn't include natively." },
   { q: "Does PrismXGPT support long documents?", a: "Yes. Upload PDFs and long text files, and the assistant will read, summarize and answer questions about them." },
   { q: "How does the free plan compare?", a: "The free plan includes chat, image generation and image editing — you don't need a paid subscription to try the core product." },
-  { q: "Is there an API?", a: "Yes. PrismXGPT offers a REST API with TypeScript and Python SDKs. See the API section in our documentation." },
+  { q: "Is there an API?", a: "Yes. PrismXGPT offers a REST API with TypeScript and Python SDKs. Endpoints and examples are available for developers." },
   { q: "Is my data used to train models?", a: "No. Your chats are private and never used to train the underlying models." },
 ];
 

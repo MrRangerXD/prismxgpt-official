@@ -33,7 +33,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
             <Link to="/features/ai-chat" className="text-sm text-muted-foreground transition hover:text-foreground">Chat</Link>
             <Link to="/features/image-generation" className="text-sm text-muted-foreground transition hover:text-foreground">Image gen</Link>
             <Link to="/features/image-editing" className="text-sm text-muted-foreground transition hover:text-foreground">Image edit</Link>
-            <Link to="/docs" className="text-sm text-muted-foreground transition hover:text-foreground">Docs</Link>
+            
           </div>
 
           <div className="hidden items-center gap-2 md:flex">
@@ -88,7 +88,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
               <Link to="/features/ai-chat" className="text-sm text-muted-foreground">AI Chat</Link>
               <Link to="/features/image-generation" className="text-sm text-muted-foreground">Image generation</Link>
               <Link to="/features/image-editing" className="text-sm text-muted-foreground">Image editing</Link>
-              <Link to="/docs" className="text-sm text-muted-foreground">Documentation</Link>
+              
               <div className="my-2 h-px bg-border" />
               <Link to="/login" className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-center">Log in</Link>
               <Link
@@ -133,7 +133,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           <div>
             <div className="mb-3 font-semibold">Resources</div>
             <ul className="space-y-2 text-muted-foreground">
-              <li><Link to="/docs" className="hover:text-foreground">Documentation</Link></li>
+              
               <li><Link to="/help" className="hover:text-foreground">Help Center</Link></li>
               <li><Link to="/privacy" className="hover:text-foreground">Privacy</Link></li>
               <li><Link to="/terms" className="hover:text-foreground">Terms</Link></li>
@@ -188,12 +188,6 @@ export function MarketingPage({
             style={{ background: "var(--gradient-brand)" }}
           >
             {ctaLabel} <ArrowRight className="h-4 w-4" />
-          </Link>
-          <Link
-            to="/docs"
-            className="inline-flex items-center gap-2 rounded-xl border border-border bg-card/60 px-6 py-3.5 text-base font-medium backdrop-blur transition hover:bg-accent"
-          >
-            Read the docs
           </Link>
         </div>
       </section>

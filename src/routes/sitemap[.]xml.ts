@@ -18,7 +18,6 @@ const STATIC_ENTRIES: SitemapEntry[] = [
   { path: "/compare/chatgpt-alternative", changefreq: "monthly", priority: "0.8" },
   { path: "/compare/midjourney-alternative", changefreq: "monthly", priority: "0.8" },
   { path: "/compare/claude-alternative", changefreq: "monthly", priority: "0.8" },
-  { path: "/docs", changefreq: "weekly", priority: "0.8" },
   { path: "/help", changefreq: "monthly", priority: "0.7" },
   { path: "/signup", changefreq: "yearly", priority: "0.6" },
   { path: "/login", changefreq: "yearly", priority: "0.4" },
@@ -26,37 +25,11 @@ const STATIC_ENTRIES: SitemapEntry[] = [
   { path: "/terms", changefreq: "yearly", priority: "0.3" },
 ];
 
-
-async function fetchDocSlugs(): Promise<SitemapEntry[]> {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return [];
-  try {
-    const res = await fetch(
-      `${url}/rest/v1/documentation_pages?select=slug,updated_at&status=eq.published&visibility=eq.public`,
-      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
-    );
-    if (!res.ok) return [];
-    const rows = (await res.json()) as Array<{ slug: string; updated_at: string | null }>;
-    return rows.map((r) => ({
-      path: `/docs/${r.slug}`,
-      lastmod: r.updated_at ? new Date(r.updated_at).toISOString().slice(0, 10) : undefined,
-      changefreq: "weekly",
-      priority: "0.7",
-    }));
-  } catch {
-    return [];
-  }
-}
-
 export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async () => {
-        const dynamic = await fetchDocSlugs();
-        const entries = [...STATIC_ENTRIES, ...dynamic];
-
-        const urls = entries.map((e) =>
+        const urls = STATIC_ENTRIES.map((e) =>
           [
             `  <url>`,
             `    <loc>${BASE_URL}${e.path}</loc>`,
