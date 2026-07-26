@@ -206,3 +206,100 @@ export const adminDeleteKey = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// ---- Extended per-key metadata ----
+export const updateKeyMeta = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: {
+    id: string;
+    tags?: string[];
+    notes?: string;
+    environment?: string;
+    expiresAt?: string | null;
+  }) => {
+    if (!d?.id) throw new Error("id required");
+    return d;
+  })
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase as unknown as Any;
+    const patch: Record<string, unknown> = {};
+    if (Array.isArray(data.tags)) patch.tags = data.tags.slice(0, 20);
+    if (typeof data.notes === "string") patch.notes = data.notes.slice(0, 500);
+    if (typeof data.environment === "string") patch.environment = data.environment.slice(0, 30);
+    if (data.expiresAt !== undefined) patch.expires_at = data.expiresAt;
+    if (Object.keys(patch).length === 0) return { ok: true };
+    const { error } = await sb
+      .from("api_keys")
+      .update(patch)
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const rotateApiKey = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { id: string }) => {
+    if (!d?.id) throw new Error("id required");
+    return d;
+  })
+  .handler(async ({ data, context }) => {
+    const { generateApiKey } = await import("@/lib/api-keys.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as unknown as Any;
+    const { data: existing, error: e0 } = await admin
+      .from("api_keys")
+      .select("id,user_id,name,scopes,expires_at,environment,tags,notes")
+      .eq("id", data.id)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (e0 || !existing) throw new Error("Key not found");
+    const gen = generateApiKey();
+    const suffix = " (rotated)";
+    const newName = String(existing.name ?? "key").slice(0, 60 - suffix.length) + suffix;
+    const { data: created, error: e1 } = await admin
+      .from("api_keys")
+      .insert({
+        user_id: existing.user_id,
+        name: newName,
+        prefix: gen.prefix,
+        last4: gen.last4,
+        key_hash: gen.hash,
+        scopes: existing.scopes,
+        expires_at: existing.expires_at,
+        environment: existing.environment ?? "production",
+        tags: existing.tags ?? [],
+        notes: existing.notes ?? null,
+        rotated_from: existing.id,
+      })
+      .select("id,name,prefix,last4,created_at")
+      .single();
+    if (e1) throw new Error(e1.message);
+    await admin.from("api_keys").update({ status: "revoked" }).eq("id", existing.id);
+    return { key: created, plaintext: gen.plaintext };
+  });
+
+export const listIpHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { id: string }) => {
+    if (!d?.id) throw new Error("id required");
+    return d;
+  })
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase as unknown as Any;
+    const { data: own } = await sb
+      .from("api_keys")
+      .select("id")
+      .eq("id", data.id)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (!own) throw new Error("Not found");
+    const { data: rows, error } = await sb
+      .from("api_key_ip_history")
+      .select("ip,first_seen,last_seen,request_count")
+      .eq("api_key_id", data.id)
+      .order("last_seen", { ascending: false })
+      .limit(50);
+    if (error) throw new Error(error.message);
+    return { rows: rows ?? [] };
+  });
