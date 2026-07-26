@@ -1,82 +1,102 @@
-# SEO Plan for PrismX GPT
+# Phase 3 — Developer Platform & API Keys
 
-Site: https://prismgpt.lovable.app — an AI chat + image generation product. Currently missing sitemap, robots.txt, per-route metadata, and structured data. Below is a full creation-and-optimization plan scoped tightly to what this project actually needs.
+Build a production Developer Portal on top of the existing Supabase project, without touching `.env`, auth, chat, images, projects, library, plans, or admin business logic. Only `bootstrap.sql` is extended (idempotent).
 
-## 1. Crawlability foundations (create)
+## Audit summary (what already exists, will be reused)
 
-**`public/robots.txt`** — allow all, disallow private surfaces, point to sitemap.
+- Supabase auth + `profiles`, `user_roles` (`app_role` enum incl. `admin`), `private.has_role`.
+- Plans in `plan_settings` (per-tier config) + `image_usage` + `consume_image_quota` RPC.
+- Chat: `conversations`, `messages`, `user_chat_state`; Projects, Library, Sharing tables.
+- API surface: `src/routes/api/chat.ts` (streaming), `src/routes/api/image.ts` (gen+edit lifecycle) — both use `requireApiAuth` (Supabase user JWT).
+- Admin at `/admin` (single route file).
+
+Reuse everything. No duplicated tables/policies/triggers.
+
+## Database additions (appended to `bootstrap.sql`, idempotent)
+
+```text
+enum  public.api_key_status ('active','disabled','revoked')
+
+table public.api_keys
+  id uuid pk, user_id uuid fk auth.users, name text,
+  prefix text (e.g. 'pk_prism_XXXX'), key_hash text (sha-256 hex, unique),
+  status api_key_status default 'active',
+  scopes text[] default '{chat,image,embeddings}',
+  last_used_at timestamptz, last_used_ip inet,
+  expires_at timestamptz, created_at, updated_at
+  UNIQUE (user_id, name)
+
+table public.api_key_usage        -- append-only, per request
+  id bigserial pk, api_key_id uuid fk, user_id uuid,
+  endpoint text, model text, status_code int,
+  input_tokens int, output_tokens int,
+  images int default 0, latency_ms int,
+  created_at timestamptz default now()
+  INDEX (api_key_id, created_at desc), (user_id, created_at desc)
+
+view  public.api_key_usage_daily  -- rollup for graphs (24h/30d)
+rpc   public.api_key_stats(_key_id uuid) → today/month/total/tokens/images/avg_latency
+rpc   public.rotate_api_key_last_used(_key_id uuid, _ip inet)   -- SECURITY DEFINER
 ```
-User-agent: *
-Allow: /
-Disallow: /admin
-Disallow: /chat
-Disallow: /projects/
-Disallow: /share/
-Disallow: /api/
 
-Sitemap: https://prismgpt.lovable.app/sitemap.xml
+RLS: owner-only SELECT/UPDATE/DELETE on `api_keys`; INSERT with `auth.uid()=user_id`. `api_key_usage` owner SELECT; INSERTs happen via service-role from server routes. Admin SELECT via `private.has_role(auth.uid(),'admin')`. GRANTs to `authenticated` + `service_role` per project rules.
+
+## Server functions & routes
+
+- `src/lib/api-keys.functions.ts` — `createServerFn` (auth): `listKeys`, `createKey` (returns plaintext once), `renameKey`, `setKeyStatus`, `deleteKey`, `keyStats`, `usageSeries`.
+- `src/lib/api-keys.server.ts` — hash helper (`sha256`), prefix generator (`pk_prism_` + 40 base62), verify.
+- Update `src/lib/api-auth.server.ts` → accept EITHER Supabase user JWT (existing) OR `pk_prism_*` API key. On API-key auth: lookup by hash, check `status='active'` and not expired, return `userId`, `apiKeyId`. **Preserves current auth path.**
+- `src/routes/api/chat.ts` & `src/routes/api/image.ts` — after existing logic, log a row into `api_key_usage` (only when the caller used an API key) via service-role admin client. No behavior change for the browser app.
+- New public API surface (all under `/api/v1/*`, use dual auth, log usage):
+  - `POST /api/v1/chat/completions` — OpenAI-compatible chat proxy over Lovable AI Gateway (streaming + non-stream).
+  - `POST /api/v1/images/generations` and `POST /api/v1/images/edits` — wraps existing image pipeline.
+  - `GET  /api/v1/models` — from `plan_settings`/static registry.
+- Admin server fns: `admin_listAllKeys`, `admin_setKeyStatus`, `admin_deleteKey`, `admin_keyUsage` (guarded by `has_role admin`).
+
+## Developer Portal UI (`/developer/*`, authenticated)
+
+New layout `src/routes/_authenticated/developer.tsx` with left nav; leaves:
+
+```
+/developer                → Dashboard  (KPIs, 7-day chart, top keys, recent errors)
+/developer/api-keys       → CRUD, create-modal reveals key once (copy + download)
+/developer/usage          → Filters (key/model/endpoint), stacked chart, table
+/developer/playground     → Model picker, prompt, stream toggle, request/response JSON
+/developer/models         → Table from registry (context, vision, streaming)
+/developer/sdks           → JS/TS, Python, Node, cURL tabs (copy)
+/developer/examples       → Chat, streaming, image gen, image edit, embeddings
+/developer/rate-limits    → Reads plan_settings for current tier
+/developer/logs           → Last 500 requests for user's keys
+/developer/quickstart     → 5-step onboarding
 ```
 
-**`src/routes/sitemap[.]xml.ts`** — dynamic server route listing only public, indexable pages: `/`, `/login`, `/signup`, `/help`, `/privacy`, `/terms`. Exclude authenticated (`/chat`, `/admin`, `/projects/*`) and per-user share links.
+Reuses shadcn primitives + existing theme. Lazy-loaded via `React.lazy`. Nav entry added to `prism-sidebar.tsx` under "Developer".
 
-## 2. Per-route head metadata (create)
+## Admin extension (`/admin`)
 
-Currently only `__root.tsx` defines metadata → every page shares one title/description. Add a dedicated `head()` to each public route with unique `title` (<60 chars, keyword-led), `description` (<160 chars), `og:title`, `og:description`, `og:url`, `og:type`, `twitter:card`, and a leaf-only `<link rel="canonical">`.
+Add "API Keys" tab: search by user/key, disable/revoke/delete, view per-key usage; wired to admin server fns.
 
-| Route | Title | Focus keyword |
-|---|---|---|
-| `/` | PrismX GPT — AI Chat & Image Generation in One Workspace | ai chat and image generation |
-| `/login` | Sign in — PrismX GPT | prismx gpt login |
-| `/signup` | Create your PrismX GPT account | prismx gpt signup |
-| `/help` | Help & Support — PrismX GPT | prismx gpt help |
-| `/privacy` | Privacy Policy — PrismX GPT | — (noindex optional) |
-| `/terms` | Terms of Service — PrismX GPT | — (noindex optional) |
+## Security
 
-Authenticated routes (`/chat`, `/chat/$chatId`, `/admin`, `/projects/*`, `/share/*`) get `<meta name="robots" content="noindex,nofollow">` — they contain private user data and shouldn't appear in search.
+- Plaintext key returned only from `createKey` response; DB stores `key_hash` (sha-256) + last 4 for display.
+- Constant-time compare on lookup; `last_used_at`/IP updated via SECURITY DEFINER RPC.
+- Rate limits enforced from `plan_settings` (per-minute + per-day) using `api_key_usage` counts; 429 with `Retry-After`.
+- CORS on `/api/v1/*` (`Access-Control-Allow-Origin: *`, key in `Authorization: Bearer`).
+- No secrets in client bundle; admin client only inside handlers.
 
-## 3. Structured data (JSON-LD)
+## QA gates before returning
 
-- **`__root.tsx`** — `Organization` + `WebSite` (with `SearchAction` pointing at `/chat`).
-- **`/`** — `SoftwareApplication` (applicationCategory: "AI Assistant", offers, aggregateRating placeholder removed until real data exists).
-- **`/help`** — `FAQPage` schema built from the on-page Q&A.
+1. `tsgo --noEmit` clean; `eslint` clean on new/changed files.
+2. Playwright: create key → copy → call `/api/v1/chat/completions` with it → row appears in `/developer/usage`; disable key → 401.
+3. Regression sweep: sign-in, existing chat send, image generate+edit+refresh, projects, library, plans page, admin — all unaffected.
+4. `bootstrap.sql` re-run on a fresh DB and on the current DB is a no-op / additive-only.
 
-## 4. On-page optimization for `/` (landing)
+## Deliverables
 
-- Single `<h1>` with primary keyword ("AI chat and image generation").
-- Semantic sections: `<header>`, `<main>`, `<section>` per feature block, `<footer>`. Already partially in place from the recent UI pass.
-- Descriptive `alt` on hero/logo (`alt="PrismX GPT logo"` not empty).
-- Internal links from landing → `/help`, `/signup`, `/login` with descriptive anchor text.
-- Preload the hero font (Sora) via `<link rel="preload" as="font">` in root head.
+- Modified: `src/lib/api-auth.server.ts`, `src/routes/api/chat.ts`, `src/routes/api/image.ts`, `src/components/prism-sidebar.tsx`, `src/routes/admin.tsx`, `bootstrap.sql`.
+- New: `src/lib/api-keys.{server,functions}.ts`, `src/routes/_authenticated/developer.tsx` (+ 10 child routes), `src/routes/api/v1/*` (chat, images, models), `src/components/developer/*` (KeyTable, CreateKeyModal, UsageChart, Playground, CodeBlock, SDKTabs).
+- No changes to `.env`, auth, or existing product code paths beyond the additive usage log.
 
-## 5. Social share previews
+## Scope confirmation
 
-- Confirm `og:image` and `twitter:image` on `__root.tsx` point to the absolute URL `https://prismgpt.lovable.app/og-image.png` (currently likely a static path — must be absolute for crawlers).
-- Add `og:image:width` / `og:image:height` (1200×630 recommended — regenerate `og-image.png` at that size if not already).
-- `twitter:card` = `summary_large_image`.
-
-## 6. Technical performance (SEO signals)
-
-Already good from the recent perf pass (lazy modals, query throttling). Additional SEO-specific:
-- Ensure landing `/` is fully SSR-rendered (TanStack Start default) so crawlers see content without JS.
-- Add `<link rel="preconnect">` for `fonts.googleapis.com` and `fonts.gstatic.com` (fonts are the main render-blocker).
-- Compress `og-image.png`, `icon-512.png` if >200KB.
-
-## 7. Post-ship verification
-
-- Run the built-in SEO scanner after deploy.
-- Submit `https://prismgpt.lovable.app/sitemap.xml` in Google Search Console.
-- Validate structured data at `search.google.com/test/rich-results`.
-- Debug share previews via Facebook Sharing Debugger + Twitter Card Validator (they cache — force refresh after changes).
-
-## Technical notes
-
-- `head()` metadata goes in TanStack `createFileRoute({ head: () => ({ meta, links, scripts }) })`. Title is a `meta` entry, not top-level.
-- Canonical `<link>` lives on leaf routes only (root-level canonical would duplicate on every page — TanStack `links` don't dedupe).
-- Sitemap uses `src/routes/sitemap[.]xml.ts` server route pattern (not `public/sitemap.xml`) so it stays in sync with routes.
-- Do NOT add `<lastmod>` to sitemap entries — no per-page authoritative timestamps exist; a build-time date is misleading.
-
-## Out of scope (per your prior rules)
-
-- No changes to `bootstrap.sql`, pricing, admin, projects, library, or settings logic.
-- No content rewrites of legal pages.
-- No new dependencies.
+This is ~30–40 new files and one `bootstrap.sql` migration block. I will implement it end-to-end in the next turn if you approve. If you want it split (e.g. DB + API keys CRUD first, portal UI next, public `/api/v1` last), say which slice to ship first.
