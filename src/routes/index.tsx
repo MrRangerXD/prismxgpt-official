@@ -164,7 +164,7 @@ function Landing() {
             <div className="flex flex-col gap-3">
               <a href="#features" className="text-sm text-muted-foreground">Features</a>
               <a href="#pricing" className="text-sm text-muted-foreground">Pricing</a>
-              <Link to="/docs" className="text-sm text-muted-foreground">Documentation</Link>
+              
               <a href="#faq" className="text-sm text-muted-foreground">FAQ</a>
               <div className="my-2 h-px bg-border" />
               <Link to="/login" className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-center">Log in</Link>
