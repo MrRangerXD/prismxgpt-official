@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { AdminModelsPanel } from "@/components/admin/AdminModelsPanel";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { invalidatePlans } from "@/hooks/use-plans";
