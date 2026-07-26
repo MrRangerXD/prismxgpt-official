@@ -606,6 +606,24 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
       OR EXISTS (SELECT 1 FROM public.shared_chat_members WHERE chat_id = _chat_id AND user_id = _user_id);
 $$;
 
+-- Drop leftover policies/functions from an earlier schema generation that
+-- referenced a now-nonexistent `shared` relation and caused
+--   ERROR: 42P01: relation "shared" does not exist
+-- on re-runs against existing projects. Safe/idempotent on fresh DBs.
+DROP POLICY IF EXISTS sc_select    ON public.shared_chats;
+DROP POLICY IF EXISTS sc_insert    ON public.shared_chats;
+DROP POLICY IF EXISTS sc_update    ON public.shared_chats;
+DROP POLICY IF EXISTS sc_delete    ON public.shared_chats;
+DROP POLICY IF EXISTS scm_select   ON public.shared_chat_members;
+DROP POLICY IF EXISTS scm_insert   ON public.shared_chat_members;
+DROP POLICY IF EXISTS scm_delete   ON public.shared_chat_members;
+DROP POLICY IF EXISTS scmsg_select ON public.shared_chat_messages;
+DROP POLICY IF EXISTS scmsg_insert ON public.shared_chat_messages;
+DROP POLICY IF EXISTS scmsg_update ON public.shared_chat_messages;
+DROP POLICY IF EXISTS scmsg_delete ON public.shared_chat_messages;
+DROP FUNCTION IF EXISTS public.is_shared_chat_member(uuid, uuid) CASCADE;
+
+
 DROP POLICY IF EXISTS "Owner can create shared chat"       ON public.shared_chats;
 DROP POLICY IF EXISTS "Owner can update shared chat"       ON public.shared_chats;
 DROP POLICY IF EXISTS "Owner can delete shared chat"       ON public.shared_chats;
