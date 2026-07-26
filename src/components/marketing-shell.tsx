@@ -33,7 +33,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
             <Link to="/features/ai-chat" className="text-sm text-muted-foreground transition hover:text-foreground">Chat</Link>
             <Link to="/features/image-generation" className="text-sm text-muted-foreground transition hover:text-foreground">Image gen</Link>
             <Link to="/features/image-editing" className="text-sm text-muted-foreground transition hover:text-foreground">Image edit</Link>
-            <Link to="/docs" className="text-sm text-muted-foreground transition hover:text-foreground">Docs</Link>
+            
           </div>
 
           <div className="hidden items-center gap-2 md:flex">
