@@ -22,6 +22,88 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE SCHEMA IF NOT EXISTS private;
 
 -- ---------------------------------------------------------------------------
+-- 0a. Legacy cleanup for broken shared-chat objects
+-- ---------------------------------------------------------------------------
+-- Older project copies can contain policies/functions/triggers/views that point
+-- at a bare relation named `shared`. That relation is not part of this schema;
+-- the canonical tables are public.shared_chats, public.shared_chat_members and
+-- public.shared_chat_messages. Clean those stale objects before creating or
+-- replacing the current schema so reruns work on existing projects.
+DO $$
+DECLARE
+  item record;
+BEGIN
+  FOR item IN
+    SELECT schemaname, tablename, policyname
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND (
+        policyname IN (
+          'sc_select', 'sc_insert', 'sc_update', 'sc_delete',
+          'scm_select', 'scm_insert', 'scm_delete',
+          'scmsg_select', 'scmsg_insert', 'scmsg_update', 'scmsg_delete'
+        )
+        OR (coalesce(qual, '') || ' ' || coalesce(with_check, ''))
+           ~* '(from|join|update|into|references)[[:space:]]+"?shared"?([^_[:alnum:]]|$)'
+      )
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON %I.%I', item.policyname, item.schemaname, item.tablename);
+  END LOOP;
+
+  FOR item IN
+    SELECT n.nspname AS schema_name, c.relname AS relation_name, c.relkind
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname IN ('public', 'private')
+      AND c.relkind IN ('v', 'm')
+      AND pg_get_viewdef(c.oid, true)
+          ~* '(from|join|update|into|references)[[:space:]]+"?shared"?([^_[:alnum:]]|$)'
+  LOOP
+    IF item.relkind = 'm' THEN
+      EXECUTE format('DROP MATERIALIZED VIEW IF EXISTS %I.%I CASCADE', item.schema_name, item.relation_name);
+    ELSE
+      EXECUTE format('DROP VIEW IF EXISTS %I.%I CASCADE', item.schema_name, item.relation_name);
+    END IF;
+  END LOOP;
+
+  FOR item IN
+    SELECT n.nspname AS schema_name, c.relname AS table_name, t.tgname AS trigger_name
+    FROM pg_trigger t
+    JOIN pg_class c ON c.oid = t.tgrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE NOT t.tgisinternal
+      AND n.nspname IN ('public', 'private')
+      AND pg_get_triggerdef(t.oid)
+          ~* '(from|join|update|into|references)[[:space:]]+"?shared"?([^_[:alnum:]]|$)'
+  LOOP
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON %I.%I', item.trigger_name, item.schema_name, item.table_name);
+  END LOOP;
+
+  FOR item IN
+    SELECT
+      n.nspname AS schema_name,
+      p.proname AS function_name,
+      pg_get_function_identity_arguments(p.oid) AS args,
+      p.prokind
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname IN ('public', 'private')
+      AND p.prokind IN ('f', 'p')
+      AND (
+        (n.nspname = 'public' AND p.proname IN ('is_shared_chat_member', 'get_shared_chat_members'))
+        OR pg_get_functiondef(p.oid)
+           ~* '(from|join|update|into|references)[[:space:]]+"?shared"?([^_[:alnum:]]|$)'
+      )
+  LOOP
+    IF item.prokind = 'p' THEN
+      EXECUTE format('DROP PROCEDURE IF EXISTS %I.%I(%s) CASCADE', item.schema_name, item.function_name, item.args);
+    ELSE
+      EXECUTE format('DROP FUNCTION IF EXISTS %I.%I(%s) CASCADE', item.schema_name, item.function_name, item.args);
+    END IF;
+  END LOOP;
+END $$;
+
+-- ---------------------------------------------------------------------------
 -- 1. Enums
 -- ---------------------------------------------------------------------------
 -- Existing production enums:
