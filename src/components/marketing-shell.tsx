@@ -88,7 +88,7 @@ export function MarketingShell({ children }: { children: ReactNode }) {
               <Link to="/features/ai-chat" className="text-sm text-muted-foreground">AI Chat</Link>
               <Link to="/features/image-generation" className="text-sm text-muted-foreground">Image generation</Link>
               <Link to="/features/image-editing" className="text-sm text-muted-foreground">Image editing</Link>
-              <Link to="/docs" className="text-sm text-muted-foreground">Documentation</Link>
+              
               <div className="my-2 h-px bg-border" />
               <Link to="/login" className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-center">Log in</Link>
               <Link
