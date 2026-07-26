@@ -2325,3 +2325,107 @@ Glossary is designed around three principles: predictability, safety and speed. 
 See the sidebar for related pages, or press `⌘K` / `Ctrl+K` to jump anywhere.
 ', 'published', 'public', 5, c.id, now(), ARRAY['glossary']::text[], false, false, NULL, ARRAY[]::text[], 'PrismXGPT Team', 1 FROM public.documentation_categories c WHERE c.slug = 'resources' ON CONFLICT (slug) DO NOTHING;
 
+
+-- =============================================================================
+-- Developer Platform: API Keys (idempotent, additive)
+-- =============================================================================
+DO $$ BEGIN
+  CREATE TYPE public.api_key_status AS ENUM ('active','disabled','revoked');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS public.api_keys (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name         text NOT NULL,
+  prefix       text NOT NULL,                    -- e.g. 'pk_prism_ABCD'
+  last4        text NOT NULL DEFAULT '',
+  key_hash     text NOT NULL UNIQUE,             -- sha-256 hex
+  status       public.api_key_status NOT NULL DEFAULT 'active',
+  scopes       text[] NOT NULL DEFAULT ARRAY['chat','image','embeddings']::text[],
+  last_used_at timestamptz,
+  last_used_ip inet,
+  expires_at   timestamptz,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, name)
+);
+CREATE INDEX IF NOT EXISTS api_keys_user_idx ON public.api_keys(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS api_keys_hash_idx ON public.api_keys(key_hash);
+
+DROP TRIGGER IF EXISTS api_keys_updated_at ON public.api_keys;
+CREATE TRIGGER api_keys_updated_at BEFORE UPDATE ON public.api_keys
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.api_keys TO authenticated;
+GRANT ALL ON public.api_keys TO service_role;
+ALTER TABLE public.api_keys ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users manage own api keys" ON public.api_keys;
+CREATE POLICY "Users manage own api keys" ON public.api_keys FOR ALL TO authenticated
+  USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins view all api keys" ON public.api_keys;
+CREATE POLICY "Admins view all api keys" ON public.api_keys FOR SELECT TO authenticated
+  USING (private.has_role(auth.uid(),'admin'));
+DROP POLICY IF EXISTS "Admins manage all api keys" ON public.api_keys;
+CREATE POLICY "Admins manage all api keys" ON public.api_keys FOR UPDATE TO authenticated
+  USING (private.has_role(auth.uid(),'admin')) WITH CHECK (private.has_role(auth.uid(),'admin'));
+DROP POLICY IF EXISTS "Admins delete api keys" ON public.api_keys;
+CREATE POLICY "Admins delete api keys" ON public.api_keys FOR DELETE TO authenticated
+  USING (private.has_role(auth.uid(),'admin'));
+
+CREATE TABLE IF NOT EXISTS public.api_key_usage (
+  id            bigserial PRIMARY KEY,
+  api_key_id    uuid REFERENCES public.api_keys(id) ON DELETE CASCADE,
+  user_id       uuid NOT NULL,
+  endpoint      text NOT NULL,
+  model         text,
+  status_code   int NOT NULL,
+  input_tokens  int NOT NULL DEFAULT 0,
+  output_tokens int NOT NULL DEFAULT 0,
+  images        int NOT NULL DEFAULT 0,
+  latency_ms    int NOT NULL DEFAULT 0,
+  error         text,
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS api_key_usage_key_idx  ON public.api_key_usage(api_key_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS api_key_usage_user_idx ON public.api_key_usage(user_id, created_at DESC);
+
+GRANT SELECT ON public.api_key_usage TO authenticated;
+GRANT ALL ON public.api_key_usage TO service_role;
+ALTER TABLE public.api_key_usage ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users view own usage" ON public.api_key_usage;
+CREATE POLICY "Users view own usage" ON public.api_key_usage FOR SELECT TO authenticated
+  USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Admins view all usage" ON public.api_key_usage;
+CREATE POLICY "Admins view all usage" ON public.api_key_usage FOR SELECT TO authenticated
+  USING (private.has_role(auth.uid(),'admin'));
+
+CREATE OR REPLACE FUNCTION public.api_key_stats(_key_id uuid)
+RETURNS TABLE (
+  requests_today  bigint,
+  requests_month  bigint,
+  requests_total  bigint,
+  input_tokens    bigint,
+  output_tokens   bigint,
+  images          bigint,
+  avg_latency_ms  numeric,
+  last_used_at    timestamptz
+) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT
+    COUNT(*) FILTER (WHERE created_at >= date_trunc('day', now())),
+    COUNT(*) FILTER (WHERE created_at >= date_trunc('month', now())),
+    COUNT(*),
+    COALESCE(SUM(input_tokens),0),
+    COALESCE(SUM(output_tokens),0),
+    COALESCE(SUM(images),0),
+    COALESCE(AVG(latency_ms),0)::numeric,
+    MAX(created_at)
+  FROM public.api_key_usage
+  WHERE api_key_id = _key_id
+    AND (
+      EXISTS (SELECT 1 FROM public.api_keys k WHERE k.id = _key_id AND k.user_id = auth.uid())
+      OR private.has_role(auth.uid(),'admin')
+    );
+$$;
+GRANT EXECUTE ON FUNCTION public.api_key_stats(uuid) TO authenticated;
