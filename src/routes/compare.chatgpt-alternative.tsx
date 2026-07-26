@@ -6,7 +6,7 @@ const features: Feature[] = [
   { title: "Image generation & editing built-in", desc: "No separate subscription — generate and edit images inside the same chat window." },
   { title: "Multi-model routing", desc: "Each prompt is routed to the best model — reasoning, code or fast chat — without you having to pick." },
   { title: "Projects & shared context", desc: "Group chats by project, share files and give the assistant persistent knowledge — great for teams." },
-  { title: "Modern developer API", desc: "REST endpoints, TypeScript & Python SDKs, and webhooks — see the API docs to get started." },
+  { title: "Modern developer API", desc: "REST endpoints, TypeScript & Python SDKs, and webhooks with clean examples and SDK helpers." },
   { title: "Transparent pricing", desc: "Simple, predictable plans with no per-message pricing traps or hidden add-ons." },
 ];
 
@@ -21,7 +21,7 @@ const faqs: Faq[] = [
   { q: "Is PrismXGPT free like ChatGPT?", a: "Yes. Our free plan includes chat, image generation and image editing. Paid plans add higher limits, priority processing and advanced reasoning models." },
   { q: "Do I need an OpenAI account?", a: "No. PrismXGPT is a standalone product — you don't need any other AI subscription to use it." },
   { q: "Can I use PrismXGPT for coding like ChatGPT?", a: "Yes. PrismXGPT has strong code capabilities across 40+ languages, with inline syntax highlighting and copy-ready snippets." },
-  { q: "Is there an API?", a: "Yes. PrismXGPT offers a REST API with TypeScript and Python SDKs. See the API section in our documentation for endpoints and examples." },
+  { q: "Is there an API?", a: "Yes. PrismXGPT offers a REST API with TypeScript and Python SDKs. Endpoints and examples are available for developers." },
 ];
 
 export const Route = createFileRoute("/compare/chatgpt-alternative")({
