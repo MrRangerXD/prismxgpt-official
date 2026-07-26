@@ -341,6 +341,7 @@ function AdminPage() {
     { id: "users", label: "Users", icon: Shield },
     { id: "pricing", label: "Pricing", icon: DollarSign },
     { id: "features", label: "Features", icon: ToggleLeft },
+    { id: "models", label: "Models", icon: Crown },
     { id: "announcement", label: "Announce", icon: Megaphone },
     { id: "activity", label: "Activity", icon: Activity },
   ] as const;
