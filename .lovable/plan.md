@@ -1,102 +1,111 @@
-# Phase 3 — Developer Platform & API Keys
+# Phase 3A — Developer Platform Excellence
 
-Build a production Developer Portal on top of the existing Supabase project, without touching `.env`, auth, chat, images, projects, library, plans, or admin business logic. Only `bootstrap.sql` is extended (idempotent).
+Ship a premium, fully-functional Developer Portal on top of the existing Phase 3 foundation. Reuse existing auth, admin, plans, subscription, and DB. No `.env` changes, no new Supabase project, no Lovable Cloud migration. All schema changes are appended idempotently to the existing `bootstrap.sql`.
 
-## Audit summary (what already exists, will be reused)
+## Scope check (what already exists → reused, not rebuilt)
 
-- Supabase auth + `profiles`, `user_roles` (`app_role` enum incl. `admin`), `private.has_role`.
-- Plans in `plan_settings` (per-tier config) + `image_usage` + `consume_image_quota` RPC.
-- Chat: `conversations`, `messages`, `user_chat_state`; Projects, Library, Sharing tables.
-- API surface: `src/routes/api/chat.ts` (streaming), `src/routes/api/image.ts` (gen+edit lifecycle) — both use `requireApiAuth` (Supabase user JWT).
-- Admin at `/admin` (single route file).
+- `api_keys`, `api_key_usage`, `api_key_stats` RPC, RLS policies, GRANTs.
+- Dual auth (`pk_prism_*` + Supabase JWT) in `src/lib/api-auth.server.ts`.
+- Public endpoints: `/api/v1/chat/completions`, `/api/v1/images/generations`, `/api/v1/models`.
+- Server fns in `src/lib/api-keys.functions.ts` (list/create/rename/status/delete/stats/usage/series + admin).
+- Current developer route `src/routes/developer.tsx` (single-page prototype) — REPLACED with a nested layout.
+- Admin route `src/routes/admin.tsx` — extended, not rewritten.
+- `src/lib/api-models.ts` static registry — kept as fallback, superseded at runtime by DB catalog.
 
-Reuse everything. No duplicated tables/policies/triggers.
+## Database (append-only edits to `bootstrap.sql`)
 
-## Database additions (appended to `bootstrap.sql`, idempotent)
+New tables (idempotent, RLS on, GRANTs to `authenticated`+`service_role`):
+
+- `public.model_providers(id text pk, name, website, logo_url, status, sort_order, created_at)`
+- `public.model_catalog(id text pk, provider_id fk, name, family, context_window int, capabilities jsonb, pricing jsonb, status enum('stable','preview','beta','deprecated','maintenance'), enabled bool, hidden bool, default_model bool, fallback_model_id text, priority int, created_at, updated_at)`
+- `public.model_plan_access(model_id fk, plan_id text, allowed bool, PRIMARY KEY(model_id, plan_id))` — plan_id matches `plan_settings.id` (`free|premium|plus|pro`).
+- Extend `public.api_keys`: `environment text default 'production'`, `tags text[] default '{}'`, `notes text`, `rotated_from uuid`.
+- `public.api_key_ip_history(id bigserial, api_key_id fk, ip inet, first_seen, last_seen, request_count int)`.
+- `public.webhooks(id uuid pk, user_id fk, url text, secret_hash text, events text[], status enum('active','disabled'), created_at)`.
+- `public.webhook_deliveries(id bigserial, webhook_id fk, event text, status_code int, attempt int, response_ms int, error text, created_at)`.
+- RPC `public.user_model_access(_user_id uuid) returns setof text` — resolves allowed model IDs from plan + admin bypass via `private.has_role(_user_id,'admin')`.
+- RPC `public.rotate_api_key(_id uuid) returns table(new_id uuid)` — copies name/scopes/tags into a new key, sets old key `status='revoked'`, writes `rotated_from`.
+- Seed the model catalog with all providers/models listed in the spec (OpenAI, Anthropic, Google, xAI, DeepSeek, OpenRouter passthrough) via `ON CONFLICT DO NOTHING`.
+- Seed default `model_plan_access` rows (free → flash/haiku/mini tier; premium → adds standard; plus → adds pro/opus; pro → all).
+
+## New/updated server functions (`src/lib/`)
+
+- `developer-catalog.functions.ts` — `listProviders`, `listModels` (respects `user_model_access` for non-admins; admins get everything), `adminListAllModels`, `adminUpsertProvider`, `adminUpsertModel`, `adminDeleteModel`, `adminSetPlanAccess`.
+- `api-keys.functions.ts` — add `rotateKey`, `updateKeyMeta` (tags/notes/environment/expiry), `listIpHistory`.
+- `webhooks.functions.ts` — CRUD, rotate secret, list deliveries, replay.
+- `dashboard.functions.ts` — `overview()` returning KPIs (requests today/month, tokens, images, active keys, avg latency, storage estimate, est. cost, top models, top providers, recent activity, 7-day series).
+- Update `src/routes/api/chat.ts` + `src/routes/api/image.ts` + `src/routes/api/v1/**` to enforce `user_model_access` before dispatch and record `provider_id`/`cost_usd` on `api_key_usage` (add nullable columns).
+
+## Route architecture
+
+Convert `src/routes/developer.tsx` into an `_authenticated` nested layout:
 
 ```text
-enum  public.api_key_status ('active','disabled','revoked')
-
-table public.api_keys
-  id uuid pk, user_id uuid fk auth.users, name text,
-  prefix text (e.g. 'pk_prism_XXXX'), key_hash text (sha-256 hex, unique),
-  status api_key_status default 'active',
-  scopes text[] default '{chat,image,embeddings}',
-  last_used_at timestamptz, last_used_ip inet,
-  expires_at timestamptz, created_at, updated_at
-  UNIQUE (user_id, name)
-
-table public.api_key_usage        -- append-only, per request
-  id bigserial pk, api_key_id uuid fk, user_id uuid,
-  endpoint text, model text, status_code int,
-  input_tokens int, output_tokens int,
-  images int default 0, latency_ms int,
-  created_at timestamptz default now()
-  INDEX (api_key_id, created_at desc), (user_id, created_at desc)
-
-view  public.api_key_usage_daily  -- rollup for graphs (24h/30d)
-rpc   public.api_key_stats(_key_id uuid) → today/month/total/tokens/images/avg_latency
-rpc   public.rotate_api_key_last_used(_key_id uuid, _ip inet)   -- SECURITY DEFINER
+_authenticated/developer.tsx                (layout: sidebar + header + Outlet)
+_authenticated/developer/index.tsx          Dashboard
+_authenticated/developer/api-keys.tsx       Key manager (+ create/rotate modals)
+_authenticated/developer/playground.tsx     Playground
+_authenticated/developer/models.tsx         Model catalog
+_authenticated/developer/providers.tsx      Providers browser
+_authenticated/developer/usage.tsx          Usage analytics
+_authenticated/developer/analytics.tsx      Advanced analytics
+_authenticated/developer/logs.tsx           Request logs (filter/search/retry)
+_authenticated/developer/billing.tsx        Plan/usage/est-cost, upgrade CTA
+_authenticated/developer/rate-limits.tsx    From plan_settings
+_authenticated/developer/sdks.tsx           12-language snippet generator
+_authenticated/developer/examples.tsx       Runnable examples
+_authenticated/developer/documentation.tsx  In-portal reference
+_authenticated/developer/webhooks.tsx       Webhook manager
+_authenticated/developer/quickstart.tsx     5-step onboarding
+_authenticated/developer/settings.tsx       Portal preferences
 ```
 
-RLS: owner-only SELECT/UPDATE/DELETE on `api_keys`; INSERT with `auth.uid()=user_id`. `api_key_usage` owner SELECT; INSERTs happen via service-role from server routes. Admin SELECT via `private.has_role(auth.uid(),'admin')`. GRANTs to `authenticated` + `service_role` per project rules.
+Delete the flat `src/routes/developer.tsx` in the same commit that creates the layout (to avoid duplicate route errors).
 
-## Server functions & routes
+## Admin panel additions (extends existing `src/routes/admin.tsx`)
 
-- `src/lib/api-keys.functions.ts` — `createServerFn` (auth): `listKeys`, `createKey` (returns plaintext once), `renameKey`, `setKeyStatus`, `deleteKey`, `keyStats`, `usageSeries`.
-- `src/lib/api-keys.server.ts` — hash helper (`sha256`), prefix generator (`pk_prism_` + 40 base62), verify.
-- Update `src/lib/api-auth.server.ts` → accept EITHER Supabase user JWT (existing) OR `pk_prism_*` API key. On API-key auth: lookup by hash, check `status='active'` and not expired, return `userId`, `apiKeyId`. **Preserves current auth path.**
-- `src/routes/api/chat.ts` & `src/routes/api/image.ts` — after existing logic, log a row into `api_key_usage` (only when the caller used an API key) via service-role admin client. No behavior change for the browser app.
-- New public API surface (all under `/api/v1/*`, use dual auth, log usage):
-  - `POST /api/v1/chat/completions` — OpenAI-compatible chat proxy over Lovable AI Gateway (streaming + non-stream).
-  - `POST /api/v1/images/generations` and `POST /api/v1/images/edits` — wraps existing image pipeline.
-  - `GET  /api/v1/models` — from `plan_settings`/static registry.
-- Admin server fns: `admin_listAllKeys`, `admin_setKeyStatus`, `admin_deleteKey`, `admin_keyUsage` (guarded by `has_role admin`).
+- New "Models" tab: full CRUD over `model_providers`, `model_catalog`, `model_plan_access`. Toggle enabled/hidden/beta/preview/maintenance/deprecated, set default & fallback, priority, capabilities, pricing.
+- New "API Keys" tab (admin): search, disable/revoke/delete, per-key usage drill-down.
+- New "Webhooks" tab (admin): global view + force-disable.
 
-## Developer Portal UI (`/developer/*`, authenticated)
+## UI system
 
-New layout `src/routes/_authenticated/developer.tsx` with left nav; leaves:
+- Design language: existing Emerald Prestige tokens. Add glass surface utility (`.glass`) + subtle grid backdrop for developer shell only. No hardcoded colors — all via semantic tokens in `src/styles.css`.
+- Shared: `DevShell`, `DevSidebar` (collapsible, keyboard nav, ⌘K), `DevHeader` (env switcher, docs search, user menu), `KpiCard`, `SparklineChart`, `AreaChart` (recharts — already in deps if present; otherwise add via `bun add recharts`), `EmptyState`, `SkeletonCard`, `LockedModelCard` (with plan-aware upgrade CTA), `CodeBlock` (prism-react-renderer or existing highlighter).
+- All lists: skeleton loaders, empty states, error states.
+- Playground: streaming SSE via existing `/api/v1/chat/completions`, request/response inspectors, copy/export, vision upload, image gen, JSON mode toggle.
 
-```
-/developer                → Dashboard  (KPIs, 7-day chart, top keys, recent errors)
-/developer/api-keys       → CRUD, create-modal reveals key once (copy + download)
-/developer/usage          → Filters (key/model/endpoint), stacked chart, table
-/developer/playground     → Model picker, prompt, stream toggle, request/response JSON
-/developer/models         → Table from registry (context, vision, streaming)
-/developer/sdks           → JS/TS, Python, Node, cURL tabs (copy)
-/developer/examples       → Chat, streaming, image gen, image edit, embeddings
-/developer/rate-limits    → Reads plan_settings for current tier
-/developer/logs           → Last 500 requests for user's keys
-/developer/quickstart     → 5-step onboarding
-```
+## Plan-aware model gating
 
-Reuses shadcn primitives + existing theme. Lazy-loaded via `React.lazy`. Nav entry added to `prism-sidebar.tsx` under "Developer".
+- Client: `useAllowedModels()` hook backed by `listModels` server fn; locked models render `LockedModelCard` with a Plus/Pro upgrade CTA that opens the existing `PlusModal`.
+- Server: every completion/image endpoint calls `user_model_access` before dispatch. Admins bypass. Failure → 403 with `code: "model_not_allowed"`.
 
-## Admin extension (`/admin`)
+## Performance & polish
 
-Add "API Keys" tab: search by user/key, disable/revoke/delete, view per-key usage; wired to admin server fns.
-
-## Security
-
-- Plaintext key returned only from `createKey` response; DB stores `key_hash` (sha-256) + last 4 for display.
-- Constant-time compare on lookup; `last_used_at`/IP updated via SECURITY DEFINER RPC.
-- Rate limits enforced from `plan_settings` (per-minute + per-day) using `api_key_usage` counts; 429 with `Retry-After`.
-- CORS on `/api/v1/*` (`Access-Control-Allow-Origin: *`, key in `Authorization: Bearer`).
-- No secrets in client bundle; admin client only inside handlers.
+- Route-level `React.lazy` for every developer leaf.
+- TanStack Query `ensureQueryData` in loaders, `useSuspenseQuery` in components; 30s staleTime for catalogs, 10s for usage.
+- Prefetch on sidebar hover.
+- Framer-motion micro-animations (already in deps if present; else `bun add framer-motion`).
+- All mutations optimistic where safe (rename key, toggle status).
 
 ## QA gates before returning
 
-1. `tsgo --noEmit` clean; `eslint` clean on new/changed files.
-2. Playwright: create key → copy → call `/api/v1/chat/completions` with it → row appears in `/developer/usage`; disable key → 401.
-3. Regression sweep: sign-in, existing chat send, image generate+edit+refresh, projects, library, plans page, admin — all unaffected.
-4. `bootstrap.sql` re-run on a fresh DB and on the current DB is a no-op / additive-only.
+1. `tsgo --noEmit` clean.
+2. `bootstrap.sql` re-runs cleanly on existing DB (idempotent) — spot-check by running against local Postgres.
+3. Smoke: login → /developer → create key → run Playground call → row appears in Logs and Usage; toggle a model off in Admin → free user sees Lock; admin still sees all models.
+4. No new console errors on any route; existing chat/image/projects/library/admin paths unaffected.
 
 ## Deliverables
 
-- Modified: `src/lib/api-auth.server.ts`, `src/routes/api/chat.ts`, `src/routes/api/image.ts`, `src/components/prism-sidebar.tsx`, `src/routes/admin.tsx`, `bootstrap.sql`.
-- New: `src/lib/api-keys.{server,functions}.ts`, `src/routes/_authenticated/developer.tsx` (+ 10 child routes), `src/routes/api/v1/*` (chat, images, models), `src/components/developer/*` (KeyTable, CreateKeyModal, UsageChart, Playground, CodeBlock, SDKTabs).
-- No changes to `.env`, auth, or existing product code paths beyond the additive usage log.
+- Modified: `bootstrap.sql`, `src/routes/admin.tsx`, `src/routes/api/chat.ts`, `src/routes/api/image.ts`, `src/routes/api/v1/**/*`, `src/lib/api-keys.functions.ts`, `src/lib/api-auth.server.ts`, `src/components/prism-sidebar.tsx`, `src/styles.css`.
+- New: 16 developer route files, `src/lib/developer-catalog.functions.ts`, `src/lib/webhooks.functions.ts`, `src/lib/dashboard.functions.ts`, `src/components/developer/**` (~15 components), plus admin sub-panels under `src/components/admin/models/**`.
+- Deleted: flat `src/routes/developer.tsx`.
 
 ## Scope confirmation
 
-This is ~30–40 new files and one `bootstrap.sql` migration block. I will implement it end-to-end in the next turn if you approve. If you want it split (e.g. DB + API keys CRUD first, portal UI next, public `/api/v1` last), say which slice to ship first.
+This is ~50 new files, ~10 modified files, and one appended block in `bootstrap.sql`. Because the surface is huge and touches admin/gating/model dispatch, I want your go-ahead before I start writing files. Two options:
+
+- **A. Ship it all in one pass** (long turn; single review).
+- **B. Ship in 3 slices**: (1) DB + model catalog + gating + admin Models tab; (2) developer shell + Dashboard + API Keys + Playground + Models/Providers/Usage/Logs; (3) Webhooks + SDKs + Examples + Documentation + Billing + Rate Limits + Quick Start + Settings.
+
+Which do you want — A or B? (If B, I'll start with slice 1 immediately after you confirm.)
