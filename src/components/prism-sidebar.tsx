@@ -194,10 +194,6 @@ export function PrismSidebar({
           <FolderClosed className="h-4 w-4 text-muted-foreground" />
           <span>Projects</span>
         </button>
-        <Link to="/docs" className={rowCls} onClick={() => onMobileClose?.()}>
-          <BookOpen className="h-4 w-4 text-muted-foreground" />
-          <span>Documentation</span>
-        </Link>
         <div className="relative">
           <button className={rowCls} onClick={() => setMoreOpen((v) => !v)}>
             <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
@@ -216,14 +212,6 @@ export function PrismSidebar({
                 >
                   <ImageIcon className="h-4 w-4 text-muted-foreground" /> Images
                 </button>
-                <Link
-                  to="/docs"
-                  onClick={() => setMoreOpen(false)}
-                  className="flex w-full items-center gap-3 px-3 py-2 text-sm hover:bg-accent"
-                >
-                  <Telescope className="h-4 w-4 text-muted-foreground" /> Documentation
-                </Link>
-
               </div>
             </>
           )}
