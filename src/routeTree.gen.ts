@@ -15,6 +15,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HelpRouteImport } from './routes/help'
+import { Route as DeveloperRouteImport } from './routes/developer'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
@@ -63,6 +64,11 @@ const LoginRoute = LoginRouteImport.update({
 const HelpRoute = HelpRouteImport.update({
   id: '/help',
   path: '/help',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeveloperRoute = DeveloperRouteImport.update({
+  id: '/developer',
+  path: '/developer',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatRoute = ChatRouteImport.update({
@@ -168,6 +174,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/chat': typeof ChatRoute
+  '/developer': typeof DeveloperRoute
   '/help': typeof HelpRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
@@ -195,6 +202,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/chat': typeof ChatRoute
+  '/developer': typeof DeveloperRoute
   '/help': typeof HelpRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
@@ -223,6 +231,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/chat': typeof ChatRoute
+  '/developer': typeof DeveloperRoute
   '/help': typeof HelpRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
@@ -252,6 +261,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/chat'
+    | '/developer'
     | '/help'
     | '/login'
     | '/privacy'
@@ -279,6 +289,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/chat'
+    | '/developer'
     | '/help'
     | '/login'
     | '/privacy'
@@ -306,6 +317,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/chat'
+    | '/developer'
     | '/help'
     | '/login'
     | '/privacy'
@@ -334,6 +346,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   ChatRoute: typeof ChatRoute
+  DeveloperRoute: typeof DeveloperRoute
   HelpRoute: typeof HelpRoute
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
@@ -400,6 +413,13 @@ declare module '@tanstack/react-router' {
       path: '/help'
       fullPath: '/help'
       preLoaderRoute: typeof HelpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/developer': {
+      id: '/developer'
+      path: '/developer'
+      fullPath: '/developer'
+      preLoaderRoute: typeof DeveloperRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chat': {
@@ -542,6 +562,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   ChatRoute: ChatRoute,
+  DeveloperRoute: DeveloperRoute,
   HelpRoute: HelpRoute,
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
