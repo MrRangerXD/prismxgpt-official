@@ -26,7 +26,7 @@ import {
   Pencil,
   Share2,
   FolderPlus,
-  BookOpen,
+  
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ChatThread } from "@/lib/chat-store";
