@@ -2452,6 +2452,12 @@ CREATE TABLE IF NOT EXISTS public.api_keys (
 CREATE INDEX IF NOT EXISTS api_keys_user_idx ON public.api_keys(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS api_keys_hash_idx ON public.api_keys(key_hash);
 
+-- Extended per-key metadata (idempotent, safe to rerun)
+ALTER TABLE public.api_keys ADD COLUMN IF NOT EXISTS environment  text NOT NULL DEFAULT 'production';
+ALTER TABLE public.api_keys ADD COLUMN IF NOT EXISTS tags         text[] NOT NULL DEFAULT '{}';
+ALTER TABLE public.api_keys ADD COLUMN IF NOT EXISTS notes        text;
+ALTER TABLE public.api_keys ADD COLUMN IF NOT EXISTS rotated_from uuid;
+
 DROP TRIGGER IF EXISTS api_keys_updated_at ON public.api_keys;
 CREATE TRIGGER api_keys_updated_at BEFORE UPDATE ON public.api_keys
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
