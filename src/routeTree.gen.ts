@@ -15,7 +15,6 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HelpRouteImport } from './routes/help'
-import { Route as DocsRouteImport } from './routes/docs'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
@@ -24,7 +23,6 @@ import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projec
 import { Route as FeaturesImageGenerationRouteImport } from './routes/features.image-generation'
 import { Route as FeaturesImageEditingRouteImport } from './routes/features.image-editing'
 import { Route as FeaturesAiChatRouteImport } from './routes/features.ai-chat'
-import { Route as DocsSlugRouteImport } from './routes/docs.$slug'
 import { Route as CompareMidjourneyAlternativeRouteImport } from './routes/compare.midjourney-alternative'
 import { Route as CompareClaudeAlternativeRouteImport } from './routes/compare.claude-alternative'
 import { Route as CompareChatgptAlternativeRouteImport } from './routes/compare.chatgpt-alternative'
@@ -62,11 +60,6 @@ const LoginRoute = LoginRouteImport.update({
 const HelpRoute = HelpRouteImport.update({
   id: '/help',
   path: '/help',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DocsRoute = DocsRouteImport.update({
-  id: '/docs',
-  path: '/docs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatRoute = ChatRouteImport.update({
@@ -108,11 +101,6 @@ const FeaturesAiChatRoute = FeaturesAiChatRouteImport.update({
   id: '/features/ai-chat',
   path: '/features/ai-chat',
   getParentRoute: () => rootRouteImport,
-} as any)
-const DocsSlugRoute = DocsSlugRouteImport.update({
-  id: '/$slug',
-  path: '/$slug',
-  getParentRoute: () => DocsRoute,
 } as any)
 const CompareMidjourneyAlternativeRoute =
   CompareMidjourneyAlternativeRouteImport.update({
@@ -162,7 +150,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/chat': typeof ChatRoute
-  '/docs': typeof DocsRouteWithChildren
   '/help': typeof HelpRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
@@ -175,7 +162,6 @@ export interface FileRoutesByFullPath {
   '/compare/chatgpt-alternative': typeof CompareChatgptAlternativeRoute
   '/compare/claude-alternative': typeof CompareClaudeAlternativeRoute
   '/compare/midjourney-alternative': typeof CompareMidjourneyAlternativeRoute
-  '/docs/$slug': typeof DocsSlugRoute
   '/features/ai-chat': typeof FeaturesAiChatRoute
   '/features/image-editing': typeof FeaturesImageEditingRoute
   '/features/image-generation': typeof FeaturesImageGenerationRoute
@@ -188,7 +174,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/chat': typeof ChatRoute
-  '/docs': typeof DocsRouteWithChildren
   '/help': typeof HelpRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
@@ -201,7 +186,6 @@ export interface FileRoutesByTo {
   '/compare/chatgpt-alternative': typeof CompareChatgptAlternativeRoute
   '/compare/claude-alternative': typeof CompareClaudeAlternativeRoute
   '/compare/midjourney-alternative': typeof CompareMidjourneyAlternativeRoute
-  '/docs/$slug': typeof DocsSlugRoute
   '/features/ai-chat': typeof FeaturesAiChatRoute
   '/features/image-editing': typeof FeaturesImageEditingRoute
   '/features/image-generation': typeof FeaturesImageGenerationRoute
@@ -215,7 +199,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/chat': typeof ChatRoute
-  '/docs': typeof DocsRouteWithChildren
   '/help': typeof HelpRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
@@ -228,7 +211,6 @@ export interface FileRoutesById {
   '/compare/chatgpt-alternative': typeof CompareChatgptAlternativeRoute
   '/compare/claude-alternative': typeof CompareClaudeAlternativeRoute
   '/compare/midjourney-alternative': typeof CompareMidjourneyAlternativeRoute
-  '/docs/$slug': typeof DocsSlugRoute
   '/features/ai-chat': typeof FeaturesAiChatRoute
   '/features/image-editing': typeof FeaturesImageEditingRoute
   '/features/image-generation': typeof FeaturesImageGenerationRoute
@@ -243,7 +225,6 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/chat'
-    | '/docs'
     | '/help'
     | '/login'
     | '/privacy'
@@ -256,7 +237,6 @@ export interface FileRouteTypes {
     | '/compare/chatgpt-alternative'
     | '/compare/claude-alternative'
     | '/compare/midjourney-alternative'
-    | '/docs/$slug'
     | '/features/ai-chat'
     | '/features/image-editing'
     | '/features/image-generation'
@@ -269,7 +249,6 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/chat'
-    | '/docs'
     | '/help'
     | '/login'
     | '/privacy'
@@ -282,7 +261,6 @@ export interface FileRouteTypes {
     | '/compare/chatgpt-alternative'
     | '/compare/claude-alternative'
     | '/compare/midjourney-alternative'
-    | '/docs/$slug'
     | '/features/ai-chat'
     | '/features/image-editing'
     | '/features/image-generation'
@@ -295,7 +273,6 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/chat'
-    | '/docs'
     | '/help'
     | '/login'
     | '/privacy'
@@ -308,7 +285,6 @@ export interface FileRouteTypes {
     | '/compare/chatgpt-alternative'
     | '/compare/claude-alternative'
     | '/compare/midjourney-alternative'
-    | '/docs/$slug'
     | '/features/ai-chat'
     | '/features/image-editing'
     | '/features/image-generation'
@@ -322,7 +298,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   ChatRoute: typeof ChatRoute
-  DocsRoute: typeof DocsRouteWithChildren
   HelpRoute: typeof HelpRoute
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
@@ -388,13 +363,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HelpRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/docs': {
-      id: '/docs'
-      path: '/docs'
-      fullPath: '/docs'
-      preLoaderRoute: typeof DocsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/chat': {
       id: '/chat'
       path: '/chat'
@@ -450,13 +418,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/features/ai-chat'
       preLoaderRoute: typeof FeaturesAiChatRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/docs/$slug': {
-      id: '/docs/$slug'
-      path: '/$slug'
-      fullPath: '/docs/$slug'
-      preLoaderRoute: typeof DocsSlugRouteImport
-      parentRoute: typeof DocsRoute
     }
     '/compare/midjourney-alternative': {
       id: '/compare/midjourney-alternative'
@@ -517,21 +478,10 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface DocsRouteChildren {
-  DocsSlugRoute: typeof DocsSlugRoute
-}
-
-const DocsRouteChildren: DocsRouteChildren = {
-  DocsSlugRoute: DocsSlugRoute,
-}
-
-const DocsRouteWithChildren = DocsRoute._addFileChildren(DocsRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   ChatRoute: ChatRoute,
-  DocsRoute: DocsRouteWithChildren,
   HelpRoute: HelpRoute,
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
@@ -555,13 +505,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
