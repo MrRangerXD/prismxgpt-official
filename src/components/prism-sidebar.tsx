@@ -19,6 +19,8 @@ import {
   
   Crown,
   Shield,
+  Code2,
+
   Plus,
   Check,
   X,
