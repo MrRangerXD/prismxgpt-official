@@ -189,12 +189,6 @@ export function MarketingPage({
           >
             {ctaLabel} <ArrowRight className="h-4 w-4" />
           </Link>
-          <Link
-            to="/docs"
-            className="inline-flex items-center gap-2 rounded-xl border border-border bg-card/60 px-6 py-3.5 text-base font-medium backdrop-blur transition hover:bg-accent"
-          >
-            Read the docs
-          </Link>
         </div>
       </section>
 
