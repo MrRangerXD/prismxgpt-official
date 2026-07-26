@@ -685,6 +685,8 @@ function AdminPage() {
           </div>
         )}
 
+        {tab === "models" && <AdminModelsPanel />}
+
         {tab === "activity" && (
           <div className="rounded-2xl border border-border bg-card p-6">
             <h2 className="mb-1 text-lg font-semibold">Recent activity</h2>
