@@ -158,9 +158,10 @@ export const Route = createFileRoute("/api/chat")({
             { status: 413 },
           );
         }
-        const key = process.env.LOVABLE_API_KEY;
-        if (!key) {
-          console.error("[api/chat] missing LOVABLE_API_KEY");
+        const hasOpenRouter = !!process.env.OPENROUTER_API_KEY;
+        const hasGroq = !!process.env.GROQ_API_KEY;
+        if (!hasOpenRouter && !hasGroq) {
+          console.error("[api/chat] no AI provider configured");
           return new Response(
             "The AI service isn't configured right now. Please try again shortly.",
             { status: 503 },
