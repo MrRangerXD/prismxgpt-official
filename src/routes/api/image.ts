@@ -230,7 +230,7 @@ async function runGeneration(params: {
   }
 
   const finalUrl = publicImageUrl ?? `data:image/png;base64,${b64}`;
-  await finalize({ status: "completed", progress: 100, image_url: finalUrl, thumbnail: finalUrl, storage_path: storagePath, provider_job_id: upstream.headers.get("x-request-id") ?? null });
+  await finalize({ status: "completed", progress: 100, image_url: finalUrl, thumbnail: finalUrl, storage_path: storagePath });
   return {
     status: 200,
     body: { generationId, status: "completed", imageUrl: finalUrl, storagePath },
