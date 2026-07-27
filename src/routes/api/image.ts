@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireApiAuth } from "@/lib/api-auth.server";
+import { requireImageModel } from "@/lib/ai/registry";
+import { generateImage } from "@/lib/ai/providers.server";
 
 // The generated Supabase Database types don't yet include image_generations
 // (it's added by bootstrap.sql on the live project); use a loose alias so
@@ -29,16 +31,6 @@ type SupabaseAny = { from(name: string): any; rpc(name: string, args?: unknown):
 const STUCK_MS = 2 * 60 * 1000;
 const FINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
-function friendly(status: number, upstreamMsg?: string): { status: number; error: string } {
-  if (status === 401) return { status: 401, error: "Please sign in again to generate images." };
-  if (status === 402) return { status: 402, error: "Image generation credits are exhausted for this workspace. Please add credits and try again." };
-  if (status === 429) return { status: 429, error: "Too many image requests right now — please wait a moment and try again." };
-  if (upstreamMsg && /content.?policy|moderation|safety/i.test(upstreamMsg)) {
-    return { status: 400, error: "That prompt was blocked by the safety filter. Try rephrasing without names of real people, brands, or copyrighted characters." };
-  }
-  if (status >= 500) return { status: 502, error: "Image generation is temporarily unavailable. Please try again in a moment." };
-  return { status: 400, error: "I couldn't generate that image. Try a different prompt or try again." };
-}
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -159,75 +151,39 @@ async function runGeneration(params: {
     console.error("[api/image] quota check failed (fail-open)", e);
   }
 
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) {
+  const hasOpenRouter = !!process.env.OPENROUTER_API_KEY;
+  if (!hasOpenRouter) {
     await finalize({ status: "failed", progress: 100, error: "Image generation isn't configured." });
     return { status: 503, body: { generationId, status: "failed", error: "Image generation isn't configured right now. Please try again shortly." } };
   }
 
-  const doFetch = () =>
-    fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Lovable-API-Key": key,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3.1-flash-image",
-        messages: [
-          {
-            role: "user",
-            content: inputImageUrl
-              ? [
-                  { type: "text", text: prompt },
-                  { type: "image_url", image_url: { url: inputImageUrl } },
-                ]
-              : prompt,
-          },
-        ],
-        modalities: ["image", "text"],
-      }),
-    });
-
-  let upstream: Response;
+  let imageEntry;
   try {
-    upstream = await doFetch();
-    if (!upstream.ok && upstream.status >= 500) {
-      await new Promise((r) => setTimeout(r, 400));
-      upstream = await doFetch();
-    }
-  } catch (e) {
-    console.error("[api/image] network error", e);
-    const msg = "I couldn't reach the image service. Please try again in a moment.";
+    imageEntry = requireImageModel();
+  } catch {
+    await finalize({ status: "failed", progress: 100, error: "No free image model available." });
+    return { status: 503, body: { generationId, status: "failed", error: "No free image model is available right now." } };
+  }
+
+  const genResult = await generateImage({
+    entry: imageEntry,
+    prompt,
+    inputImageUrl,
+  });
+
+  if (!genResult.ok) {
+    await finalize({ status: "failed", progress: 100, error: genResult.message });
+    return { status: genResult.status, body: { generationId, status: "failed", error: genResult.message } };
+  }
+
+  const b64Match = /^data:[^;]+;base64,(.*)$/.exec(genResult.dataUrl);
+  const b64 = b64Match?.[1];
+  if (!b64) {
+    const msg = "The image service returned an unexpected response. Please try again.";
     await finalize({ status: "failed", progress: 100, error: msg });
     return { status: 502, body: { generationId, status: "failed", error: msg } };
   }
 
-  if (!upstream.ok) {
-    const text = await upstream.text().catch(() => "");
-    console.error("[api/image] upstream error", upstream.status, text);
-    const f = friendly(upstream.status, text);
-    await finalize({ status: "failed", progress: 100, provider_job_id: upstream.headers.get("x-request-id") ?? null, error: f.error });
-    return { status: f.status, body: { generationId, status: "failed", error: f.error } };
-  }
-
-  let json: { data?: Array<{ b64_json?: string }> };
-  try {
-    json = await upstream.json();
-  } catch (e) {
-    console.error("[api/image] bad json", e);
-    const msg = "The image service returned an unexpected response. Please try again.";
-    await finalize({ status: "failed", progress: 100, provider_job_id: upstream.headers.get("x-request-id") ?? null, error: msg });
-    return { status: 502, body: { generationId, status: "failed", error: msg } };
-  }
-
-  const b64 = json.data?.[0]?.b64_json;
-  if (!b64) {
-    const msg = "No image was returned. Please try a different prompt.";
-    await finalize({ status: "failed", progress: 100, provider_job_id: upstream.headers.get("x-request-id") ?? null, error: msg });
-    return { status: 502, body: { generationId, status: "failed", error: msg } };
-  }
 
   const filename = `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.png`;
   const storagePath = `${userId}/${filename}`;
@@ -264,7 +220,7 @@ async function runGeneration(params: {
   }
 
   const finalUrl = publicImageUrl ?? `data:image/png;base64,${b64}`;
-  await finalize({ status: "completed", progress: 100, image_url: finalUrl, thumbnail: finalUrl, storage_path: storagePath, provider_job_id: upstream.headers.get("x-request-id") ?? null });
+  await finalize({ status: "completed", progress: 100, image_url: finalUrl, thumbnail: finalUrl, storage_path: storagePath });
   return {
     status: 200,
     body: { generationId, status: "completed", imageUrl: finalUrl, storagePath },

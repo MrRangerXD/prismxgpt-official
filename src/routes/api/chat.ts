@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
 import { requireApiAuth } from "@/lib/api-auth.server";
+import { requireChatModel } from "@/lib/ai/registry";
+import { resolveLanguageModel } from "@/lib/ai/providers.server";
 
 const SYSTEM_PROMPT = `You are PrismXGPT, an expert AI assistant with strong programming, debugging, reasoning, software architecture, image understanding, and problem-solving skills.
 
@@ -157,9 +158,10 @@ export const Route = createFileRoute("/api/chat")({
             { status: 413 },
           );
         }
-        const key = process.env.LOVABLE_API_KEY;
-        if (!key) {
-          console.error("[api/chat] missing LOVABLE_API_KEY");
+        const hasOpenRouter = !!process.env.OPENROUTER_API_KEY;
+        const hasGroq = !!process.env.GROQ_API_KEY;
+        if (!hasOpenRouter && !hasGroq) {
+          console.error("[api/chat] no AI provider configured");
           return new Response(
             "The AI service isn't configured right now. Please try again shortly.",
             { status: 503 },
@@ -235,9 +237,10 @@ export const Route = createFileRoute("/api/chat")({
         }
 
         try {
-          const gateway = createLovableAiGatewayProvider(key);
+          const modelEntry = requireChatModel();
+          const model = resolveLanguageModel(modelEntry);
           const result = streamText({
-            model: gateway("google/gemini-3-flash-preview"),
+            model,
             system,
             messages: await convertToModelMessages(body.messages),
             onError: ({ error }) => {
