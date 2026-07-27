@@ -8,28 +8,33 @@
  */
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { LanguageModel } from "ai";
-import type { ModelEntry, ProviderName } from "./registry";
+import {
+  MODEL_REGISTRY,
+  DEFAULT_CHAT_MODEL_ID,
+  type ModelEntry,
+  type ProviderName,
+} from "./registry";
 
 const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 const GROQ_BASE = "https://api.groq.com/openai/v1";
+const APP_REFERER = "https://prismxgpt.lovable.app";
+
+export function hasProviderKey(provider: ProviderName): boolean {
+  return provider === "openrouter"
+    ? !!process.env.OPENROUTER_API_KEY
+    : !!process.env.GROQ_API_KEY;
+}
 
 function readKey(provider: ProviderName): string {
-  const key =
-    provider === "openrouter"
-      ? process.env.OPENROUTER_API_KEY
-      : process.env.GROQ_API_KEY;
-  if (!key) {
-    throw new Error(`Missing ${provider.toUpperCase()}_API_KEY`);
-  }
+  const key = provider === "openrouter"
+    ? process.env.OPENROUTER_API_KEY
+    : process.env.GROQ_API_KEY;
+  if (!key) throw new Error(`Missing ${provider.toUpperCase()}_API_KEY`);
   return key;
 }
 
-function referer(): string {
-  return (
-    process.env.OPENROUTER_APP_URL ??
-    process.env.SUPABASE_URL?.replace(/\.supabase\.co.*/, ".lovable.app") ??
-    "https://prismxgpt.lovable.app"
-  );
+function chatbotName(): string {
+  return process.env.NEXT_PUBLIC_CHATBOT_NAME ?? "PrismXGPT";
 }
 
 /** Returns a Vercel-AI-SDK LanguageModel for the given registry entry. */
@@ -40,8 +45,8 @@ export function resolveLanguageModel(entry: ModelEntry): LanguageModel {
       baseURL: OPENROUTER_BASE,
       headers: {
         Authorization: `Bearer ${readKey("openrouter")}`,
-        "HTTP-Referer": referer(),
-        "X-Title": process.env.NEXT_PUBLIC_CHATBOT_NAME ?? "PrismXGPT",
+        "HTTP-Referer": APP_REFERER,
+        "X-Title": chatbotName(),
       },
     });
     return provider(entry.upstreamId);
@@ -53,6 +58,36 @@ export function resolveLanguageModel(entry: ModelEntry): LanguageModel {
   });
   return provider(entry.upstreamId);
 }
+
+/**
+ * Resolve a chat model with automatic provider fallback.
+ *
+ * Preference order:
+ *   1. The requested entry (if its provider key is available).
+ *   2. The default chat model (if its provider key is available).
+ *   3. Any registry entry from a provider whose key IS configured.
+ *
+ * Only free entries live in the registry so the fallback can never
+ * silently promote to a paid model.
+ */
+export function resolveChatModelWithFallback(preferred?: ModelEntry): {
+  entry: ModelEntry;
+  model: LanguageModel;
+} {
+  const candidates: Array<ModelEntry | undefined> = [
+    preferred,
+    MODEL_REGISTRY.find((m) => m.id === DEFAULT_CHAT_MODEL_ID),
+    ...MODEL_REGISTRY.filter((m) => !m.capabilities.images && m.availability === "available"),
+  ];
+  for (const entry of candidates) {
+    if (!entry) continue;
+    if (entry.capabilities.images) continue;
+    if (!hasProviderKey(entry.provider)) continue;
+    return { entry, model: resolveLanguageModel(entry) };
+  }
+  throw new Error("No AI provider is configured.");
+}
+
 
 // ---------------------------------------------------------------------------
 // Image generation (OpenRouter chat-completions + image modality)
