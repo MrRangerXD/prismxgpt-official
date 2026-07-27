@@ -158,9 +158,7 @@ export const Route = createFileRoute("/api/chat")({
             { status: 413 },
           );
         }
-        const hasOpenRouter = !!process.env.OPENROUTER_API_KEY;
-        const hasGroq = !!process.env.GROQ_API_KEY;
-        if (!hasOpenRouter && !hasGroq) {
+        if (!hasProviderKey("openrouter") && !hasProviderKey("groq")) {
           console.error("[api/chat] no AI provider configured");
           return new Response(
             "The AI service isn't configured right now. Please try again shortly.",
