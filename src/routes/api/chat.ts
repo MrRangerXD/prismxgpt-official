@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
 import { requireApiAuth } from "@/lib/api-auth.server";
+import { requireChatModel } from "@/lib/ai/registry";
+import { resolveLanguageModel } from "@/lib/ai/providers.server";
 
 const SYSTEM_PROMPT = `You are PrismXGPT, an expert AI assistant with strong programming, debugging, reasoning, software architecture, image understanding, and problem-solving skills.
 
