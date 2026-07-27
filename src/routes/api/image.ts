@@ -31,7 +31,6 @@ type SupabaseAny = { from(name: string): any; rpc(name: string, args?: unknown):
 const STUCK_MS = 2 * 60 * 1000;
 const FINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
-
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function runGeneration(params: {
@@ -45,14 +44,23 @@ async function runGeneration(params: {
   const { generationId, userId, messageId, prompt, inputImageUrl, parentId } = params;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-  const readExisting = async () => (supabaseAdmin as unknown as SupabaseAny)
-    .from("image_generations")
-    .select("id,status,image_url,error,storage_path")
-    .eq("id", generationId)
-    .eq("user_id", userId)
-    .maybeSingle();
+  const readExisting = async () =>
+    (supabaseAdmin as unknown as SupabaseAny)
+      .from("image_generations")
+      .select("id,status,image_url,error,storage_path")
+      .eq("id", generationId)
+      .eq("user_id", userId)
+      .maybeSingle();
   const existingRes = await readExisting();
-  const existing = existingRes?.data as { status?: string; image_url?: string | null; error?: string | null; storage_path?: string | null } | null | undefined;
+  const existing = existingRes?.data as
+    | {
+        status?: string;
+        image_url?: string | null;
+        error?: string | null;
+        storage_path?: string | null;
+      }
+    | null
+    | undefined;
   if (existing?.status && FINAL_STATUSES.has(existing.status)) {
     return {
       status: existing.status === "completed" ? 200 : 400,
@@ -86,21 +94,38 @@ async function runGeneration(params: {
   // Try with parent_id first; if the referenced parent generation doesn't
   // exist (older image predates the lifecycle table, or the row was cleaned
   // up), the FK check fails — retry without it so edits still succeed.
-  const reserve = async (withParent: boolean) => (supabaseAdmin as unknown as SupabaseAny)
-    .from("image_generations")
-    .insert({ ...baseRow, parent_id: withParent ? parentId ?? null : null });
+  const reserve = async (withParent: boolean) =>
+    (supabaseAdmin as unknown as SupabaseAny)
+      .from("image_generations")
+      .insert({ ...baseRow, parent_id: withParent ? (parentId ?? null) : null });
   let reserveRes = await reserve(true);
   if (reserveRes?.error) {
     const code = reserveRes.error?.code;
     if (code === "23503" && parentId) {
-      console.warn("[api/image] parent_id missing, retrying edit without FK", reserveRes.error?.message);
+      console.warn(
+        "[api/image] parent_id missing, retrying edit without FK",
+        reserveRes.error?.message,
+      );
       reserveRes = await reserve(false);
     }
     if (reserveRes?.error?.code === "23505") {
       const reread = await readExisting();
-      const row = reread?.data as { status?: string; image_url?: string | null; error?: string | null; storage_path?: string | null } | null | undefined;
+      const row = reread?.data as
+        | {
+            status?: string;
+            image_url?: string | null;
+            error?: string | null;
+            storage_path?: string | null;
+          }
+        | null
+        | undefined;
       return {
-        status: row?.status === "completed" ? 200 : row?.status === "failed" || row?.status === "cancelled" ? 400 : 202,
+        status:
+          row?.status === "completed"
+            ? 200
+            : row?.status === "failed" || row?.status === "cancelled"
+              ? 400
+              : 202,
         body: {
           generationId,
           status: row?.status ?? "processing",
@@ -112,10 +137,16 @@ async function runGeneration(params: {
     }
     if (reserveRes?.error) {
       console.error("[api/image] lifecycle reservation failed", reserveRes.error);
-      return { status: 500, body: { generationId, status: "failed", error: "Could not start image generation. Please retry." } };
+      return {
+        status: 500,
+        body: {
+          generationId,
+          status: "failed",
+          error: "Could not start image generation. Please retry.",
+        },
+      };
     }
   }
-
 
   const finalize = async (patch: Record<string, unknown>) => {
     await (supabaseAdmin as unknown as SupabaseAny)
@@ -142,7 +173,8 @@ async function runGeneration(params: {
         { _limit: 3, _user_id: userId },
       );
       if (!qErr && typeof remaining === "number" && remaining < 0) {
-        const msg = "Free plan limit reached: 3 images per day. Upgrade for unlimited image generation.";
+        const msg =
+          "Free plan limit reached: 3 images per day. Upgrade for unlimited image generation.";
         await finalize({ status: "failed", progress: 100, error: msg });
         return { status: 429, body: { generationId, status: "failed", error: msg } };
       }
@@ -153,8 +185,19 @@ async function runGeneration(params: {
 
   const hasOpenRouter = !!process.env.OPENROUTER_API_KEY;
   if (!hasOpenRouter) {
-    await finalize({ status: "failed", progress: 100, error: "Image generation isn't configured." });
-    return { status: 503, body: { generationId, status: "failed", error: "Image generation isn't configured right now. Please try again shortly." } };
+    await finalize({
+      status: "failed",
+      progress: 100,
+      error: "Image generation isn't configured.",
+    });
+    return {
+      status: 503,
+      body: {
+        generationId,
+        status: "failed",
+        error: "Image generation isn't configured right now. Please try again shortly.",
+      },
+    };
   }
 
   let imageEntry;
@@ -162,7 +205,14 @@ async function runGeneration(params: {
     imageEntry = requireImageModel();
   } catch {
     await finalize({ status: "failed", progress: 100, error: "No free image model available." });
-    return { status: 503, body: { generationId, status: "failed", error: "No free image model is available right now." } };
+    return {
+      status: 503,
+      body: {
+        generationId,
+        status: "failed",
+        error: "No free image model is available right now.",
+      },
+    };
   }
 
   const genResult = await generateImage({
@@ -173,7 +223,10 @@ async function runGeneration(params: {
 
   if (!genResult.ok) {
     await finalize({ status: "failed", progress: 100, error: genResult.message });
-    return { status: genResult.status, body: { generationId, status: "failed", error: genResult.message } };
+    return {
+      status: genResult.status,
+      body: { generationId, status: "failed", error: genResult.message },
+    };
   }
 
   const b64Match = /^data:[^;]+;base64,(.*)$/.exec(genResult.dataUrl);
@@ -183,7 +236,6 @@ async function runGeneration(params: {
     await finalize({ status: "failed", progress: 100, error: msg });
     return { status: 502, body: { generationId, status: "failed", error: msg } };
   }
-
 
   const filename = `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.png`;
   const storagePath = `${userId}/${filename}`;
@@ -220,7 +272,13 @@ async function runGeneration(params: {
   }
 
   const finalUrl = publicImageUrl ?? `data:image/png;base64,${b64}`;
-  await finalize({ status: "completed", progress: 100, image_url: finalUrl, thumbnail: finalUrl, storage_path: storagePath });
+  await finalize({
+    status: "completed",
+    progress: 100,
+    image_url: finalUrl,
+    thumbnail: finalUrl,
+    storage_path: storagePath,
+  });
   return {
     status: 200,
     body: { generationId, status: "completed", imageUrl: finalUrl, storagePath },
@@ -267,7 +325,9 @@ export const Route = createFileRoute("/api/image")({
 
         if (
           row.status === "processing" &&
-          Date.now() - new Date((row.updated_at as string) || (row.created_at as string)).getTime() > STUCK_MS
+          Date.now() -
+            new Date((row.updated_at as string) || (row.created_at as string)).getTime() >
+            STUCK_MS
         ) {
           const msg = "Image generation timed out. Please try again.";
           await (supabaseAdmin as unknown as SupabaseAny)
@@ -288,7 +348,10 @@ export const Route = createFileRoute("/api/image")({
       POST: async ({ request }) => {
         const auth = await requireApiAuth(request);
         if (!auth.ok) {
-          return Response.json({ error: "Please sign in again to generate images." }, { status: 401 });
+          return Response.json(
+            { error: "Please sign in again to generate images." },
+            { status: 401 },
+          );
         }
 
         let body: {
@@ -301,7 +364,10 @@ export const Route = createFileRoute("/api/image")({
         try {
           body = (await request.json()) as typeof body;
         } catch {
-          return Response.json({ error: "Please describe the image you want to generate." }, { status: 400 });
+          return Response.json(
+            { error: "Please describe the image you want to generate." },
+            { status: 400 },
+          );
         }
 
         const generationId = body.generationId;
@@ -310,10 +376,16 @@ export const Route = createFileRoute("/api/image")({
           return Response.json({ error: "Missing generation id." }, { status: 400 });
         }
         if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
-          return Response.json({ error: "Please describe the image you want to generate." }, { status: 400 });
+          return Response.json(
+            { error: "Please describe the image you want to generate." },
+            { status: 400 },
+          );
         }
         if (prompt.length > 8000) {
-          const lines = prompt.split("\n").map((l) => l.trim()).filter(Boolean);
+          const lines = prompt
+            .split("\n")
+            .map((l) => l.trim())
+            .filter(Boolean);
           const seen = new Set<string>();
           const kept: string[] = [];
           for (const l of lines) {

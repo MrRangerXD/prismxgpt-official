@@ -76,9 +76,7 @@ export async function loadCatalog(): Promise<ModelEntry[]> {
   if (!cache || now - cache.at > TTL_MS) {
     const live = await fetchOpenRouterCatalog();
     const openrouter =
-      live && live.length > 0
-        ? live
-        : MODEL_REGISTRY.filter((m) => m.provider === "openrouter");
+      live && live.length > 0 ? live : MODEL_REGISTRY.filter((m) => m.provider === "openrouter");
     const groq = MODEL_REGISTRY.filter((m) => m.provider === "groq");
     cache = { at: now, entries: [...openrouter, ...groq] };
   }

@@ -20,15 +20,11 @@ const GROQ_BASE = "https://api.groq.com/openai/v1";
 const APP_REFERER = "https://prismxgpt.lovable.app";
 
 export function hasProviderKey(provider: ProviderName): boolean {
-  return provider === "openrouter"
-    ? !!process.env.OPENROUTER_API_KEY
-    : !!process.env.GROQ_API_KEY;
+  return provider === "openrouter" ? !!process.env.OPENROUTER_API_KEY : !!process.env.GROQ_API_KEY;
 }
 
 function readKey(provider: ProviderName): string {
-  const key = provider === "openrouter"
-    ? process.env.OPENROUTER_API_KEY
-    : process.env.GROQ_API_KEY;
+  const key = provider === "openrouter" ? process.env.OPENROUTER_API_KEY : process.env.GROQ_API_KEY;
   if (!key) throw new Error(`Missing ${provider.toUpperCase()}_API_KEY`);
   return key;
 }
@@ -88,7 +84,6 @@ export function resolveChatModelWithFallback(preferred?: ModelEntry): {
   throw new Error("No AI provider is configured.");
 }
 
-
 // ---------------------------------------------------------------------------
 // Image generation (OpenRouter chat-completions + image modality)
 // ---------------------------------------------------------------------------
@@ -133,7 +128,11 @@ export async function generateImage(params: {
     });
   } catch (e) {
     console.error("[ai/providers] image network error", e);
-    return { ok: false, status: 502, message: "Couldn't reach the image service. Please try again in a moment." };
+    return {
+      ok: false,
+      status: 502,
+      message: "Couldn't reach the image service. Please try again in a moment.",
+    };
   }
 
   if (!res.ok) {
@@ -154,7 +153,11 @@ export async function generateImage(params: {
     json = await res.json();
   } catch (e) {
     console.error("[ai/providers] image bad json", e);
-    return { ok: false, status: 502, message: "The image service returned an unexpected response." };
+    return {
+      ok: false,
+      status: 502,
+      message: "The image service returned an unexpected response.",
+    };
   }
 
   const msg = json.choices?.[0]?.message;
@@ -167,7 +170,8 @@ export async function generateImage(params: {
       )
     : undefined;
   const contentUrl =
-    fromContent && typeof (fromContent as { image_url?: { url?: string } }).image_url?.url === "string"
+    fromContent &&
+    typeof (fromContent as { image_url?: { url?: string } }).image_url?.url === "string"
       ? (fromContent as { image_url: { url: string } }).image_url.url
       : undefined;
   const dataUrl = fromImagesArr ?? contentUrl;
@@ -185,12 +189,15 @@ export async function generateImage(params: {
 }
 
 function friendlyImageError(status: number, upstream: string): string {
-  if (status === 401 || status === 403) return "Image provider rejected the request. Please try again.";
+  if (status === 401 || status === 403)
+    return "Image provider rejected the request. Please try again.";
   if (status === 402) return "Image generation credits are exhausted. Please try again later.";
-  if (status === 429) return "Too many image requests right now — please wait a moment and try again.";
+  if (status === 429)
+    return "Too many image requests right now — please wait a moment and try again.";
   if (/content.?policy|moderation|safety/i.test(upstream)) {
     return "That prompt was blocked by the safety filter. Try rephrasing without names of real people, brands, or copyrighted characters.";
   }
-  if (status >= 500) return "Image generation is temporarily unavailable. Please try again in a moment.";
+  if (status >= 500)
+    return "Image generation is temporarily unavailable. Please try again in a moment.";
   return "I couldn't generate that image. Try a different prompt or try again.";
 }
