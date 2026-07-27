@@ -122,8 +122,8 @@ export async function generateImage(params: {
       headers: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": referer(),
-        "X-Title": process.env.NEXT_PUBLIC_CHATBOT_NAME ?? "PrismXGPT",
+        "HTTP-Referer": APP_REFERER,
+        "X-Title": chatbotName(),
       },
       body: JSON.stringify({
         model: entry.upstreamId,
