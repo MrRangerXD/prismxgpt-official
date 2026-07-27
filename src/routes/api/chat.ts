@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import { requireApiAuth } from "@/lib/api-auth.server";
 import { requireChatModel } from "@/lib/ai/registry";
-import { resolveLanguageModel } from "@/lib/ai/providers.server";
+import { resolveChatModelWithFallback, hasProviderKey } from "@/lib/ai/providers.server";
 
 const SYSTEM_PROMPT = `You are PrismXGPT, an expert AI assistant with strong programming, debugging, reasoning, software architecture, image understanding, and problem-solving skills.
 
@@ -78,10 +78,9 @@ export const Route = createFileRoute("/api/chat")({
       POST: async ({ request }) => {
         const auth = await requireApiAuth(request);
         if (!auth.ok) {
-          return new Response(
-            "You need to sign in again before continuing this chat.",
-            { status: 401 },
-          );
+          return new Response("You need to sign in again before continuing this chat.", {
+            status: 401,
+          });
         }
 
         let body: {
@@ -93,10 +92,9 @@ export const Route = createFileRoute("/api/chat")({
         try {
           body = (await request.json()) as typeof body;
         } catch {
-          return new Response(
-            "I couldn't read your last message. Please try sending it again.",
-            { status: 400 },
-          );
+          return new Response("I couldn't read your last message. Please try sending it again.", {
+            status: 400,
+          });
         }
 
         const MAX_MESSAGES = 200;
@@ -115,7 +113,10 @@ export const Route = createFileRoute("/api/chat")({
           msgs.reduce((sum, m) => {
             const parts = (m as { parts?: Array<{ text?: string }> }).parts;
             if (Array.isArray(parts)) {
-              return sum + parts.reduce((s, p) => s + (typeof p?.text === "string" ? p.text.length : 0), 0);
+              return (
+                sum +
+                parts.reduce((s, p) => s + (typeof p?.text === "string" ? p.text.length : 0), 0)
+              );
             }
             const content = (m as { content?: unknown }).content;
             if (typeof content === "string") return sum + content.length;
@@ -158,9 +159,7 @@ export const Route = createFileRoute("/api/chat")({
             { status: 413 },
           );
         }
-        const hasOpenRouter = !!process.env.OPENROUTER_API_KEY;
-        const hasGroq = !!process.env.GROQ_API_KEY;
-        if (!hasOpenRouter && !hasGroq) {
+        if (!hasProviderKey("openrouter") && !hasProviderKey("groq")) {
           console.error("[api/chat] no AI provider configured");
           return new Response(
             "The AI service isn't configured right now. Please try again shortly.",
@@ -180,7 +179,8 @@ export const Route = createFileRoute("/api/chat")({
               .maybeSingle();
             const features = (cfg?.value ?? {}) as { webSearch?: boolean; deepResearch?: boolean };
             if (effectiveMode === "web" && features.webSearch === false) effectiveMode = "default";
-            if (effectiveMode === "research" && features.deepResearch === false) effectiveMode = "default";
+            if (effectiveMode === "research" && features.deepResearch === false)
+              effectiveMode = "default";
           } catch (e) {
             console.error("[api/chat] feature flag check failed", e);
           }
@@ -214,15 +214,25 @@ export const Route = createFileRoute("/api/chat")({
               auth: { persistSession: false, autoRefreshToken: false },
             });
             const [{ data: proj }, { data: files }] = await Promise.all([
-              userClient.from("projects").select("name, instructions, description").eq("id", body.projectId).maybeSingle(),
-              userClient.from("project_files").select("filename, extracted_text").eq("project_id", body.projectId).not("extracted_text", "is", null).limit(10),
+              userClient
+                .from("projects")
+                .select("name, instructions, description")
+                .eq("id", body.projectId)
+                .maybeSingle(),
+              userClient
+                .from("project_files")
+                .select("filename, extracted_text")
+                .eq("project_id", body.projectId)
+                .not("extracted_text", "is", null)
+                .limit(10),
             ]);
             if (proj) {
               system += `\n\n### Project context\nYou are answering inside the project "${(proj as { name: string }).name}".`;
               const desc = (proj as { description?: string | null }).description?.trim();
               if (desc) system += `\nProject description: ${desc.slice(0, 800)}`;
               const inst = (proj as { instructions?: string | null }).instructions?.trim();
-              if (inst) system += `\n\nProject custom instructions (follow these on every turn):\n${inst.slice(0, 4000)}`;
+              if (inst)
+                system += `\n\nProject custom instructions (follow these on every turn):\n${inst.slice(0, 4000)}`;
             }
             if (Array.isArray(files) && files.length > 0) {
               system += `\n\n### Project knowledge files\nUse these excerpts when relevant. Cite by filename.\n`;
@@ -237,8 +247,8 @@ export const Route = createFileRoute("/api/chat")({
         }
 
         try {
-          const modelEntry = requireChatModel();
-          const model = resolveLanguageModel(modelEntry);
+          const preferred = requireChatModel();
+          const { model } = resolveChatModelWithFallback(preferred);
           const result = streamText({
             model,
             system,
@@ -272,4 +282,3 @@ export const Route = createFileRoute("/api/chat")({
     },
   },
 });
-

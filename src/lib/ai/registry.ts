@@ -18,13 +18,13 @@ export type ModelCapabilities = {
 };
 
 export type ModelEntry = {
-  id: string;                 // canonical id (what the app uses)
+  id: string; // canonical id (what the app uses)
   displayName: string;
   provider: ProviderName;
-  upstreamId: string;         // exact id sent to the provider
+  upstreamId: string; // exact id sent to the provider
   contextLength: number;
   capabilities: ModelCapabilities;
-  free: true;                 // registry only exposes free models
+  free: true; // registry only exposes free models
   availability: "available" | "unavailable";
 };
 

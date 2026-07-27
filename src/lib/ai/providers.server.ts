@@ -8,28 +8,29 @@
  */
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { LanguageModel } from "ai";
-import type { ModelEntry, ProviderName } from "./registry";
+import {
+  MODEL_REGISTRY,
+  DEFAULT_CHAT_MODEL_ID,
+  type ModelEntry,
+  type ProviderName,
+} from "./registry";
 
 const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 const GROQ_BASE = "https://api.groq.com/openai/v1";
+const APP_REFERER = "https://prismxgpt.lovable.app";
+
+export function hasProviderKey(provider: ProviderName): boolean {
+  return provider === "openrouter" ? !!process.env.OPENROUTER_API_KEY : !!process.env.GROQ_API_KEY;
+}
 
 function readKey(provider: ProviderName): string {
-  const key =
-    provider === "openrouter"
-      ? process.env.OPENROUTER_API_KEY
-      : process.env.GROQ_API_KEY;
-  if (!key) {
-    throw new Error(`Missing ${provider.toUpperCase()}_API_KEY`);
-  }
+  const key = provider === "openrouter" ? process.env.OPENROUTER_API_KEY : process.env.GROQ_API_KEY;
+  if (!key) throw new Error(`Missing ${provider.toUpperCase()}_API_KEY`);
   return key;
 }
 
-function referer(): string {
-  return (
-    process.env.OPENROUTER_APP_URL ??
-    process.env.SUPABASE_URL?.replace(/\.supabase\.co.*/, ".lovable.app") ??
-    "https://prismxgpt.lovable.app"
-  );
+function chatbotName(): string {
+  return process.env.NEXT_PUBLIC_CHATBOT_NAME ?? "PrismXGPT";
 }
 
 /** Returns a Vercel-AI-SDK LanguageModel for the given registry entry. */
@@ -40,8 +41,8 @@ export function resolveLanguageModel(entry: ModelEntry): LanguageModel {
       baseURL: OPENROUTER_BASE,
       headers: {
         Authorization: `Bearer ${readKey("openrouter")}`,
-        "HTTP-Referer": referer(),
-        "X-Title": process.env.NEXT_PUBLIC_CHATBOT_NAME ?? "PrismXGPT",
+        "HTTP-Referer": APP_REFERER,
+        "X-Title": chatbotName(),
       },
     });
     return provider(entry.upstreamId);
@@ -52,6 +53,35 @@ export function resolveLanguageModel(entry: ModelEntry): LanguageModel {
     headers: { Authorization: `Bearer ${readKey("groq")}` },
   });
   return provider(entry.upstreamId);
+}
+
+/**
+ * Resolve a chat model with automatic provider fallback.
+ *
+ * Preference order:
+ *   1. The requested entry (if its provider key is available).
+ *   2. The default chat model (if its provider key is available).
+ *   3. Any registry entry from a provider whose key IS configured.
+ *
+ * Only free entries live in the registry so the fallback can never
+ * silently promote to a paid model.
+ */
+export function resolveChatModelWithFallback(preferred?: ModelEntry): {
+  entry: ModelEntry;
+  model: LanguageModel;
+} {
+  const candidates: Array<ModelEntry | undefined> = [
+    preferred,
+    MODEL_REGISTRY.find((m) => m.id === DEFAULT_CHAT_MODEL_ID),
+    ...MODEL_REGISTRY.filter((m) => !m.capabilities.images && m.availability === "available"),
+  ];
+  for (const entry of candidates) {
+    if (!entry) continue;
+    if (entry.capabilities.images) continue;
+    if (!hasProviderKey(entry.provider)) continue;
+    return { entry, model: resolveLanguageModel(entry) };
+  }
+  throw new Error("No AI provider is configured.");
 }
 
 // ---------------------------------------------------------------------------
@@ -87,8 +117,8 @@ export async function generateImage(params: {
       headers: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": referer(),
-        "X-Title": process.env.NEXT_PUBLIC_CHATBOT_NAME ?? "PrismXGPT",
+        "HTTP-Referer": APP_REFERER,
+        "X-Title": chatbotName(),
       },
       body: JSON.stringify({
         model: entry.upstreamId,
@@ -98,7 +128,11 @@ export async function generateImage(params: {
     });
   } catch (e) {
     console.error("[ai/providers] image network error", e);
-    return { ok: false, status: 502, message: "Couldn't reach the image service. Please try again in a moment." };
+    return {
+      ok: false,
+      status: 502,
+      message: "Couldn't reach the image service. Please try again in a moment.",
+    };
   }
 
   if (!res.ok) {
@@ -119,7 +153,11 @@ export async function generateImage(params: {
     json = await res.json();
   } catch (e) {
     console.error("[ai/providers] image bad json", e);
-    return { ok: false, status: 502, message: "The image service returned an unexpected response." };
+    return {
+      ok: false,
+      status: 502,
+      message: "The image service returned an unexpected response.",
+    };
   }
 
   const msg = json.choices?.[0]?.message;
@@ -132,7 +170,8 @@ export async function generateImage(params: {
       )
     : undefined;
   const contentUrl =
-    fromContent && typeof (fromContent as { image_url?: { url?: string } }).image_url?.url === "string"
+    fromContent &&
+    typeof (fromContent as { image_url?: { url?: string } }).image_url?.url === "string"
       ? (fromContent as { image_url: { url: string } }).image_url.url
       : undefined;
   const dataUrl = fromImagesArr ?? contentUrl;
@@ -150,12 +189,15 @@ export async function generateImage(params: {
 }
 
 function friendlyImageError(status: number, upstream: string): string {
-  if (status === 401 || status === 403) return "Image provider rejected the request. Please try again.";
+  if (status === 401 || status === 403)
+    return "Image provider rejected the request. Please try again.";
   if (status === 402) return "Image generation credits are exhausted. Please try again later.";
-  if (status === 429) return "Too many image requests right now — please wait a moment and try again.";
+  if (status === 429)
+    return "Too many image requests right now — please wait a moment and try again.";
   if (/content.?policy|moderation|safety/i.test(upstream)) {
     return "That prompt was blocked by the safety filter. Try rephrasing without names of real people, brands, or copyrighted characters.";
   }
-  if (status >= 500) return "Image generation is temporarily unavailable. Please try again in a moment.";
+  if (status >= 500)
+    return "Image generation is temporarily unavailable. Please try again in a moment.";
   return "I couldn't generate that image. Try a different prompt or try again.";
 }
