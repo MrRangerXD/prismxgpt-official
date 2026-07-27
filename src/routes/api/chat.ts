@@ -235,8 +235,8 @@ export const Route = createFileRoute("/api/chat")({
         }
 
         try {
-          const modelEntry = requireChatModel();
-          const model = resolveLanguageModel(modelEntry);
+          const preferred = requireChatModel();
+          const { model } = resolveChatModelWithFallback(preferred);
           const result = streamText({
             model,
             system,
