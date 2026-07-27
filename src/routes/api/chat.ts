@@ -237,9 +237,10 @@ export const Route = createFileRoute("/api/chat")({
         }
 
         try {
-          const gateway = createLovableAiGatewayProvider(key);
+          const modelEntry = requireChatModel();
+          const model = resolveLanguageModel(modelEntry);
           const result = streamText({
-            model: gateway("google/gemini-3-flash-preview"),
+            model,
             system,
             messages: await convertToModelMessages(body.messages),
             onError: ({ error }) => {
