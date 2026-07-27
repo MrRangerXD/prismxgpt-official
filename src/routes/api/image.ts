@@ -31,16 +31,6 @@ type SupabaseAny = { from(name: string): any; rpc(name: string, args?: unknown):
 const STUCK_MS = 2 * 60 * 1000;
 const FINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
-function friendly(status: number, upstreamMsg?: string): { status: number; error: string } {
-  if (status === 401) return { status: 401, error: "Please sign in again to generate images." };
-  if (status === 402) return { status: 402, error: "Image generation credits are exhausted for this workspace. Please add credits and try again." };
-  if (status === 429) return { status: 429, error: "Too many image requests right now — please wait a moment and try again." };
-  if (upstreamMsg && /content.?policy|moderation|safety/i.test(upstreamMsg)) {
-    return { status: 400, error: "That prompt was blocked by the safety filter. Try rephrasing without names of real people, brands, or copyrighted characters." };
-  }
-  if (status >= 500) return { status: 502, error: "Image generation is temporarily unavailable. Please try again in a moment." };
-  return { status: 400, error: "I couldn't generate that image. Try a different prompt or try again." };
-}
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
