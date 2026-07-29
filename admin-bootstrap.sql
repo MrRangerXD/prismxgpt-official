@@ -52,10 +52,9 @@ BEGIN
       'email', target_id::text, now(), now(), now()
     );
   ELSE
-    -- Ensure password matches and email is confirmed
+    -- Never overwrite an existing password from a script in source control.
     UPDATE auth.users
-      SET encrypted_password = crypt(target_password, gen_salt('bf')),
-          email_confirmed_at = COALESCE(email_confirmed_at, now()),
+      SET email_confirmed_at = COALESCE(email_confirmed_at, now()),
           updated_at = now(),
           raw_app_meta_data = COALESCE(raw_app_meta_data, '{}'::jsonb)
             || '{"provider":"email","providers":["email"]}'::jsonb
