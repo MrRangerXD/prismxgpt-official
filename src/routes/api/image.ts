@@ -183,8 +183,8 @@ async function runGeneration(params: {
     console.error("[api/image] quota check failed (fail-open)", e);
   }
 
-  const hasOpenRouter = !!process.env.OPENROUTER_API_KEY;
-  if (!hasOpenRouter) {
+  const hasProvider = !!process.env.LOVABLE_API_KEY;
+  if (!hasProvider) {
     await finalize({
       status: "failed",
       progress: 100,
