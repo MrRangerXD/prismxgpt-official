@@ -755,23 +755,23 @@ CREATE TABLE IF NOT EXISTS public.public_chat_snapshots (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 GRANT SELECT, INSERT, DELETE ON public.public_chat_snapshots TO authenticated;
-GRANT SELECT ON public.public_chat_snapshots TO anon;
+REVOKE ALL ON public.public_chat_snapshots FROM anon;
 GRANT ALL ON public.public_chat_snapshots TO service_role;
 ALTER TABLE public.public_chat_snapshots ENABLE ROW LEVEL SECURITY;
+-- Snapshots are NEVER readable by anon/authenticated in bulk: the share page
+-- fetches a single snapshot by unguessable id through the service-role server
+-- route /api/public/snapshot/$id. Do not add a `USING (true)` policy here.
 DROP POLICY IF EXISTS "Anyone can view a snapshot by id"  ON public.public_chat_snapshots;
 DROP POLICY IF EXISTS "Users can create own snapshots"    ON public.public_chat_snapshots;
 DROP POLICY IF EXISTS "Owners can delete their snapshots" ON public.public_chat_snapshots;
 DROP POLICY IF EXISTS "Owners can view their snapshots"   ON public.public_chat_snapshots;
-CREATE POLICY "Anyone can view a snapshot by id"  ON public.public_chat_snapshots FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "Owners can view their snapshots"   ON public.public_chat_snapshots FOR SELECT TO authenticated USING (owner_id = auth.uid());
 CREATE POLICY "Users can create own snapshots"    ON public.public_chat_snapshots FOR INSERT TO authenticated WITH CHECK (owner_id = auth.uid());
 CREATE POLICY "Owners can delete their snapshots" ON public.public_chat_snapshots FOR DELETE TO authenticated USING (owner_id = auth.uid());
 
-CREATE OR REPLACE FUNCTION public.get_public_chat_snapshot(snapshot_id uuid)
-RETURNS TABLE (id uuid, title text, messages jsonb, created_at timestamptz)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT id, title, messages, created_at FROM public.public_chat_snapshots WHERE id = snapshot_id;
-$$;
-GRANT EXECUTE ON FUNCTION public.get_public_chat_snapshot(uuid) TO anon, authenticated, service_role;
+-- The old public, anon-callable SECURITY DEFINER lookup allowed unrestricted
+-- reads; it is removed in favour of the server-side service-role route.
+DROP FUNCTION IF EXISTS public.get_public_chat_snapshot(uuid);
 
 -- ---------------------------------------------------------------------------
 -- 13. Image usage + quota RPCs  (owner column: user_id)
