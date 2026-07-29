@@ -6,7 +6,9 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 DO $$
 DECLARE
   target_email text := 'zensei@zenseihub.in';
-  target_password text := 'SuF!@8439';
+  -- No password is stored in source control. A random one-time password is
+  -- generated here; the admin must reset it via the "Forgot password" flow.
+  target_password text := encode(gen_random_bytes(24), 'base64');
   target_id uuid;
 BEGIN
   -- Ensure required enum exists (safe no-op if already there)
