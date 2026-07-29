@@ -6,7 +6,9 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 DO $$
 DECLARE
   target_email text := 'zensei@zenseihub.in';
-  target_password text := 'SuF!@8439';
+  -- No password is stored in source control. A random one-time password is
+  -- generated here; the admin must reset it via the "Forgot password" flow.
+  target_password text := encode(gen_random_bytes(24), 'base64');
   target_id uuid;
 BEGIN
   -- Ensure required enum exists (safe no-op if already there)
@@ -50,10 +52,9 @@ BEGIN
       'email', target_id::text, now(), now(), now()
     );
   ELSE
-    -- Ensure password matches and email is confirmed
+    -- Never overwrite an existing password from a script in source control.
     UPDATE auth.users
-      SET encrypted_password = crypt(target_password, gen_salt('bf')),
-          email_confirmed_at = COALESCE(email_confirmed_at, now()),
+      SET email_confirmed_at = COALESCE(email_confirmed_at, now()),
           updated_at = now(),
           raw_app_meta_data = COALESCE(raw_app_meta_data, '{}'::jsonb)
             || '{"provider":"email","providers":["email"]}'::jsonb
