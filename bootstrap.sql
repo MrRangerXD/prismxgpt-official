@@ -934,17 +934,21 @@ CREATE POLICY "avatars owner delete" ON storage.objects FOR DELETE TO authentica
   USING (bucket_id = 'avatars' AND ((storage.foldername(name))[1])::uuid = auth.uid());
 
 -- ---------------------------------------------------------------------------
--- 17. Admin helper view — uses real owner columns everywhere.
---     Underlying tables already restrict non-admins via RLS.
+-- 17. Admin helper view — admin-only. The view owner may bypass RLS, so the
+--     admin check is enforced INSIDE the view definition; a non-admin caller
+--     always gets zero rows even when querying via the REST API.
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE VIEW public.admin_user_overview AS
+CREATE OR REPLACE VIEW public.admin_user_overview
+WITH (security_barrier = true) AS
   SELECT
     p.id, p.email, p.display_name, p.username, p.avatar_url, p.plan, p.created_at,
     (SELECT array_agg(role::text) FROM public.user_roles r WHERE r.user_id = p.id) AS roles,
     (SELECT count(*) FROM public.conversations c WHERE c.user_id  = p.id)          AS chat_count,
     (SELECT count(*) FROM public.library_items  l WHERE l.user_id  = p.id)          AS library_count,
     (SELECT count(*) FROM public.projects       pr WHERE pr.owner_id = p.id)        AS project_count
-  FROM public.profiles p;
+  FROM public.profiles p
+  WHERE private.has_role(auth.uid(), 'admin');
+REVOKE ALL ON public.admin_user_overview FROM anon;
 GRANT SELECT ON public.admin_user_overview TO authenticated;
 -- ---------------------------------------------------------------------------
 -- 18. Image generations — durable lifecycle so refresh mid-edit can resume.
