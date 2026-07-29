@@ -1,10 +1,9 @@
 /**
  * Provider abstraction for PrismXGPT.
  *
- * The rest of the app never talks to OpenRouter or Groq directly. It resolves
- * a canonical model id via the registry and calls into these helpers. Only
- * two providers exist today; adding a third means adding a case here and
- * an entry in the registry — no UI change is required.
+ * The rest of the app never talks to a model vendor directly. It resolves a
+ * canonical model id via the registry and calls into these helpers. Every
+ * request is served through the Lovable AI Gateway using LOVABLE_API_KEY.
  */
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { LanguageModel } from "ai";
@@ -15,56 +14,34 @@ import {
   type ProviderName,
 } from "./registry";
 
-const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
-const GROQ_BASE = "https://api.groq.com/openai/v1";
-const APP_REFERER = "https://prismxgpt.lovable.app";
+const GATEWAY_BASE = "https://ai.gateway.lovable.dev/v1";
 
-export function hasProviderKey(provider: ProviderName): boolean {
-  return provider === "openrouter" ? !!process.env.OPENROUTER_API_KEY : !!process.env.GROQ_API_KEY;
+export function hasProviderKey(_provider: ProviderName = "lovable"): boolean {
+  return !!process.env.LOVABLE_API_KEY;
 }
 
-function readKey(provider: ProviderName): string {
-  const key = provider === "openrouter" ? process.env.OPENROUTER_API_KEY : process.env.GROQ_API_KEY;
-  if (!key) throw new Error(`Missing ${provider.toUpperCase()}_API_KEY`);
+function readKey(): string {
+  const key = process.env.LOVABLE_API_KEY;
+  if (!key) throw new Error("Missing LOVABLE_API_KEY");
   return key;
-}
-
-function chatbotName(): string {
-  return process.env.NEXT_PUBLIC_CHATBOT_NAME ?? "PrismXGPT";
 }
 
 /** Returns a Vercel-AI-SDK LanguageModel for the given registry entry. */
 export function resolveLanguageModel(entry: ModelEntry): LanguageModel {
-  if (entry.provider === "openrouter") {
-    const provider = createOpenAICompatible({
-      name: "openrouter",
-      baseURL: OPENROUTER_BASE,
-      headers: {
-        Authorization: `Bearer ${readKey("openrouter")}`,
-        "HTTP-Referer": APP_REFERER,
-        "X-Title": chatbotName(),
-      },
-    });
-    return provider(entry.upstreamId);
-  }
   const provider = createOpenAICompatible({
-    name: "groq",
-    baseURL: GROQ_BASE,
-    headers: { Authorization: `Bearer ${readKey("groq")}` },
+    name: "lovable",
+    baseURL: GATEWAY_BASE,
+    headers: {
+      "Lovable-API-Key": readKey(),
+      "X-Lovable-AIG-SDK": "vercel-ai-sdk",
+    },
   });
   return provider(entry.upstreamId);
 }
 
 /**
- * Resolve a chat model with automatic provider fallback.
- *
- * Preference order:
- *   1. The requested entry (if its provider key is available).
- *   2. The default chat model (if its provider key is available).
- *   3. Any registry entry from a provider whose key IS configured.
- *
- * Only free entries live in the registry so the fallback can never
- * silently promote to a paid model.
+ * Resolve a chat model with automatic fallback to the default entry, then to
+ * any available non-image registry entry.
  */
 export function resolveChatModelWithFallback(preferred?: ModelEntry): {
   entry: ModelEntry;
@@ -85,7 +62,7 @@ export function resolveChatModelWithFallback(preferred?: ModelEntry): {
 }
 
 // ---------------------------------------------------------------------------
-// Image generation (OpenRouter chat-completions + image modality)
+// Image generation (Lovable AI Gateway /images/generations)
 // ---------------------------------------------------------------------------
 
 export type ImageGenResult =
@@ -99,32 +76,33 @@ export async function generateImage(params: {
   signal?: AbortSignal;
 }): Promise<ImageGenResult> {
   const { entry, prompt, inputImageUrl, signal } = params;
-  if (entry.provider !== "openrouter") {
-    return { ok: false, status: 400, message: "Only OpenRouter image models are supported." };
+
+  let key: string;
+  try {
+    key = readKey();
+  } catch {
+    return { ok: false, status: 503, message: "Image generation isn't configured right now." };
   }
 
-  const key = readKey("openrouter");
-  const userContent: Array<Record<string, unknown>> = [{ type: "text", text: prompt }];
+  const payload: Record<string, unknown> = {
+    model: entry.upstreamId,
+    prompt,
+  };
+  // Image editing: the gateway accepts reference images alongside the prompt.
   if (inputImageUrl) {
-    userContent.push({ type: "image_url", image_url: { url: inputImageUrl } });
+    payload.image = [inputImageUrl];
   }
 
   let res: Response;
   try {
-    res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+    res = await fetch(`${GATEWAY_BASE}/images/generations`, {
       method: "POST",
       signal,
       headers: {
-        Authorization: `Bearer ${key}`,
+        "Lovable-API-Key": key,
         "Content-Type": "application/json",
-        "HTTP-Referer": APP_REFERER,
-        "X-Title": chatbotName(),
       },
-      body: JSON.stringify({
-        model: entry.upstreamId,
-        modalities: ["image", "text"],
-        messages: [{ role: "user", content: userContent }],
-      }),
+      body: JSON.stringify(payload),
     });
   } catch (e) {
     console.error("[ai/providers] image network error", e);
@@ -142,15 +120,10 @@ export async function generateImage(params: {
   }
 
   let json: {
-    choices?: Array<{
-      message?: {
-        content?: unknown;
-        images?: Array<{ type?: string; image_url?: { url?: string } }>;
-      };
-    }>;
+    data?: Array<{ b64_json?: string; url?: string; mime_type?: string }>;
   };
   try {
-    json = await res.json();
+    json = (await res.json()) as typeof json;
   } catch (e) {
     console.error("[ai/providers] image bad json", e);
     return {
@@ -160,23 +133,19 @@ export async function generateImage(params: {
     };
   }
 
-  const msg = json.choices?.[0]?.message;
-  // OpenRouter returns generated images under `message.images[]` (data URLs
-  // in `image_url.url`). Some models still inline them in `content` blocks.
-  const fromImagesArr = msg?.images?.[0]?.image_url?.url;
-  const fromContent = Array.isArray(msg?.content)
-    ? (msg?.content as Array<Record<string, unknown>>).find(
-        (c) => (c as { type?: string }).type === "image_url",
-      )
-    : undefined;
-  const contentUrl =
-    fromContent &&
-    typeof (fromContent as { image_url?: { url?: string } }).image_url?.url === "string"
-      ? (fromContent as { image_url: { url: string } }).image_url.url
-      : undefined;
-  const dataUrl = fromImagesArr ?? contentUrl;
+  const first = json.data?.[0];
+  const mimeType = first?.mime_type ?? "image/png";
+  let dataUrl: string | undefined;
+  if (first?.b64_json) {
+    dataUrl = first.b64_json.startsWith("data:")
+      ? first.b64_json
+      : `data:${mimeType};base64,${first.b64_json}`;
+  } else if (first?.url?.startsWith("data:")) {
+    dataUrl = first.url;
+  }
 
-  if (!dataUrl || !dataUrl.startsWith("data:")) {
+  if (!dataUrl) {
+    console.error("[ai/providers] image response had no payload");
     return {
       ok: false,
       status: 502,
@@ -184,8 +153,7 @@ export async function generateImage(params: {
     };
   }
   const mimeMatch = /^data:([^;]+);base64,/.exec(dataUrl);
-  const mimeType = mimeMatch?.[1] ?? "image/png";
-  return { ok: true, dataUrl, mimeType };
+  return { ok: true, dataUrl, mimeType: mimeMatch?.[1] ?? mimeType };
 }
 
 function friendlyImageError(status: number, upstream: string): string {
@@ -197,7 +165,6 @@ function friendlyImageError(status: number, upstream: string): string {
   if (/content.?policy|moderation|safety/i.test(upstream)) {
     return "That prompt was blocked by the safety filter. Try rephrasing without names of real people, brands, or copyrighted characters.";
   }
-  if (status >= 500)
-    return "Image generation is temporarily unavailable. Please try again in a moment.";
-  return "I couldn't generate that image. Try a different prompt or try again.";
+  if (status >= 500) return "The image service is having trouble. Please try again shortly.";
+  return "Image generation failed. Please try again.";
 }

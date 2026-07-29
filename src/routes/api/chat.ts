@@ -159,7 +159,7 @@ export const Route = createFileRoute("/api/chat")({
             { status: 413 },
           );
         }
-        if (!hasProviderKey("openrouter") && !hasProviderKey("groq")) {
+        if (!hasProviderKey()) {
           console.error("[api/chat] no AI provider configured");
           return new Response(
             "The AI service isn't configured right now. Please try again shortly.",
@@ -246,30 +246,58 @@ export const Route = createFileRoute("/api/chat")({
           }
         }
 
+        // Maps an upstream failure to a user-safe message while logging the
+        // real cause (status code + upstream body) to the server console.
+        const describe = (error: unknown): string => {
+          const err = error as {
+            message?: string;
+            statusCode?: number;
+            responseBody?: string;
+            data?: unknown;
+            cause?: unknown;
+          };
+          const status = typeof err?.statusCode === "number" ? err.statusCode : undefined;
+          const body = typeof err?.responseBody === "string" ? err.responseBody : "";
+          console.error("[api/chat] upstream failure", {
+            status,
+            message: err?.message,
+            body: body.slice(0, 500),
+            cause: err?.cause instanceof Error ? err.cause.message : undefined,
+          });
+          const text = `${status ?? ""} ${err?.message ?? String(error)} ${body}`;
+          if (status === 429 || /rate.?limit/i.test(text)) {
+            return "I'm getting too many requests right now. Please wait a moment and try again.";
+          }
+          if (status === 402 || /payment.?required|not enough credits|credit|quota|billing/i.test(text)) {
+            return "The AI credits for this workspace have run out. Please add credits to continue.";
+          }
+          if (status === 401 || status === 403) {
+            return "The AI service rejected this request. Please try again shortly.";
+          }
+          if (status === 408 || /timeout|aborted|ETIMEDOUT/i.test(text)) {
+            return "That reply took too long to generate. Please try again.";
+          }
+          if (status && status >= 500) {
+            return "The AI service is having trouble right now. Please try again in a moment.";
+          }
+          return "Something went wrong while generating that reply. Please try again.";
+        };
+
         try {
           const preferred = requireChatModel();
-          const { model } = resolveChatModelWithFallback(preferred);
+          const { entry, model } = resolveChatModelWithFallback(preferred);
           const result = streamText({
             model,
             system,
             messages: await convertToModelMessages(body.messages),
             onError: ({ error }) => {
-              console.error("[api/chat] stream error", error);
+              console.error("[api/chat] stream error on", entry.upstreamId);
+              describe(error);
             },
           });
           return result.toUIMessageStreamResponse({
             originalMessages: body.messages,
-            onError: (error) => {
-              console.error("[api/chat] response error", error);
-              const msg = error instanceof Error ? error.message : String(error);
-              if (/429|rate.?limit/i.test(msg)) {
-                return "I'm getting too many requests right now. Please wait a moment and try again.";
-              }
-              if (/402|credit|quota|billing/i.test(msg)) {
-                return "The AI credits for this workspace have run out. Please add credits to continue.";
-              }
-              return "Something went wrong while generating that reply. Please try again.";
-            },
+            onError: (error) => describe(error),
           });
         } catch (e) {
           console.error("[api/chat] setup error", e);

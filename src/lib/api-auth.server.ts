@@ -16,9 +16,17 @@ export async function requireApiAuth(request: Request): Promise<ApiAuthResult> {
   const token = authHeader.slice("Bearer ".length).trim();
   if (!token || token.split(".").length !== 3) return unauthorized();
 
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  if (!url || !key) return { ok: false, response: new Response("Server misconfigured", { status: 500 }) };
+  const url =
+    import.meta.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const key =
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    import.meta.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    console.error("[api-auth] Supabase URL/publishable key missing from environment");
+    return { ok: false, response: new Response("Server misconfigured", { status: 500 }) };
+  }
   const supabase = createClient<Database>(url, key, {
     auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
   });
