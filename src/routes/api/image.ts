@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { requireApiAuth } from "@/lib/api-auth.server";
 import { requireImageModel } from "@/lib/ai/registry";
 import { generateImage } from "@/lib/ai/providers.server";
+import { getPlanEntitlements, consumeImageQuota } from "@/lib/plan-limits.server";
 
 // The generated Supabase Database types don't yet include image_generations
 // (it's added by bootstrap.sql on the live project); use a loose alias so
