@@ -3,6 +3,7 @@ import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import { requireApiAuth } from "@/lib/api-auth.server";
 import { requireChatModel } from "@/lib/ai/registry";
 import { resolveChatModelWithFallback, hasProviderKey } from "@/lib/ai/providers.server";
+import { getPlanEntitlements, consumeChatQuota } from "@/lib/plan-limits.server";
 
 const SYSTEM_PROMPT = `You are PrismXGPT, an expert AI assistant with strong programming, debugging, reasoning, software architecture, image understanding, and problem-solving skills.
 
