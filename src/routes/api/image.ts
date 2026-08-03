@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { requireApiAuth } from "@/lib/api-auth.server";
 import { requireImageModel } from "@/lib/ai/registry";
 import { generateImage } from "@/lib/ai/providers.server";
+import { getPlanEntitlements, consumeImageQuota } from "@/lib/plan-limits.server";
 
 // The generated Supabase Database types don't yet include image_generations
 // (it's added by bootstrap.sql on the live project); use a loose alias so
@@ -158,26 +159,15 @@ async function runGeneration(params: {
 
   // Quota is consumed only after this generation id has been reserved. A
   // duplicate POST for the same generation short-circuits above before this
-  // point, so network retries cannot burn multiple quota units.
+  // point, so network retries cannot burn multiple quota units. The daily
+  // allowance comes from `plan_settings.image_limit` for the user's tier —
+  // never a hardcoded number. Admins and unlimited plans bypass metering.
   try {
-    const { data: roles } = await (supabaseAdmin as unknown as SupabaseAny)
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
-    const isPaid = ((roles ?? []) as Array<{ role: string }>).some((r) =>
-      ["admin", "premium", "pro"].includes(r.role),
-    );
-    if (!isPaid) {
-      const { data: remaining, error: qErr } = await (supabaseAdmin as unknown as SupabaseAny).rpc(
-        "consume_image_quota",
-        { _limit: 3, _user_id: userId },
-      );
-      if (!qErr && typeof remaining === "number" && remaining < 0) {
-        const msg =
-          "Free plan limit reached: 3 images per day. Upgrade for unlimited image generation.";
-        await finalize({ status: "failed", progress: 100, error: msg });
-        return { status: 429, body: { generationId, status: "failed", error: msg } };
-      }
+    const plan = await getPlanEntitlements(userId);
+    const quota = await consumeImageQuota(userId, plan);
+    if (!quota.allowed) {
+      await finalize({ status: "failed", progress: 100, error: quota.message });
+      return { status: 429, body: { generationId, status: "failed", error: quota.message } };
     }
   } catch (e) {
     console.error("[api/image] quota check failed (fail-open)", e);

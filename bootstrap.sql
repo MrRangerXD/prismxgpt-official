@@ -2450,3 +2450,123 @@ DROP TABLE IF EXISTS public.model_providers       CASCADE;
 
 DROP TYPE  IF EXISTS public.api_key_status        CASCADE;
 DROP TYPE  IF EXISTS public.model_status          CASCADE;
+
+-- =============================================================================
+-- Plan-driven chat quotas (2026-08-03) — append-only, idempotent.
+-- Mirrors public.image_usage / consume_image_quota for chat turns so that
+-- every quota in the app is resolved from public.plan_settings instead of
+-- being hardcoded in an API route.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.chat_usage (
+  user_id    uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  day        date NOT NULL DEFAULT (now() AT TIME ZONE 'utc')::date,
+  count      integer NOT NULL DEFAULT 0,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, day)
+);
+GRANT SELECT ON public.chat_usage TO authenticated;
+GRANT ALL    ON public.chat_usage TO service_role;
+ALTER TABLE public.chat_usage ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users read own chat usage" ON public.chat_usage;
+CREATE POLICY "Users read own chat usage" ON public.chat_usage FOR SELECT TO authenticated
+  USING (user_id = auth.uid());
+
+-- Rolling 30-day lookup index for monthly reporting.
+CREATE INDEX IF NOT EXISTS chat_usage_day_idx  ON public.chat_usage (day);
+CREATE INDEX IF NOT EXISTS image_usage_day_idx ON public.image_usage (day);
+
+-- Consumes one chat turn for _user_id against a caller-supplied daily _limit
+-- (the limit itself comes from plan_settings.chat_limit). Returns the number
+-- of remaining turns, or -1 when the plan's daily allowance is exhausted.
+CREATE OR REPLACE FUNCTION public.consume_chat_quota(_limit integer, _user_id uuid)
+RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  uid   uuid := _user_id;
+  today date := (now() AT TIME ZONE 'utc')::date;
+  current_count integer;
+BEGIN
+  IF uid IS NULL THEN RAISE EXCEPTION 'user id required'; END IF;
+  -- NULL limit means "unlimited" (fair use) — record usage, never block.
+  INSERT INTO public.chat_usage (user_id, day, count) VALUES (uid, today, 0)
+    ON CONFLICT (user_id, day) DO NOTHING;
+  SELECT count INTO current_count FROM public.chat_usage WHERE user_id = uid AND day = today FOR UPDATE;
+  IF _limit IS NOT NULL AND current_count >= _limit THEN RETURN -1; END IF;
+  UPDATE public.chat_usage SET count = count + 1, updated_at = now() WHERE user_id = uid AND day = today;
+  IF _limit IS NULL THEN RETURN 2147483647; END IF;
+  RETURN _limit - (current_count + 1);
+END $$;
+REVOKE ALL ON FUNCTION public.consume_chat_quota(integer, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.consume_chat_quota(integer, uuid) TO service_role;
+
+-- Single source of truth for entitlement resolution: joins the user's tier on
+-- profiles.plan to its plan_settings row, and reports today's usage counters.
+CREATE OR REPLACE FUNCTION public.user_plan_entitlements(_user_id uuid)
+RETURNS TABLE (
+  plan_id            text,
+  plan_name          text,
+  chat_limit         integer,
+  image_limit        integer,
+  storage_limit_gb   integer,
+  project_limit      integer,
+  file_upload_limit  integer,
+  web_search_enabled boolean,
+  reasoning_enabled  boolean,
+  memory_enabled     boolean,
+  voice_enabled      boolean,
+  priority_queue     boolean,
+  available_models   jsonb,
+  is_admin           boolean,
+  chats_today        integer,
+  images_today       integer
+) LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  SELECT
+    COALESCE(ps.id, 'free'),
+    COALESCE(ps.name, 'Free'),
+    ps.chat_limit, ps.image_limit, ps.storage_limit_gb, ps.project_limit,
+    ps.file_upload_limit,
+    COALESCE(ps.web_search_enabled, false), COALESCE(ps.reasoning_enabled, false),
+    COALESCE(ps.memory_enabled, false),     COALESCE(ps.voice_enabled, true),
+    COALESCE(ps.priority_queue, false),     COALESCE(ps.available_models, '[]'::jsonb),
+    EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = _user_id AND ur.role = 'admin'),
+    COALESCE((SELECT cu.count FROM public.chat_usage  cu WHERE cu.user_id = _user_id AND cu.day = (now() AT TIME ZONE 'utc')::date), 0),
+    COALESCE((SELECT iu.count FROM public.image_usage iu WHERE iu.user_id = _user_id AND iu.day = (now() AT TIME ZONE 'utc')::date), 0)
+  FROM public.profiles p
+  LEFT JOIN public.plan_settings ps ON ps.id = p.plan::text
+  WHERE p.id = _user_id
+$$;
+REVOKE ALL ON FUNCTION public.user_plan_entitlements(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.user_plan_entitlements(uuid) TO service_role;
+
+-- Plan-driven project quota. Enforced in the database so it holds for every
+-- client path (UI, RPC, admin tooling) instead of a single API route.
+-- NULL project_limit = unlimited (fair use). Admins are exempt.
+CREATE OR REPLACE FUNCTION public.enforce_project_quota()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  lim  integer;
+  used integer;
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = NEW.owner_id AND ur.role = 'admin') THEN
+    RETURN NEW;
+  END IF;
+  SELECT ps.project_limit INTO lim
+    FROM public.profiles p
+    LEFT JOIN public.plan_settings ps ON ps.id = p.plan::text
+   WHERE p.id = NEW.owner_id;
+  IF lim IS NULL THEN RETURN NEW; END IF;
+  SELECT count(*) INTO used FROM public.projects WHERE owner_id = NEW.owner_id;
+  IF used >= lim THEN
+    RAISE EXCEPTION 'Your plan includes % projects. Upgrade to create more.', lim
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION public.enforce_project_quota() FROM PUBLIC, anon;
+
+DROP TRIGGER IF EXISTS projects_enforce_quota ON public.projects;
+CREATE TRIGGER projects_enforce_quota BEFORE INSERT ON public.projects
+  FOR EACH ROW EXECUTE FUNCTION public.enforce_project_quota();
+
+-- Hot-path indexes for the quota + history reads added above.
+CREATE INDEX IF NOT EXISTS projects_owner_idx           ON public.projects (owner_id);
+CREATE INDEX IF NOT EXISTS image_generations_user_idx   ON public.image_generations (user_id, created_at DESC);
