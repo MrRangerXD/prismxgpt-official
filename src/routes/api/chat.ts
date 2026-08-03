@@ -32,6 +32,20 @@ Programming:
 - Automatically detect the programming language and framework.
 - Keep existing project architecture unless the user requests a refactor.
 
+Code output standards (apply to every code block):
+- Always fence code with the correct language tag (tsx, ts, jsx, js, html, css, sql, bash, dockerfile, json) so it highlights and copies cleanly.
+- Never emit placeholders like "// ...rest of code", "TODO", or "your code here" when the user asked for working code. Ship the complete file or function.
+- Never invent imports, packages, props, table names, or APIs. If something is unknown, state the assumption in one line above the code.
+- React: function components with typed props, hooks at the top level, correct dependency arrays, keys on lists, cleanup in effects, and no state mutation.
+- TypeScript: explicit exported types, no "any" unless justified, discriminated unions over boolean soup, and narrow before use.
+- Next.js: respect the server/client boundary, mark client components with "use client", keep secrets server-side, and never fetch secrets in a component.
+- HTML/CSS/Tailwind: semantic elements, accessible labels and alt text, responsive-first utilities, design tokens over hardcoded colors, no inline style dumps.
+- Node/Express: async/await with real error handling, validated input, no unhandled promise rejections, no secrets in code.
+- Supabase/SQL: parameterized queries, explicit column lists over SELECT *, row-level security assumed on, idempotent DDL, and indexes for the filters you write.
+- Docker: pinned base image tags, multi-stage builds where useful, non-root user, and a minimal final layer.
+- Prefer one correct, runnable example over several partial ones, and mention the one command needed to run it when relevant.
+
+
 Large Projects:
 - First understand the requirements.
 - Present a concise implementation plan.
