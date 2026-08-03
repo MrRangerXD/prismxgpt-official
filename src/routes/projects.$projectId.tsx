@@ -1,6 +1,20 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { ArrowLeft, FolderClosed, Share2, Send, Plus, Copy, Check, Sparkles, Trash2, Settings, Upload, FileText, X } from "lucide-react";
+import {
+  ArrowLeft,
+  FolderClosed,
+  Share2,
+  Send,
+  Plus,
+  Copy,
+  Check,
+  Sparkles,
+  Trash2,
+  Settings,
+  Upload,
+  FileText,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -8,12 +22,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useProfile } from "@/hooks/use-profile";
 
 export const Route = createFileRoute("/projects/$projectId")({
-  head: () => ({ meta: [{ title: "Project — PrismXGPT" }, { name: "robots", content: "noindex,nofollow" }] }),
+  head: () => ({
+    meta: [{ title: "Project — PrismXGPT" }, { name: "robots", content: "noindex,nofollow" }],
+  }),
   component: ProjectPage,
   errorComponent: ({ error }) => (
     <div className="p-10 text-sm text-muted-foreground">Error: {String(error)}</div>
   ),
-  notFoundComponent: () => <div className="p-10 text-sm text-muted-foreground">Project not found</div>,
+  notFoundComponent: () => (
+    <div className="p-10 text-sm text-muted-foreground">Project not found</div>
+  ),
 });
 
 type Project = {
@@ -26,7 +44,13 @@ type Project = {
 type ShareLink = { token: string; enabled: boolean };
 type Chat = { id: string; title: string; created_at: string; created_by: string };
 type Msg = { id: string; role: "user" | "assistant"; content: string; created_at: string };
-type ProjectFile = { id: string; filename: string; storage_path: string; size_bytes: number | null; created_at: string };
+type ProjectFile = {
+  id: string;
+  filename: string;
+  storage_path: string;
+  size_bytes: number | null;
+  created_at: string;
+};
 
 function ProjectPage() {
   const { projectId } = Route.useParams();
@@ -131,7 +155,12 @@ function ProjectPage() {
     // Save user message
     const newMsgs: Msg[] = [
       ...messages,
-      { id: crypto.randomUUID(), role: "user", content: text, created_at: new Date().toISOString() },
+      {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: text,
+        created_at: new Date().toISOString(),
+      },
     ];
     setMessages(newMsgs);
     await supabase
@@ -229,7 +258,10 @@ function ProjectPage() {
   const deleteChat = async (id: string) => {
     if (!isOwner) return;
     if (!confirm("Delete this chat?")) return;
-    await supabase.from("project_chats" as never).delete().eq("id" as never, id as never);
+    await supabase
+      .from("project_chats" as never)
+      .delete()
+      .eq("id" as never, id as never);
     setChats((c) => c.filter((x) => x.id !== id));
     if (activeChat?.id === id) {
       setActiveChat(null);
@@ -237,13 +269,20 @@ function ProjectPage() {
     }
   };
 
-  const saveSettings = async (patch: { name?: string; description?: string; instructions?: string }) => {
+  const saveSettings = async (patch: {
+    name?: string;
+    description?: string;
+    instructions?: string;
+  }) => {
     if (!project || !isOwner) return;
     const { error } = await supabase
       .from("projects" as never)
       .update(patch as never)
       .eq("id" as never, project.id as never);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     setProject({ ...project, ...patch } as Project);
     toast.success("Project updated");
   };
@@ -252,14 +291,31 @@ function ProjectPage() {
     if (!fileList || !project || !isOwner) return;
     const list = Array.from(fileList).slice(0, 10);
     for (const f of list) {
-      if (f.size > 20 * 1024 * 1024) { toast.error(`"${f.name}" exceeds 20MB`); continue; }
+      if (f.size > 20 * 1024 * 1024) {
+        toast.error(`"${f.name}" exceeds 20MB`);
+        continue;
+      }
       const path = `${project.id}/${Date.now()}_${f.name.replace(/[^\w.-]/g, "_")}`;
-      const { error: upErr } = await supabase.storage.from("project-files").upload(path, f, { contentType: f.type || undefined });
-      if (upErr) { toast.error(upErr.message); continue; }
+      const { error: upErr } = await supabase.storage
+        .from("project-files")
+        .upload(path, f, { contentType: f.type || undefined });
+      if (upErr) {
+        toast.error(upErr.message);
+        continue;
+      }
       // Best-effort text extraction for text-ish files (browser side).
       let extracted: string | null = null;
-      if (/^text\/|application\/(json|xml|x-yaml|yaml|javascript|typescript)/i.test(f.type) || /\.(md|txt|csv|json|yml|yaml|xml|html?|css|js|ts|tsx|jsx|py|rb|go|rs|java|c|cpp)$/i.test(f.name)) {
-        try { extracted = (await f.text()).slice(0, 40000); } catch { /* ignore */ }
+      if (
+        /^text\/|application\/(json|xml|x-yaml|yaml|javascript|typescript)/i.test(f.type) ||
+        /\.(md|txt|csv|json|yml|yaml|xml|html?|css|js|ts|tsx|jsx|py|rb|go|rs|java|c|cpp)$/i.test(
+          f.name,
+        )
+      ) {
+        try {
+          extracted = (await f.text()).slice(0, 40000);
+        } catch {
+          /* ignore */
+        }
       }
       const { data: row, error: insErr } = await supabase
         .from("project_files" as never)
@@ -274,7 +330,10 @@ function ProjectPage() {
         } as never)
         .select("id, filename, storage_path, size_bytes, created_at")
         .single();
-      if (insErr || !row) { toast.error(insErr?.message ?? "Upload failed"); continue; }
+      if (insErr || !row) {
+        toast.error(insErr?.message ?? "Upload failed");
+        continue;
+      }
       setFiles((prev) => [row as ProjectFile, ...prev]);
     }
     toast.success("Files uploaded");
@@ -283,8 +342,14 @@ function ProjectPage() {
   const deleteFile = async (file: ProjectFile) => {
     if (!isOwner || !confirm(`Delete "${file.filename}"?`)) return;
     await supabase.storage.from("project-files").remove([file.storage_path]);
-    const { error } = await supabase.from("project_files" as never).delete().eq("id" as never, file.id as never);
-    if (error) { toast.error(error.message); return; }
+    const { error } = await supabase
+      .from("project_files" as never)
+      .delete()
+      .eq("id" as never, file.id as never);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     setFiles((prev) => prev.filter((x) => x.id !== file.id));
   };
 
@@ -371,7 +436,10 @@ function ProjectPage() {
                   type="file"
                   multiple
                   className="hidden"
-                  onChange={(e) => { void uploadFiles(e.target.files); e.target.value = ""; }}
+                  onChange={(e) => {
+                    void uploadFiles(e.target.files);
+                    e.target.value = "";
+                  }}
                 />
                 <button
                   onClick={() => fileInputRef.current?.click()}
@@ -387,7 +455,10 @@ function ProjectPage() {
           ) : (
             <ul className="space-y-1.5">
               {files.map((f) => (
-                <li key={f.id} className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
+                <li
+                  key={f.id}
+                  className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2"
+                >
                   <FileText className="h-3.5 w-3.5 flex-none text-muted-foreground" />
                   <span className="flex-1 truncate text-xs">{f.filename}</span>
                   <span className="text-[10px] text-muted-foreground">
@@ -458,7 +529,9 @@ function ProjectPage() {
                     className={`flex h-8 w-8 flex-none items-center justify-center rounded-lg ${
                       m.role === "user" ? "bg-accent" : ""
                     }`}
-                    style={m.role === "assistant" ? { background: "var(--gradient-brand)" } : undefined}
+                    style={
+                      m.role === "assistant" ? { background: "var(--gradient-brand)" } : undefined
+                    }
                   >
                     {m.role === "assistant" ? (
                       <Sparkles className="h-4 w-4 text-brand-foreground" />
@@ -485,7 +558,9 @@ function ProjectPage() {
                 </div>
               )}
               {messages.length === 0 && !streamingText && (
-                <div className="py-10 text-center text-xs text-muted-foreground">No messages yet.</div>
+                <div className="py-10 text-center text-xs text-muted-foreground">
+                  No messages yet.
+                </div>
               )}
             </div>
           </div>
@@ -506,10 +581,15 @@ function ProjectPage() {
               <div
                 key={c.id}
                 className={`flex items-center gap-3 rounded-xl border p-3 transition ${
-                  activeChat?.id === c.id ? "border-brand bg-brand/5" : "border-border bg-card hover:bg-accent"
+                  activeChat?.id === c.id
+                    ? "border-brand bg-brand/5"
+                    : "border-border bg-card hover:bg-accent"
                 }`}
               >
-                <button onClick={() => openChat(c)} className="flex flex-1 items-center gap-3 text-left">
+                <button
+                  onClick={() => openChat(c)}
+                  className="flex flex-1 items-center gap-3 text-left"
+                >
                   <Sparkles className="h-4 w-4 flex-none text-brand" />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium">{c.title}</div>
@@ -545,7 +625,10 @@ function ProjectPage() {
       {showSettings && project && (
         <SettingsModal
           project={project}
-          onSave={async (patch) => { await saveSettings(patch); setShowSettings(false); }}
+          onSave={async (patch) => {
+            await saveSettings(patch);
+            setShowSettings(false);
+          }}
           onClose={() => setShowSettings(false)}
         />
       )}
@@ -577,8 +660,8 @@ function ShareModal({
           </button>
         </div>
         <p className="mb-4 text-xs text-muted-foreground">
-          Anyone with the link (must be signed in) can view chats in this project — read-only. Turn share
-          off to revoke access instantly.
+          Anyone with the link (must be signed in) can view chats in this project — read-only. Turn
+          share off to revoke access instantly.
         </p>
         <label className="mb-3 flex cursor-pointer items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
           <span className="text-sm font-medium">Share enabled</span>
@@ -621,7 +704,11 @@ function SettingsModal({
   onClose,
 }: {
   project: Project;
-  onSave: (patch: { name?: string; description?: string; instructions?: string }) => Promise<void> | void;
+  onSave: (patch: {
+    name?: string;
+    description?: string;
+    instructions?: string;
+  }) => Promise<void> | void;
   onClose: () => void;
 }) {
   const [name, setName] = useState(project.name);
@@ -633,7 +720,9 @@ function SettingsModal({
       <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-elevated">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold">Project settings</h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">✕</button>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            ✕
+          </button>
         </div>
         <div className="space-y-4">
           <label className="block">
@@ -645,7 +734,9 @@ function SettingsModal({
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-muted-foreground">Description</span>
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              Description
+            </span>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}

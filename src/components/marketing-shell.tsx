@@ -30,10 +30,24 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           </Link>
 
           <div className="hidden items-center gap-8 md:flex">
-            <Link to="/features/ai-chat" className="text-sm text-muted-foreground transition hover:text-foreground">Chat</Link>
-            <Link to="/features/image-generation" className="text-sm text-muted-foreground transition hover:text-foreground">Image gen</Link>
-            <Link to="/features/image-editing" className="text-sm text-muted-foreground transition hover:text-foreground">Image edit</Link>
-            
+            <Link
+              to="/features/ai-chat"
+              className="text-sm text-muted-foreground transition hover:text-foreground"
+            >
+              Chat
+            </Link>
+            <Link
+              to="/features/image-generation"
+              className="text-sm text-muted-foreground transition hover:text-foreground"
+            >
+              Image gen
+            </Link>
+            <Link
+              to="/features/image-editing"
+              className="text-sm text-muted-foreground transition hover:text-foreground"
+            >
+              Image edit
+            </Link>
           </div>
 
           <div className="hidden items-center gap-2 md:flex">
@@ -47,7 +61,10 @@ export function MarketingShell({ children }: { children: ReactNode }) {
               </Link>
             ) : (
               <>
-                <Link to="/login" className="rounded-lg px-4 py-2 text-sm font-medium text-foreground transition hover:bg-accent">
+                <Link
+                  to="/login"
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-foreground transition hover:bg-accent"
+                >
                   Log in
                 </Link>
                 <Link
@@ -85,12 +102,23 @@ export function MarketingShell({ children }: { children: ReactNode }) {
         {menuOpen && (
           <div className="mx-6 mb-4 rounded-2xl border border-border bg-card p-4 md:hidden">
             <div className="flex flex-col gap-3">
-              <Link to="/features/ai-chat" className="text-sm text-muted-foreground">AI Chat</Link>
-              <Link to="/features/image-generation" className="text-sm text-muted-foreground">Image generation</Link>
-              <Link to="/features/image-editing" className="text-sm text-muted-foreground">Image editing</Link>
-              
+              <Link to="/features/ai-chat" className="text-sm text-muted-foreground">
+                AI Chat
+              </Link>
+              <Link to="/features/image-generation" className="text-sm text-muted-foreground">
+                Image generation
+              </Link>
+              <Link to="/features/image-editing" className="text-sm text-muted-foreground">
+                Image editing
+              </Link>
+
               <div className="my-2 h-px bg-border" />
-              <Link to="/login" className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-center">Log in</Link>
+              <Link
+                to="/login"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-center"
+              >
+                Log in
+              </Link>
               <Link
                 to="/signup"
                 className="rounded-lg px-4 py-2 text-sm font-semibold text-brand-foreground text-center"
@@ -103,7 +131,9 @@ export function MarketingShell({ children }: { children: ReactNode }) {
         )}
       </header>
 
-      <main id="main" className="relative z-10">{children}</main>
+      <main id="main" className="relative z-10">
+        {children}
+      </main>
 
       <footer className="relative z-10 border-t border-border/60 mt-24">
         <div className="mx-auto max-w-7xl px-6 py-12 grid gap-8 md:grid-cols-4 text-sm">
@@ -112,31 +142,68 @@ export function MarketingShell({ children }: { children: ReactNode }) {
               <PrismXLogo size="sm" />
               <span className="font-semibold">PrismXGPT</span>
             </div>
-            <p className="text-muted-foreground">Premium AI assistant for chat, code, writing and images.</p>
+            <p className="text-muted-foreground">
+              Premium AI assistant for chat, code, writing and images.
+            </p>
           </div>
           <div>
             <div className="mb-3 font-semibold">Product</div>
             <ul className="space-y-2 text-muted-foreground">
-              <li><Link to="/features/ai-chat" className="hover:text-foreground">AI Chat</Link></li>
-              <li><Link to="/features/image-generation" className="hover:text-foreground">Image Generation</Link></li>
-              <li><Link to="/features/image-editing" className="hover:text-foreground">Image Editing</Link></li>
+              <li>
+                <Link to="/features/ai-chat" className="hover:text-foreground">
+                  AI Chat
+                </Link>
+              </li>
+              <li>
+                <Link to="/features/image-generation" className="hover:text-foreground">
+                  Image Generation
+                </Link>
+              </li>
+              <li>
+                <Link to="/features/image-editing" className="hover:text-foreground">
+                  Image Editing
+                </Link>
+              </li>
             </ul>
           </div>
           <div>
             <div className="mb-3 font-semibold">Compare</div>
             <ul className="space-y-2 text-muted-foreground">
-              <li><Link to="/compare/chatgpt-alternative" className="hover:text-foreground">ChatGPT alternative</Link></li>
-              <li><Link to="/compare/midjourney-alternative" className="hover:text-foreground">Midjourney alternative</Link></li>
-              <li><Link to="/compare/claude-alternative" className="hover:text-foreground">Claude alternative</Link></li>
+              <li>
+                <Link to="/compare/chatgpt-alternative" className="hover:text-foreground">
+                  ChatGPT alternative
+                </Link>
+              </li>
+              <li>
+                <Link to="/compare/midjourney-alternative" className="hover:text-foreground">
+                  Midjourney alternative
+                </Link>
+              </li>
+              <li>
+                <Link to="/compare/claude-alternative" className="hover:text-foreground">
+                  Claude alternative
+                </Link>
+              </li>
             </ul>
           </div>
           <div>
             <div className="mb-3 font-semibold">Resources</div>
             <ul className="space-y-2 text-muted-foreground">
-              
-              <li><Link to="/help" className="hover:text-foreground">Help Center</Link></li>
-              <li><Link to="/privacy" className="hover:text-foreground">Privacy</Link></li>
-              <li><Link to="/terms" className="hover:text-foreground">Terms</Link></li>
+              <li>
+                <Link to="/help" className="hover:text-foreground">
+                  Help Center
+                </Link>
+              </li>
+              <li>
+                <Link to="/privacy" className="hover:text-foreground">
+                  Privacy
+                </Link>
+              </li>
+              <li>
+                <Link to="/terms" className="hover:text-foreground">
+                  Terms
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
@@ -148,8 +215,14 @@ export function MarketingShell({ children }: { children: ReactNode }) {
   );
 }
 
-export interface Feature { title: string; desc: string }
-export interface Faq { q: string; a: string }
+export interface Feature {
+  title: string;
+  desc: string;
+}
+export interface Faq {
+  q: string;
+  a: string;
+}
 
 export function MarketingPage({
   eyebrow,
@@ -193,10 +266,15 @@ export function MarketingPage({
       </section>
 
       <section className="mx-auto max-w-6xl px-6 py-12">
-        <h2 className="text-3xl font-semibold tracking-tight md:text-4xl mb-10">Everything you need in one place</h2>
+        <h2 className="text-3xl font-semibold tracking-tight md:text-4xl mb-10">
+          Everything you need in one place
+        </h2>
         <div className="grid gap-4 md:grid-cols-3">
           {features.map((f) => (
-            <div key={f.title} className="rounded-2xl border border-border bg-card/60 p-6 backdrop-blur">
+            <div
+              key={f.title}
+              className="rounded-2xl border border-border bg-card/60 p-6 backdrop-blur"
+            >
               <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-brand/15 text-brand">
                 <Check className="h-4 w-4" />
               </div>
@@ -220,13 +298,17 @@ export function MarketingPage({
       </section>
 
       <section className="mx-auto max-w-3xl px-6 py-16">
-        <h2 className="text-3xl font-semibold tracking-tight md:text-4xl mb-8 text-center">Frequently asked questions</h2>
+        <h2 className="text-3xl font-semibold tracking-tight md:text-4xl mb-8 text-center">
+          Frequently asked questions
+        </h2>
         <div className="space-y-4">
           {faqs.map((f) => (
             <details key={f.q} className="group rounded-xl border border-border bg-card/60 p-5">
               <summary className="cursor-pointer list-none font-medium flex justify-between items-center">
                 {f.q}
-                <span className="ml-4 text-muted-foreground group-open:rotate-45 transition">+</span>
+                <span className="ml-4 text-muted-foreground group-open:rotate-45 transition">
+                  +
+                </span>
               </summary>
               <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{f.a}</p>
             </details>
@@ -235,7 +317,10 @@ export function MarketingPage({
       </section>
 
       <section className="mx-auto max-w-4xl px-6 py-16 text-center">
-        <div className="rounded-3xl border border-border p-10 md:p-14" style={{ background: "var(--gradient-brand-subtle, var(--gradient-hero))" }}>
+        <div
+          className="rounded-3xl border border-border p-10 md:p-14"
+          style={{ background: "var(--gradient-brand-subtle, var(--gradient-hero))" }}
+        >
           <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">{bottomCta}</h2>
           <p className="mt-4 text-muted-foreground">Free forever plan. Upgrade any time.</p>
           <Link

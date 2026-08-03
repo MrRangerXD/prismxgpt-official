@@ -6,9 +6,16 @@ export const Route = createFileRoute("/privacy")({
   head: () => ({
     meta: [
       { title: "Privacy Policy — PrismXGPT" },
-      { name: "description", content: "PrismXGPT privacy policy: what data we collect, how we use it, how we protect it, and the rights you have over your information." },
+      {
+        name: "description",
+        content:
+          "PrismXGPT privacy policy: what data we collect, how we use it, how we protect it, and the rights you have over your information.",
+      },
       { property: "og:title", content: "Privacy Policy — PrismXGPT" },
-      { property: "og:description", content: "How PrismXGPT collects, uses and protects your data." },
+      {
+        property: "og:description",
+        content: "How PrismXGPT collects, uses and protects your data.",
+      },
       { property: "og:url", content: "https://prismxgpt.lovable.app/privacy" },
       { property: "og:type", content: "website" },
     ],
@@ -44,8 +51,8 @@ function PrivacyPage() {
 
       <main className="relative z-10 mx-auto max-w-3xl px-6 pb-24 pt-8 md:pt-12">
         <p className="mb-8 text-sm text-muted-foreground">
-          This Privacy Policy explains how PrismXGPT ("we", "our", "us") collects, uses, stores
-          and protects information when you use our website, chat interface and related services
+          This Privacy Policy explains how PrismXGPT ("we", "our", "us") collects, uses, stores and
+          protects information when you use our website, chat interface and related services
           (together, the "Service"). By using PrismXGPT, you agree to the practices described here.
         </p>
 
@@ -108,10 +115,16 @@ function PrivacyPage() {
               share it only with:
             </p>
             <ul className="mt-3 list-disc space-y-2 pl-6 text-muted-foreground">
-              <li>Service providers that host our infrastructure, database, authentication and analytics.</li>
+              <li>
+                Service providers that host our infrastructure, database, authentication and
+                analytics.
+              </li>
               <li>AI model providers that generate responses to your prompts.</li>
               <li>Payment processors when you subscribe to a paid plan.</li>
-              <li>Law enforcement or regulators when we are legally required to do so, or to protect the rights, safety and property of our users or the public.</li>
+              <li>
+                Law enforcement or regulators when we are legally required to do so, or to protect
+                the rights, safety and property of our users or the public.
+              </li>
             </ul>
           </section>
 
@@ -121,7 +134,8 @@ function PrivacyPage() {
               We use encryption in transit (HTTPS/TLS), encryption at rest for stored data, strict
               access controls, row-level security in our database, and regular security reviews.
               While no system is 100% secure, we work hard to protect your information. Please help
-              us by using a strong, unique password and enabling any additional protections we offer.
+              us by using a strong, unique password and enabling any additional protections we
+              offer.
             </p>
           </section>
 
@@ -178,9 +192,9 @@ function PrivacyPage() {
           <section>
             <h2 className="mb-3 text-lg font-semibold">11. Changes to this policy</h2>
             <p className="text-muted-foreground">
-              We may update this Privacy Policy from time to time. When we make material changes,
-              we will notify you inside the app or by email. The "Last updated" date at the top of
-              this page shows when the policy was most recently revised.
+              We may update this Privacy Policy from time to time. When we make material changes, we
+              will notify you inside the app or by email. The "Last updated" date at the top of this
+              page shows when the policy was most recently revised.
             </p>
           </section>
 
@@ -205,9 +219,15 @@ function PrivacyPage() {
             <span>© 2026 PrismXGPT. All rights reserved.</span>
           </div>
           <div className="flex gap-6">
-            <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
-            <Link to="/terms" className="hover:text-foreground">Terms</Link>
-            <Link to="/" className="hover:text-foreground">Home</Link>
+            <Link to="/privacy" className="hover:text-foreground">
+              Privacy
+            </Link>
+            <Link to="/terms" className="hover:text-foreground">
+              Terms
+            </Link>
+            <Link to="/" className="hover:text-foreground">
+              Home
+            </Link>
           </div>
         </div>
       </footer>

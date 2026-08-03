@@ -37,7 +37,6 @@ export function MoveToProjectModal({
     }
   }, [open]);
 
-
   if (!open) return null;
 
   const create = async () => {
@@ -71,7 +70,6 @@ export function MoveToProjectModal({
     setBusy(false);
     onClose();
   };
-
 
   const filtered = projects.filter((p) => p.name.toLowerCase().includes(q.toLowerCase()));
 
@@ -148,7 +146,9 @@ export function MoveToProjectModal({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="font-medium">Create new project</div>
-                  <div className="text-xs text-muted-foreground">Start a new project and move this chat</div>
+                  <div className="text-xs text-muted-foreground">
+                    Start a new project and move this chat
+                  </div>
                 </div>
               </button>
 

@@ -24,9 +24,9 @@ export function SettingsModal({
   onSaved: () => void;
   onClearHistory?: () => void;
 }) {
-  const [tab, setTab] = useState<"profile" | "account" | "appearance" | "personalization" | "about">(
-    "profile",
-  );
+  const [tab, setTab] = useState<
+    "profile" | "account" | "appearance" | "personalization" | "about"
+  >("profile");
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [saving, setSaving] = useState(false);
@@ -51,13 +51,18 @@ export function SettingsModal({
       setNewPassword("");
       setConfirmPassword("");
       try {
-        const raw = typeof window !== "undefined" ? window.localStorage.getItem("prismxgpt.personalization.v1") : null;
+        const raw =
+          typeof window !== "undefined"
+            ? window.localStorage.getItem("prismxgpt.personalization.v1")
+            : null;
         if (raw) {
           const p = JSON.parse(raw) as { about?: string; style?: string };
           setPersonAbout(p.about ?? "");
           setPersonStyle(p.style ?? "");
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   }, [profile, open]);
 
@@ -321,7 +326,9 @@ export function SettingsModal({
                     </p>
                     <button
                       onClick={() => {
-                        if (window.confirm("Clear all chats on this device? This cannot be undone.")) {
+                        if (
+                          window.confirm("Clear all chats on this device? This cannot be undone.")
+                        ) {
                           onClearHistory();
                           onClose();
                         }
@@ -340,7 +347,8 @@ export function SettingsModal({
                 <div>
                   <h3 className="mb-1 text-base font-semibold">Custom instructions</h3>
                   <p className="text-xs text-muted-foreground">
-                    These are included with every new conversation so PrismXGPT can tailor its responses.
+                    These are included with every new conversation so PrismXGPT can tailor its
+                    responses.
                   </p>
                 </div>
                 <div>
@@ -349,7 +357,10 @@ export function SettingsModal({
                   </label>
                   <textarea
                     value={personAbout}
-                    onChange={(e) => { setPersonAbout(e.target.value); setPersonSaved(false); }}
+                    onChange={(e) => {
+                      setPersonAbout(e.target.value);
+                      setPersonSaved(false);
+                    }}
                     rows={5}
                     maxLength={2000}
                     placeholder="Role, interests, projects, expertise…"
@@ -362,7 +373,10 @@ export function SettingsModal({
                   </label>
                   <textarea
                     value={personStyle}
-                    onChange={(e) => { setPersonStyle(e.target.value); setPersonSaved(false); }}
+                    onChange={(e) => {
+                      setPersonStyle(e.target.value);
+                      setPersonSaved(false);
+                    }}
                     rows={5}
                     maxLength={2000}
                     placeholder="Tone, formality, length, formatting preferences…"
@@ -389,9 +403,6 @@ export function SettingsModal({
                 </button>
               </div>
             )}
-
-
-
 
             {tab === "about" && (
               <div>

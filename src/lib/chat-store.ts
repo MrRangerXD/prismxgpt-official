@@ -12,7 +12,6 @@ export type ChatThread = {
   messages: ChatMessage[];
   pinned?: boolean;
   projectId?: string | null;
-  
 };
 
 const LEGACY_KEY = "prismxgpt.threads.v1";

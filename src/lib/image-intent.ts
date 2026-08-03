@@ -204,7 +204,11 @@ export function isExplicitImageEdit(rawText: string): boolean {
   // Coding / non-image context guard — if the message references code
   // constructs, never treat it as an image edit even when it contains
   // "change color" or "make it".
-  if (/\b(div|span|button|component|class(?:name)?|function|const|let|var|import|export|html|css|tsx?|jsx?|api|endpoint|route|query|table|schema|column|prop|state|hook|useeffect|usestate|element|selector|tag|node)\b/.test(t)) {
+  if (
+    /\b(div|span|button|component|class(?:name)?|function|const|let|var|import|export|html|css|tsx?|jsx?|api|endpoint|route|query|table|schema|column|prop|state|hook|useeffect|usestate|element|selector|tag|node)\b/.test(
+      t,
+    )
+  ) {
     return false;
   }
   const patterns: RegExp[] = [

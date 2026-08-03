@@ -10,7 +10,10 @@ export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
       { title: "Log in — PrismXGPT" },
-      { name: "description", content: "Log in to your PrismXGPT account to continue your AI conversations." },
+      {
+        name: "description",
+        content: "Log in to your PrismXGPT account to continue your AI conversations.",
+      },
       { property: "og:title", content: "Log in — PrismXGPT" },
       { property: "og:description", content: "Log in to your PrismXGPT account." },
       { property: "og:url", content: "https://prismxgpt.lovable.app/login" },
@@ -66,10 +69,10 @@ function LoginPage() {
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
-
-
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Email</label>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Email
+              </label>
               <input
                 type="email"
                 required
@@ -80,7 +83,9 @@ function LoginPage() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Password</label>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Password
+              </label>
               <input
                 type="password"
                 required

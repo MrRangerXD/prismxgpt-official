@@ -62,7 +62,11 @@
   --ring: oklch(0.5 0.12 158);
   --brand: oklch(0.5 0.12 158);
   --brand-foreground: oklch(0.99 0 0);
-  --gradient-hero: radial-gradient(ellipse 80% 60% at 50% 0%, oklch(0.6 0.14 158 / 0.18), transparent 70%);
+  --gradient-hero: radial-gradient(
+    ellipse 80% 60% at 50% 0%,
+    oklch(0.6 0.14 158 / 0.18),
+    transparent 70%
+  );
   --gradient-brand: linear-gradient(135deg, oklch(0.34 0.06 158), oklch(0.5 0.12 158));
 }
 
@@ -89,7 +93,11 @@
   --ring: oklch(0.72 0.14 158);
   --brand: oklch(0.72 0.14 158);
   --brand-foreground: oklch(0.16 0.014 170);
-  --gradient-hero: radial-gradient(ellipse 80% 60% at 50% 0%, oklch(0.72 0.14 158 / 0.22), transparent 70%);
+  --gradient-hero: radial-gradient(
+    ellipse 80% 60% at 50% 0%,
+    oklch(0.72 0.14 158 / 0.22),
+    transparent 70%
+  );
   --gradient-brand: linear-gradient(135deg, oklch(0.72 0.14 158), oklch(0.82 0.13 95));
 }
 
@@ -111,7 +119,12 @@
     text-rendering: optimizeLegibility;
     letter-spacing: -0.005em;
   }
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: var(--font-heading);
     letter-spacing: -0.02em;
   }
@@ -139,14 +152,17 @@
     background-clip: padding-box;
   }
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
+    *,
+    *::before,
+    *::after {
       animation-duration: 0.001ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.001ms !important;
       scroll-behavior: auto !important;
     }
   }
-  textarea, input {
+  textarea,
+  input {
     font: inherit;
   }
 }
@@ -155,8 +171,14 @@
   animation: fadeIn 180ms ease-out both;
 }
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(2px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Hide Lovable badge widget (parent container + all children) */
@@ -166,4 +188,3 @@
   visibility: hidden !important;
   pointer-events: none !important;
 }
-

@@ -5,7 +5,9 @@ import { useProfile } from "@/hooks/use-profile";
 import { joinProjectByShareToken } from "@/lib/project-share.functions";
 
 export const Route = createFileRoute("/projects/join/$token")({
-  head: () => ({ meta: [{ title: "Join project — PrismXGPT" }, { name: "robots", content: "noindex,nofollow" }] }),
+  head: () => ({
+    meta: [{ title: "Join project — PrismXGPT" }, { name: "robots", content: "noindex,nofollow" }],
+  }),
   component: JoinPage,
 });
 
@@ -44,7 +46,9 @@ function JoinPage() {
           });
         }, 150);
       })();
-      return () => { cancelled = true; };
+      return () => {
+        cancelled = true;
+      };
     }
     if (attemptedRef.done) return;
     attemptedRef.done = true;

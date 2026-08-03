@@ -61,10 +61,7 @@ export function safeRun<T>(fn: () => T, fallback?: T, tag?: string): T | undefin
  * (analytics, cache warms). For user-triggered actions, catch the
  * error explicitly and surface a message via `toast.error`.
  */
-export async function safeAwait<T>(
-  promise: Promise<T>,
-  tag?: string,
-): Promise<T | undefined> {
+export async function safeAwait<T>(promise: Promise<T>, tag?: string): Promise<T | undefined> {
   try {
     return await promise;
   } catch (e) {

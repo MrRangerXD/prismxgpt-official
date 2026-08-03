@@ -4,7 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 
 type Announcement = { message: string; enabled: boolean };
 
-export function AnnouncementBanner({ settingKey }: { settingKey: "homepage_announcement" | "chat_announcement" }) {
+export function AnnouncementBanner({
+  settingKey,
+}: {
+  settingKey: "homepage_announcement" | "chat_announcement";
+}) {
   const [data, setData] = useState<Announcement | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
@@ -20,7 +24,8 @@ export function AnnouncementBanner({ settingKey }: { settingKey: "homepage_annou
       const v = (rows as { value: Announcement } | null)?.value ?? null;
       setData(v);
       // Dismiss state is per-announcement-message so a new message re-shows
-      const dismissedMsg = typeof window !== "undefined" ? localStorage.getItem(`ann-dismissed-${settingKey}`) : null;
+      const dismissedMsg =
+        typeof window !== "undefined" ? localStorage.getItem(`ann-dismissed-${settingKey}`) : null;
       if (v && dismissedMsg === v.message) setDismissed(true);
     })();
     return () => {

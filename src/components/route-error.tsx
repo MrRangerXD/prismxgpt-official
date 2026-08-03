@@ -46,10 +46,7 @@ export function DefaultRouteError({ error, reset }: { error: unknown; reset: () 
           >
             Try again
           </button>
-          <Link
-            to="/"
-            className="rounded-md border border-border bg-background px-4 py-2"
-          >
+          <Link to="/" className="rounded-md border border-border bg-background px-4 py-2">
             Go home
           </Link>
         </div>

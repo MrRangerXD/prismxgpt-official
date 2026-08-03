@@ -27,9 +27,7 @@ export function PrismXLogo({ className = "", showWordmark = false, size = "md" }
         loading="eager"
         decoding="async"
       />
-      {showWordmark && (
-        <span className="text-lg font-semibold tracking-tight">PrismXGPT</span>
-      )}
+      {showWordmark && <span className="text-lg font-semibold tracking-tight">PrismXGPT</span>}
     </span>
   );
 }

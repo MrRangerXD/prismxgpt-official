@@ -268,7 +268,10 @@ export const Route = createFileRoute("/api/chat")({
           if (status === 429 || /rate.?limit/i.test(text)) {
             return "I'm getting too many requests right now. Please wait a moment and try again.";
           }
-          if (status === 402 || /payment.?required|not enough credits|credit|quota|billing/i.test(text)) {
+          if (
+            status === 402 ||
+            /payment.?required|not enough credits|credit|quota|billing/i.test(text)
+          ) {
             return "The AI credits for this workspace have run out. Please add credits to continue.";
           }
           if (status === 401 || status === 403) {

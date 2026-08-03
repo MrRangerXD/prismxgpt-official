@@ -35,15 +35,17 @@ function emit() {
 }
 
 function normalize(rows: unknown[]): PlanRow[] {
-  return (rows as Array<Omit<PlanRow, "features" | "payment_methods"> & {
-    features: unknown;
-    payment_methods: unknown;
-  }>).map((p) => ({
+  return (
+    rows as Array<
+      Omit<PlanRow, "features" | "payment_methods"> & {
+        features: unknown;
+        payment_methods: unknown;
+      }
+    >
+  ).map((p) => ({
     ...p,
     features: Array.isArray(p.features) ? (p.features as string[]) : [],
-    payment_methods: Array.isArray(p.payment_methods)
-      ? (p.payment_methods as PaymentMethod[])
-      : [],
+    payment_methods: Array.isArray(p.payment_methods) ? (p.payment_methods as PaymentMethod[]) : [],
   }));
 }
 

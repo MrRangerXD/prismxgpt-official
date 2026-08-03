@@ -17,7 +17,6 @@ export function ProjectsModal({ open, onClose }: { open: boolean; onClose: () =>
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
 
-
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
 
@@ -49,7 +48,6 @@ export function ProjectsModal({ open, onClose }: { open: boolean; onClose: () =>
     onClose();
     navigate({ to: "/projects/$projectId", params: { projectId: proj.id } });
   };
-
 
   const openProject = (id: string) => {
     onClose();
@@ -98,7 +96,9 @@ export function ProjectsModal({ open, onClose }: { open: boolean; onClose: () =>
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent">
                   <FolderClosed className="h-6 w-6 text-muted-foreground" />
                 </div>
-                <p className="text-sm font-medium">{loading ? "Loading projects…" : "No projects yet"}</p>
+                <p className="text-sm font-medium">
+                  {loading ? "Loading projects…" : "No projects yet"}
+                </p>
                 {!loading && (
                   <p className="mt-1 text-xs text-muted-foreground">
                     Group related chats together and share them with others.
@@ -107,7 +107,6 @@ export function ProjectsModal({ open, onClose }: { open: boolean; onClose: () =>
               </div>
             </div>
           ) : (
-
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               {filtered.map((p) => {
                 const isOwner = p.owner_id === userId;
@@ -123,7 +122,8 @@ export function ProjectsModal({ open, onClose }: { open: boolean; onClose: () =>
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{p.name}</div>
                       <div className="text-xs text-muted-foreground">
-                        {isOwner ? "Owner" : "Shared with you"} · {new Date(p.created_at).toLocaleDateString()}
+                        {isOwner ? "Owner" : "Shared with you"} ·{" "}
+                        {new Date(p.created_at).toLocaleDateString()}
                       </div>
                     </div>
                   </button>

@@ -62,8 +62,7 @@ export default defineConfig({
         manifest: {
           name: "PrismXGPT",
           short_name: "PrismXGPT",
-          description:
-            "PrismXGPT is a modern AI assistant for chat, writing, code and research.",
+          description: "PrismXGPT is a modern AI assistant for chat, writing, code and research.",
           theme_color: "#0f172a",
           background_color: "#0f172a",
           display: "standalone",
@@ -75,8 +74,18 @@ export default defineConfig({
           icons: [
             { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
             { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-            { src: "/icon-maskable-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
-            { src: "/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+            {
+              src: "/icon-maskable-192.png",
+              sizes: "192x192",
+              type: "image/png",
+              purpose: "maskable",
+            },
+            {
+              src: "/icon-maskable-512.png",
+              sizes: "512x512",
+              type: "image/png",
+              purpose: "maskable",
+            },
           ],
           shortcuts: [
             {
@@ -108,8 +117,7 @@ export default defineConfig({
               options: { cacheName: "asset-cache" },
             },
             {
-              urlPattern: ({ request }) =>
-                ["image", "font"].includes(request.destination),
+              urlPattern: ({ request }) => ["image", "font"].includes(request.destination),
               handler: "CacheFirst",
               options: {
                 cacheName: "media-cache",
