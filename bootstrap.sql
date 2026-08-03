@@ -2536,3 +2536,37 @@ RETURNS TABLE (
 $$;
 REVOKE ALL ON FUNCTION public.user_plan_entitlements(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.user_plan_entitlements(uuid) TO service_role;
+
+-- Plan-driven project quota. Enforced in the database so it holds for every
+-- client path (UI, RPC, admin tooling) instead of a single API route.
+-- NULL project_limit = unlimited (fair use). Admins are exempt.
+CREATE OR REPLACE FUNCTION public.enforce_project_quota()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  lim  integer;
+  used integer;
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = NEW.owner_id AND ur.role = 'admin') THEN
+    RETURN NEW;
+  END IF;
+  SELECT ps.project_limit INTO lim
+    FROM public.profiles p
+    LEFT JOIN public.plan_settings ps ON ps.id = p.plan::text
+   WHERE p.id = NEW.owner_id;
+  IF lim IS NULL THEN RETURN NEW; END IF;
+  SELECT count(*) INTO used FROM public.projects WHERE owner_id = NEW.owner_id;
+  IF used >= lim THEN
+    RAISE EXCEPTION 'Your plan includes % projects. Upgrade to create more.', lim
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION public.enforce_project_quota() FROM PUBLIC, anon;
+
+DROP TRIGGER IF EXISTS projects_enforce_quota ON public.projects;
+CREATE TRIGGER projects_enforce_quota BEFORE INSERT ON public.projects
+  FOR EACH ROW EXECUTE FUNCTION public.enforce_project_quota();
+
+-- Hot-path indexes for the quota + history reads added above.
+CREATE INDEX IF NOT EXISTS projects_owner_idx           ON public.projects (owner_id);
+CREATE INDEX IF NOT EXISTS image_generations_user_idx   ON public.image_generations (user_id, created_at DESC);
