@@ -264,14 +264,12 @@ function AdminPage() {
     targetId?: string,
     metadata?: Record<string, unknown>,
   ) => {
-    await supabase
-      .from("activity_log" as never)
-      .insert({
-        actor_id: userId,
-        target_id: targetId ?? null,
-        action,
-        metadata: metadata ?? null,
-      } as never);
+    await supabase.from("activity_log" as never).insert({
+      actor_id: userId,
+      target_id: targetId ?? null,
+      action,
+      metadata: metadata ?? null,
+    } as never);
   };
 
   const hasRole = (row: Row, role: string) => row.roles.some((r) => r.role === role);
