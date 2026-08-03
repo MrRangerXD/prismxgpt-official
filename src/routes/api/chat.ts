@@ -167,8 +167,22 @@ export const Route = createFileRoute("/api/chat")({
           );
         }
 
-        // Server-side feature kill-switch: admin can disable web search / deep research.
+        // Plan enforcement. Every number below comes from `plan_settings` via
+        // profiles.plan — nothing is hardcoded here. Admins bypass metering.
+        const plan = await getPlanEntitlements(auth.userId);
+        const quota = await consumeChatQuota(auth.userId, plan);
+        if (!quota.allowed) {
+          return new Response(quota.message, { status: 429 });
+        }
+
+        // Server-side feature kill-switch: admin can disable web search / deep
+        // research globally; the user's plan decides whether they're entitled.
         let effectiveMode = body.mode;
+        if (effectiveMode === "web" || effectiveMode === "research") {
+          if (!plan.isAdmin && !plan.webSearch) effectiveMode = "default";
+          if (effectiveMode === "research" && !plan.isAdmin && !plan.reasoning)
+            effectiveMode = "default";
+        }
         if (effectiveMode === "web" || effectiveMode === "research") {
           try {
             const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
