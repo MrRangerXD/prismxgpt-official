@@ -17,7 +17,11 @@ export const Route = createFileRoute("/help")({
   head: () => ({
     meta: [
       { title: "Help Center — PrismXGPT" },
-      { name: "description", content: "Guides, FAQs and support for PrismXGPT — get started, manage your account, learn about AI features, projects, invites, billing." },
+      {
+        name: "description",
+        content:
+          "Guides, FAQs and support for PrismXGPT — get started, manage your account, learn about AI features, projects, invites, billing.",
+      },
       { property: "og:title", content: "Help Center — PrismXGPT" },
       { property: "og:description", content: "Guides, FAQs and support for PrismXGPT." },
       { property: "og:url", content: "https://prismxgpt.lovable.app/help" },
@@ -31,9 +35,30 @@ export const Route = createFileRoute("/help")({
           "@context": "https://schema.org",
           "@type": "FAQPage",
           mainEntity: [
-            { "@type": "Question", name: "What is PrismXGPT?", acceptedAnswer: { "@type": "Answer", text: "PrismXGPT is a premium AI assistant for chat, writing, code, and research." } },
-            { "@type": "Question", name: "How do I start my first chat?", acceptedAnswer: { "@type": "Answer", text: "Sign in, click New chat in the sidebar, type your question and hit Send." } },
-            { "@type": "Question", name: "Is PrismXGPT free?", acceptedAnswer: { "@type": "Answer", text: "Yes — PrismXGPT is free forever with an optional premium plan for higher limits." } },
+            {
+              "@type": "Question",
+              name: "What is PrismXGPT?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "PrismXGPT is a premium AI assistant for chat, writing, code, and research.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "How do I start my first chat?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Sign in, click New chat in the sidebar, type your question and hit Send.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Is PrismXGPT free?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Yes — PrismXGPT is free forever with an optional premium plan for higher limits.",
+              },
+            },
           ],
         }),
       },
@@ -55,9 +80,18 @@ const sections: Section[] = [
     title: "Getting Started",
     icon: BookOpen,
     items: [
-      { q: "What is PrismXGPT?", a: "PrismXGPT is a premium AI assistant for chat, writing, code, and research. Sign up with an email and start a new chat right away." },
-      { q: "How do I start my first chat?", a: "Sign in, click New chat in the sidebar, type your question and hit Send. The AI will stream a response immediately — markdown, code blocks and images are all supported." },
-      { q: "Can I use PrismXGPT on mobile?", a: "Yes. Open the app in any modern browser on your phone; the sidebar collapses into a menu and the composer stays anchored to the bottom." },
+      {
+        q: "What is PrismXGPT?",
+        a: "PrismXGPT is a premium AI assistant for chat, writing, code, and research. Sign up with an email and start a new chat right away.",
+      },
+      {
+        q: "How do I start my first chat?",
+        a: "Sign in, click New chat in the sidebar, type your question and hit Send. The AI will stream a response immediately — markdown, code blocks and images are all supported.",
+      },
+      {
+        q: "Can I use PrismXGPT on mobile?",
+        a: "Yes. Open the app in any modern browser on your phone; the sidebar collapses into a menu and the composer stays anchored to the bottom.",
+      },
     ],
   },
   {
@@ -65,9 +99,18 @@ const sections: Section[] = [
     title: "Account & Login",
     icon: KeyRound,
     items: [
-      { q: "How do I sign up?", a: "Go to Sign up, enter your email and a password of at least 6 characters. You can also sign in with Google." },
-      { q: "I forgot my password", a: "From the Login page, use the password-reset flow. You'll get an email with a secure link to set a new password." },
-      { q: "How do I change my display name or username?", a: "Open Settings → Profile from the sidebar user menu. Update the fields and click Save profile." },
+      {
+        q: "How do I sign up?",
+        a: "Go to Sign up, enter your email and a password of at least 6 characters. You can also sign in with Google.",
+      },
+      {
+        q: "I forgot my password",
+        a: "From the Login page, use the password-reset flow. You'll get an email with a secure link to set a new password.",
+      },
+      {
+        q: "How do I change my display name or username?",
+        a: "Open Settings → Profile from the sidebar user menu. Update the fields and click Save profile.",
+      },
     ],
   },
   {
@@ -75,10 +118,22 @@ const sections: Section[] = [
     title: "Chat & AI Features",
     icon: MessageSquare,
     items: [
-      { q: "Does the AI stream responses?", a: "Yes — replies stream token by token so you see progress immediately. Formatting, code blocks and inline images render as they arrive." },
-      { q: "Can I attach files or images?", a: "Yes. Use the paperclip icon in the composer, drag & drop, or paste from your clipboard. Each file can be up to 20MB." },
-      { q: "How do I stop a response mid-stream?", a: "Click the Stop button (square icon) that appears in place of Send while the AI is replying." },
-      { q: "How do I share a chat?", a: "Open a chat, click the ⋯ menu next to it in the sidebar, and pick Share to generate a read-only link." },
+      {
+        q: "Does the AI stream responses?",
+        a: "Yes — replies stream token by token so you see progress immediately. Formatting, code blocks and inline images render as they arrive.",
+      },
+      {
+        q: "Can I attach files or images?",
+        a: "Yes. Use the paperclip icon in the composer, drag & drop, or paste from your clipboard. Each file can be up to 20MB.",
+      },
+      {
+        q: "How do I stop a response mid-stream?",
+        a: "Click the Stop button (square icon) that appears in place of Send while the AI is replying.",
+      },
+      {
+        q: "How do I share a chat?",
+        a: "Open a chat, click the ⋯ menu next to it in the sidebar, and pick Share to generate a read-only link.",
+      },
     ],
   },
   {
@@ -86,8 +141,14 @@ const sections: Section[] = [
     title: "Projects",
     icon: FolderClosed,
     items: [
-      { q: "What are projects?", a: "Projects group related chats together so you can keep your work organized." },
-      { q: "How do I move a chat into a project?", a: "In the sidebar, open the ⋯ menu on the chat and pick Move to project. Choose an existing project or create a new one — the chat and its full history move immediately." },
+      {
+        q: "What are projects?",
+        a: "Projects group related chats together so you can keep your work organized.",
+      },
+      {
+        q: "How do I move a chat into a project?",
+        a: "In the sidebar, open the ⋯ menu on the chat and pick Move to project. Choose an existing project or create a new one — the chat and its full history move immediately.",
+      },
     ],
   },
   {
@@ -95,9 +156,18 @@ const sections: Section[] = [
     title: "Billing & Credits",
     icon: CreditCard,
     items: [
-      { q: "Is there a free plan?", a: "Yes — PrismXGPT has a generous free tier. Upgrade any time from the Claim offer button in the sidebar." },
-      { q: "How do I upgrade?", a: "Click Claim offer in the sidebar to see current plans. Pick one and follow the checkout flow." },
-      { q: "Where can I see my usage?", a: "Open Settings → Account for usage details and manage your subscription." },
+      {
+        q: "Is there a free plan?",
+        a: "Yes — PrismXGPT has a generous free tier. Upgrade any time from the Claim offer button in the sidebar.",
+      },
+      {
+        q: "How do I upgrade?",
+        a: "Click Claim offer in the sidebar to see current plans. Pick one and follow the checkout flow.",
+      },
+      {
+        q: "Where can I see my usage?",
+        a: "Open Settings → Account for usage details and manage your subscription.",
+      },
     ],
   },
   {
@@ -105,9 +175,15 @@ const sections: Section[] = [
     title: "Frequently Asked Questions",
     icon: HelpCircle,
     items: [
-      { q: "Is my data private?", a: "Your conversations are stored securely and only visible to you and people you explicitly share with." },
+      {
+        q: "Is my data private?",
+        a: "Your conversations are stored securely and only visible to you and people you explicitly share with.",
+      },
       { q: "Can I export my data?", a: "Yes — Settings → Privacy has data export options." },
-      { q: "How do I delete my account?", a: "Settings → Account → Delete account. Or contact mrrangerplayz@gmail.com." },
+      {
+        q: "How do I delete my account?",
+        a: "Settings → Account → Delete account. Or contact mrrangerplayz@gmail.com.",
+      },
     ],
   },
 ];
@@ -161,7 +237,10 @@ function HelpPage() {
               {openId === s.id && (
                 <div className="space-y-3 border-t border-border px-4 py-4">
                   {s.items.map((item, i) => (
-                    <details key={i} className="group rounded-lg border border-border bg-background/40 p-3">
+                    <details
+                      key={i}
+                      className="group rounded-lg border border-border bg-background/40 p-3"
+                    >
                       <summary className="cursor-pointer list-none text-sm font-medium marker:hidden">
                         {item.q}
                       </summary>

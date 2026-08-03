@@ -32,7 +32,9 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
-  head: () => ({ meta: [{ title: "Admin — PrismXGPT" }, { name: "robots", content: "noindex,nofollow" }] }),
+  head: () => ({
+    meta: [{ title: "Admin — PrismXGPT" }, { name: "robots", content: "noindex,nofollow" }],
+  }),
   component: AdminPage,
 });
 
@@ -156,7 +158,8 @@ function AdminPage() {
   const [tab, setTab] = useState<TabId>("dashboard");
   const [plans, setPlans] = useState<PlanSetting[]>([]);
   const [features, setFeatures] = useState<Features>(DEFAULT_FEATURES);
-  const [homepageAnnouncement, setHomepageAnnouncement] = useState<Announcement>(DEFAULT_ANNOUNCEMENT);
+  const [homepageAnnouncement, setHomepageAnnouncement] =
+    useState<Announcement>(DEFAULT_ANNOUNCEMENT);
   const [chatAnnouncement, setChatAnnouncement] = useState<Announcement>(DEFAULT_ANNOUNCEMENT);
   const [activity, setActivity] = useState<LogEntry[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
@@ -181,12 +184,14 @@ function AdminPage() {
       .from("user_roles" as never)
       .select("user_id, role, expires_at");
     const rmap = new Map<string, RoleGrant[]>();
-    ((roles ?? []) as Array<{ user_id: string; role: string; expires_at: string | null }>).forEach((r) => {
-      if (r.expires_at && new Date(r.expires_at) <= new Date()) return;
-      const list = rmap.get(r.user_id) ?? [];
-      list.push({ role: r.role, expires_at: r.expires_at });
-      rmap.set(r.user_id, list);
-    });
+    ((roles ?? []) as Array<{ user_id: string; role: string; expires_at: string | null }>).forEach(
+      (r) => {
+        if (r.expires_at && new Date(r.expires_at) <= new Date()) return;
+        const list = rmap.get(r.user_id) ?? [];
+        list.push({ role: r.role, expires_at: r.expires_at });
+        rmap.set(r.user_id, list);
+      },
+    );
     setRows(
       ((profiles ?? []) as Array<Omit<Row, "roles">>).map((p) => ({
         ...p,
@@ -199,16 +204,23 @@ function AdminPage() {
       .select("*")
       .order("sort_order" as never, { ascending: true } as never);
     setPlans(
-      ((planRows ?? []) as Array<Omit<PlanSetting, "features" | "payment_methods"> & { features: unknown; payment_methods: unknown }>).map((p) => ({
+      (
+        (planRows ?? []) as Array<
+          Omit<PlanSetting, "features" | "payment_methods"> & {
+            features: unknown;
+            payment_methods: unknown;
+          }
+        >
+      ).map((p) => ({
         ...p,
         features: Array.isArray(p.features) ? (p.features as string[]) : [],
-        payment_methods: Array.isArray(p.payment_methods) ? (p.payment_methods as PaymentMethod[]) : [],
+        payment_methods: Array.isArray(p.payment_methods)
+          ? (p.payment_methods as PaymentMethod[])
+          : [],
       })),
     );
 
-    const { data: settings } = await supabase
-      .from("app_settings" as never)
-      .select("key, value");
+    const { data: settings } = await supabase.from("app_settings" as never).select("key, value");
     ((settings ?? []) as Array<{ key: string; value: unknown }>).forEach((s) => {
       if (s.key === "features") setFeatures({ ...DEFAULT_FEATURES, ...(s.value as Features) });
       if (s.key === "homepage_announcement")
@@ -247,16 +259,29 @@ function AdminPage() {
     );
   }
 
-  const logActivity = async (action: string, targetId?: string, metadata?: Record<string, unknown>) => {
+  const logActivity = async (
+    action: string,
+    targetId?: string,
+    metadata?: Record<string, unknown>,
+  ) => {
     await supabase
       .from("activity_log" as never)
-      .insert({ actor_id: userId, target_id: targetId ?? null, action, metadata: metadata ?? null } as never);
+      .insert({
+        actor_id: userId,
+        target_id: targetId ?? null,
+        action,
+        metadata: metadata ?? null,
+      } as never);
   };
 
   const hasRole = (row: Row, role: string) => row.roles.some((r) => r.role === role);
   const roleGrant = (row: Row, role: string) => row.roles.find((r) => r.role === role);
 
-  const grantPlan = async (row: Row, role: "premium" | "pro" | "admin", durationDays: number | null) => {
+  const grantPlan = async (
+    row: Row,
+    role: "premium" | "pro" | "admin",
+    durationDays: number | null,
+  ) => {
     setBusy(row.id);
     const expires_at =
       durationDays === null
@@ -299,7 +324,11 @@ function AdminPage() {
     setBusy(null);
   };
 
-  const updatePlanField = <K extends keyof PlanSetting>(idx: number, key: K, value: PlanSetting[K]) => {
+  const updatePlanField = <K extends keyof PlanSetting>(
+    idx: number,
+    key: K,
+    value: PlanSetting[K],
+  ) => {
     setPlans((prev) => prev.map((p, i) => (i === idx ? { ...p, [key]: value } : p)));
   };
 
@@ -330,11 +359,12 @@ function AdminPage() {
 
   const saveSetting = async (key: string, value: unknown, label: string) => {
     setSavingKey(`setting:${key}`);
-    const { error } = await supabase
-      .from("app_settings" as never)
-      .upsert({ key, value, updated_at: new Date().toISOString() } as never, {
+    const { error } = await supabase.from("app_settings" as never).upsert(
+      { key, value, updated_at: new Date().toISOString() } as never,
+      {
         onConflict: "key",
-      } as never);
+      } as never,
+    );
     if (error) toast.error(error.message);
     else {
       toast.success(`${label} saved`);
@@ -364,15 +394,21 @@ function AdminPage() {
     .sort((a, b) => {
       const dir = sortDir === "asc" ? 1 : -1;
       if (sortKey === "name")
-        return dir * (a.display_name ?? a.username ?? "").localeCompare(b.display_name ?? b.username ?? "");
+        return (
+          dir *
+          (a.display_name ?? a.username ?? "").localeCompare(b.display_name ?? b.username ?? "")
+        );
       if (sortKey === "email") return dir * (a.email ?? "").localeCompare(b.email ?? "");
-      return dir * ((new Date(a.created_at ?? 0).getTime()) - (new Date(b.created_at ?? 0).getTime()));
+      return dir * (new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime());
     });
 
   const totalUsers = rows.length;
   const premiumUsers = rows.filter((r) => hasRole(r, "premium") || hasRole(r, "pro")).length;
   const adminUsers = rows.filter((r) => hasRole(r, "admin")).length;
-  const freeUsers = totalUsers - premiumUsers - rows.filter((r) => hasRole(r, "admin") && !hasRole(r, "premium") && !hasRole(r, "pro")).length;
+  const freeUsers =
+    totalUsers -
+    premiumUsers -
+    rows.filter((r) => hasRole(r, "admin") && !hasRole(r, "premium") && !hasRole(r, "pro")).length;
   const newThisWeek = rows.filter((r) => {
     if (!r.created_at) return false;
     return Date.now() - new Date(r.created_at).getTime() < 7 * 24 * 60 * 60 * 1000;
@@ -416,7 +452,9 @@ function AdminPage() {
               </div>
               <div>
                 <div className="text-sm font-semibold tracking-tight">Admin</div>
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">PrismXGPT</div>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  PrismXGPT
+                </div>
               </div>
             </div>
             <button
@@ -567,7 +605,8 @@ function AdminPage() {
                             active={sortKey === "name"}
                             dir={sortDir}
                             onClick={() => {
-                              if (sortKey === "name") setSortDir(sortDir === "asc" ? "desc" : "asc");
+                              if (sortKey === "name")
+                                setSortDir(sortDir === "asc" ? "desc" : "asc");
                               else {
                                 setSortKey("name");
                                 setSortDir("asc");
@@ -579,7 +618,8 @@ function AdminPage() {
                             active={sortKey === "email"}
                             dir={sortDir}
                             onClick={() => {
-                              if (sortKey === "email") setSortDir(sortDir === "asc" ? "desc" : "asc");
+                              if (sortKey === "email")
+                                setSortDir(sortDir === "asc" ? "desc" : "asc");
                               else {
                                 setSortKey("email");
                                 setSortDir("asc");
@@ -592,7 +632,8 @@ function AdminPage() {
                             active={sortKey === "created"}
                             dir={sortDir}
                             onClick={() => {
-                              if (sortKey === "created") setSortDir(sortDir === "asc" ? "desc" : "asc");
+                              if (sortKey === "created")
+                                setSortDir(sortDir === "asc" ? "desc" : "asc");
                               else {
                                 setSortKey("created");
                                 setSortDir("desc");
@@ -616,7 +657,9 @@ function AdminPage() {
                             <td colSpan={5} className="px-4 py-16 text-center">
                               <div className="mx-auto flex max-w-xs flex-col items-center gap-2 text-muted-foreground">
                                 <UsersIcon className="h-8 w-8 opacity-50" />
-                                <div className="text-sm font-medium text-foreground">No users found</div>
+                                <div className="text-sm font-medium text-foreground">
+                                  No users found
+                                </div>
                                 <p className="text-xs">Try clearing filters or search terms.</p>
                               </div>
                             </td>
@@ -651,7 +694,9 @@ function AdminPage() {
                                       tone="danger"
                                       icon={Shield}
                                       expiresAt={roleGrant(r, "admin")?.expires_at ?? null}
-                                      onRevoke={r.id !== userId ? () => revokeRole(r, "admin") : undefined}
+                                      onRevoke={
+                                        r.id !== userId ? () => revokeRole(r, "admin") : undefined
+                                      }
                                     />
                                   )}
                                   {hasRole(r, "pro") && (
@@ -714,15 +759,18 @@ function AdminPage() {
                 <div>
                   <h2 className="text-xl font-semibold tracking-tight">Pricing</h2>
                   <p className="text-sm text-muted-foreground">
-                    Edit prices, features, and payment methods shown on the upgrade modal. Changes go live
-                    immediately.
+                    Edit prices, features, and payment methods shown on the upgrade modal. Changes
+                    go live immediately.
                   </p>
                 </div>
                 {dataLoading && plans.length === 0 ? (
                   <SkeletonCard rows={4} />
                 ) : (
                   plans.map((plan, idx) => (
-                    <div key={plan.id} className="rounded-2xl border border-border bg-card p-6 shadow-soft">
+                    <div
+                      key={plan.id}
+                      className="rounded-2xl border border-border bg-card p-6 shadow-soft"
+                    >
                       <div className="mb-5 flex items-center justify-between">
                         <div>
                           <h3 className="text-base font-semibold">{plan.name} plan</h3>
@@ -749,7 +797,9 @@ function AdminPage() {
                         <Field label="Strike-through price (optional)">
                           <input
                             value={plan.strike_price ?? ""}
-                            onChange={(e) => updatePlanField(idx, "strike_price", e.target.value || null)}
+                            onChange={(e) =>
+                              updatePlanField(idx, "strike_price", e.target.value || null)
+                            }
                             placeholder="$19"
                             className="w-full bg-transparent text-sm outline-none"
                           />
@@ -764,7 +814,9 @@ function AdminPage() {
                         <Field label="CTA button label">
                           <input
                             value={plan.cta_label ?? ""}
-                            onChange={(e) => updatePlanField(idx, "cta_label", e.target.value || null)}
+                            onChange={(e) =>
+                              updatePlanField(idx, "cta_label", e.target.value || null)
+                            }
                             className="w-full bg-transparent text-sm outline-none"
                           />
                         </Field>
@@ -789,7 +841,10 @@ function AdminPage() {
                             updatePlanField(
                               idx,
                               "features",
-                              e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
+                              e.target.value
+                                .split("\n")
+                                .map((s) => s.trim())
+                                .filter(Boolean),
                             )
                           }
                           rows={5}
@@ -828,9 +883,21 @@ function AdminPage() {
                   <div className="space-y-2.5">
                     {(
                       [
-                        { key: "imageGeneration", label: "Image generation", desc: "Enable AI image generation and editing." },
-                        { key: "deepResearch", label: "Deep research", desc: "Long-form research answers with citations." },
-                        { key: "webSearch", label: "Web search", desc: "Real-time web browsing in chat." },
+                        {
+                          key: "imageGeneration",
+                          label: "Image generation",
+                          desc: "Enable AI image generation and editing.",
+                        },
+                        {
+                          key: "deepResearch",
+                          label: "Deep research",
+                          desc: "Long-form research answers with citations.",
+                        },
+                        {
+                          key: "webSearch",
+                          label: "Web search",
+                          desc: "Real-time web browsing in chat.",
+                        },
                       ] as const
                     ).map((f) => (
                       <label
@@ -885,7 +952,10 @@ function AdminPage() {
                     },
                   ] as const
                 ).map((a) => (
-                  <div key={a.key} className="rounded-2xl border border-border bg-card p-6 shadow-soft">
+                  <div
+                    key={a.key}
+                    className="rounded-2xl border border-border bg-card p-6 shadow-soft"
+                  >
                     <div className="mb-4 flex items-start justify-between gap-4">
                       <div>
                         <h3 className="text-base font-semibold">{a.label}</h3>
@@ -906,7 +976,9 @@ function AdminPage() {
                         {a.value.enabled ? "Live" : "Off"}
                       </span>
                     </div>
-                    <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Message</label>
+                    <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                      Message
+                    </label>
                     <textarea
                       value={a.value.message}
                       onChange={(e) => a.set({ ...a.value, message: e.target.value })}
@@ -916,7 +988,10 @@ function AdminPage() {
                     />
                     <label className="mt-4 flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border bg-background/60 px-4 py-3">
                       <span className="text-sm">Show this banner</span>
-                      <Toggle checked={a.value.enabled} onChange={(v) => a.set({ ...a.value, enabled: v })} />
+                      <Toggle
+                        checked={a.value.enabled}
+                        onChange={(v) => a.set({ ...a.value, enabled: v })}
+                      />
                     </label>
                     <SaveButton
                       onClick={() => saveSetting(a.key, a.value, a.label)}
@@ -938,7 +1013,9 @@ function AdminPage() {
                 </div>
                 <div className="rounded-2xl border border-border bg-card shadow-soft">
                   {dataLoading ? (
-                    <div className="p-6"><SkeletonCard rows={5} /></div>
+                    <div className="p-6">
+                      <SkeletonCard rows={5} />
+                    </div>
                   ) : activity.length === 0 ? (
                     <EmptyState
                       icon={Activity}
@@ -1017,7 +1094,13 @@ function DashboardTab({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard label="Total users" value={totalUsers} loading={loading} icon={UsersIcon} accent="brand" />
+        <MetricCard
+          label="Total users"
+          value={totalUsers}
+          loading={loading}
+          icon={UsersIcon}
+          accent="brand"
+        />
         <MetricCard
           label="Paid users"
           value={premiumUsers}
@@ -1026,7 +1109,13 @@ function DashboardTab({
           accent="gold"
           hint={`${conversion}% conversion`}
         />
-        <MetricCard label="Admins" value={adminUsers} loading={loading} icon={Shield} accent="danger" />
+        <MetricCard
+          label="Admins"
+          value={adminUsers}
+          loading={loading}
+          icon={Shield}
+          accent="danger"
+        />
         <MetricCard
           label="New this week"
           value={newThisWeek}
@@ -1052,13 +1141,22 @@ function DashboardTab({
             </button>
           </div>
           {loading ? (
-            <div className="p-5"><SkeletonCard rows={4} /></div>
+            <div className="p-5">
+              <SkeletonCard rows={4} />
+            </div>
           ) : activity.length === 0 ? (
-            <EmptyState icon={Activity} title="Nothing yet" desc="Activity will appear here as users sign up." />
+            <EmptyState
+              icon={Activity}
+              title="Nothing yet"
+              desc="Activity will appear here as users sign up."
+            />
           ) : (
             <ul className="divide-y divide-border">
               {activity.map((a) => (
-                <li key={a.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+                <li
+                  key={a.id}
+                  className="flex items-center justify-between gap-3 px-5 py-3 text-sm"
+                >
                   <div className="flex min-w-0 items-center gap-3">
                     <ActionDot action={a.action} />
                     <div className="min-w-0">
@@ -1090,9 +1188,21 @@ function DashboardTab({
             <div className="mb-3 text-sm font-semibold">Quick actions</div>
             <div className="space-y-1.5">
               <QuickAction label="Manage users" icon={UsersIcon} onClick={() => onGoto("users")} />
-              <QuickAction label="Edit pricing" icon={DollarSign} onClick={() => onGoto("pricing")} />
-              <QuickAction label="Feature flags" icon={ToggleLeft} onClick={() => onGoto("features")} />
-              <QuickAction label="Announcements" icon={Megaphone} onClick={() => onGoto("announcement")} />
+              <QuickAction
+                label="Edit pricing"
+                icon={DollarSign}
+                onClick={() => onGoto("pricing")}
+              />
+              <QuickAction
+                label="Feature flags"
+                icon={ToggleLeft}
+                onClick={() => onGoto("features")}
+              />
+              <QuickAction
+                label="Announcements"
+                icon={Megaphone}
+                onClick={() => onGoto("announcement")}
+              />
             </div>
           </div>
         </div>
@@ -1119,7 +1229,9 @@ function DashboardTab({
             </button>
           </div>
           {loading ? (
-            <div className="p-5"><SkeletonCard rows={4} /></div>
+            <div className="p-5">
+              <SkeletonCard rows={4} />
+            </div>
           ) : recentUsers.length === 0 ? (
             <EmptyState icon={UsersIcon} title="No users yet" desc="Signups will appear here." />
           ) : (
@@ -1147,8 +1259,16 @@ function DashboardTab({
 
       {/* Live announcements */}
       <div className="grid gap-4 sm:grid-cols-2">
-        <AnnouncementPreview title="Homepage banner" a={homepageAnnouncement} onGoto={() => onGoto("announcement")} />
-        <AnnouncementPreview title="Chat banner" a={chatAnnouncement} onGoto={() => onGoto("announcement")} />
+        <AnnouncementPreview
+          title="Homepage banner"
+          a={homepageAnnouncement}
+          onGoto={() => onGoto("announcement")}
+        />
+        <AnnouncementPreview
+          title="Chat banner"
+          a={chatAnnouncement}
+          onGoto={() => onGoto("announcement")}
+        />
       </div>
     </div>
   );
@@ -1188,7 +1308,11 @@ function MetricCard({
         </div>
       </div>
       <div className="mt-2 text-2xl font-semibold tracking-tight">
-        {loading ? <span className="inline-block h-7 w-14 animate-pulse rounded bg-muted/60" /> : value}
+        {loading ? (
+          <span className="inline-block h-7 w-14 animate-pulse rounded bg-muted/60" />
+        ) : (
+          value
+        )}
       </div>
       {hint && <div className="mt-0.5 text-[11px] text-muted-foreground">{hint}</div>}
     </div>
@@ -1199,7 +1323,9 @@ function HealthRow({ label, ok }: { label: string; ok: boolean }) {
   return (
     <li className="flex items-center justify-between text-sm">
       <span className="text-muted-foreground">{label}</span>
-      <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${ok ? "text-emerald-500" : "text-red-400"}`}>
+      <span
+        className={`inline-flex items-center gap-1.5 text-xs font-medium ${ok ? "text-emerald-500" : "text-red-400"}`}
+      >
         {ok ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}
         {ok ? "Operational" : "Down"}
       </span>
@@ -1275,7 +1401,9 @@ function AnnouncementPreview({
             a.enabled ? "bg-emerald-500/15 text-emerald-500" : "bg-muted text-muted-foreground"
           }`}
         >
-          <span className={`h-1.5 w-1.5 rounded-full ${a.enabled ? "bg-emerald-500" : "bg-muted-foreground/50"}`} />
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${a.enabled ? "bg-emerald-500" : "bg-muted-foreground/50"}`}
+          />
           {a.enabled ? "Live" : "Off"}
         </span>
       </div>
@@ -1346,18 +1474,24 @@ function SkeletonCard({ rows = 3 }: { rows?: number }) {
   return (
     <div className="space-y-2">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="h-4 w-full animate-pulse rounded bg-muted/60" style={{ width: `${80 - i * 8}%` }} />
+        <div
+          key={i}
+          className="h-4 w-full animate-pulse rounded bg-muted/60"
+          style={{ width: `${80 - i * 8}%` }}
+        />
       ))}
     </div>
   );
 }
 
 function ActionDot({ action }: { action: string }) {
-  const tone =
-    action.startsWith("role") ? "bg-brand" :
-    action.startsWith("settings") ? "bg-yellow-500" :
-    action.startsWith("plan") ? "bg-emerald-500" :
-    "bg-muted-foreground";
+  const tone = action.startsWith("role")
+    ? "bg-brand"
+    : action.startsWith("settings")
+      ? "bg-yellow-500"
+      : action.startsWith("plan")
+        ? "bg-emerald-500"
+        : "bg-muted-foreground";
   return <span className={`h-2 w-2 shrink-0 rounded-full ${tone}`} />;
 }
 
@@ -1381,7 +1515,15 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   );
 }
 
-function SaveButton({ onClick, busy, label }: { onClick: () => void; busy: boolean; label: string }) {
+function SaveButton({
+  onClick,
+  busy,
+  label,
+}: {
+  onClick: () => void;
+  busy: boolean;
+  label: string;
+}) {
   return (
     <button
       onClick={onClick}

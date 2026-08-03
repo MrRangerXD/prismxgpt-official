@@ -10,7 +10,11 @@ export const Route = createFileRoute("/share/$id")({
   head: () => ({
     meta: [
       { title: "Shared conversation — PrismXGPT" },
-      { name: "description", content: "A read-only PrismXGPT conversation shared publicly. View the full exchange between the user and the PrismXGPT AI assistant." },
+      {
+        name: "description",
+        content:
+          "A read-only PrismXGPT conversation shared publicly. View the full exchange between the user and the PrismXGPT AI assistant.",
+      },
       { name: "robots", content: "noindex,nofollow" },
     ],
   }),
@@ -40,7 +44,12 @@ function SharePage() {
           setError("This shared link is invalid or has been removed.");
           return;
         }
-        const row = (await res.json()) as { id: string; title: string; messages: unknown; created_at: string };
+        const row = (await res.json()) as {
+          id: string;
+          title: string;
+          messages: unknown;
+          created_at: string;
+        };
         // Normalize legacy snapshots: some rows stored raw AI SDK v5 UIMessages
         // (with `parts` and no `content`), which rendered as blank bubbles.
         // Flatten `parts` -> plain text (including inline data-URL images) and
@@ -60,8 +69,12 @@ function SharePage() {
               content = mm.parts
                 .map((p) => {
                   if (!p || typeof p !== "object") return "";
-                  if (typeof (p as { text?: unknown }).text === "string") return (p as { text: string }).text;
-                  if ((p as { type?: string }).type === "file" && typeof (p as { url?: string }).url === "string") {
+                  if (typeof (p as { text?: unknown }).text === "string")
+                    return (p as { text: string }).text;
+                  if (
+                    (p as { type?: string }).type === "file" &&
+                    typeof (p as { url?: string }).url === "string"
+                  ) {
                     const url = (p as { url: string }).url;
                     return url.startsWith("data:image/") || /^https?:\/\//.test(url)
                       ? `![attached image](${url})`
@@ -102,7 +115,10 @@ function SharePage() {
           <AlertCircle className="mx-auto mb-3 h-8 w-8 text-destructive" />
           <h1 className="text-lg font-semibold">Link unavailable</h1>
           <p className="mt-2 text-sm text-muted-foreground">{error}</p>
-          <Link to="/" className="mt-6 inline-flex items-center gap-2 text-sm text-brand hover:underline">
+          <Link
+            to="/"
+            className="mt-6 inline-flex items-center gap-2 text-sm text-brand hover:underline"
+          >
             <ArrowLeft className="h-4 w-4" /> Back to PrismXGPT
           </Link>
         </div>

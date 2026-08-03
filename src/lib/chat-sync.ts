@@ -15,23 +15,23 @@ export async function loadThreadsFromCloud(userId: string): Promise<ChatThread[]
   const existing = inflight.get(userId);
   if (existing) return existing;
   const promise = (async () => {
-  try {
-    const { data, error } = await supabase
-      .from("user_chat_state" as never)
-      .select("threads" as never)
-      .eq("user_id" as never, userId as never)
-      .maybeSingle();
-    if (error) return null;
-    const row = data as unknown as { threads?: ChatThread[] } | null;
-    if (!row || !Array.isArray(row.threads)) return null;
-    cache.set(userId, row.threads);
-    lastSaved.set(userId, JSON.stringify(row.threads));
-    return row.threads;
-  } catch {
-    return null;
-  } finally {
-    inflight.delete(userId);
-  }
+    try {
+      const { data, error } = await supabase
+        .from("user_chat_state" as never)
+        .select("threads" as never)
+        .eq("user_id" as never, userId as never)
+        .maybeSingle();
+      if (error) return null;
+      const row = data as unknown as { threads?: ChatThread[] } | null;
+      if (!row || !Array.isArray(row.threads)) return null;
+      cache.set(userId, row.threads);
+      lastSaved.set(userId, JSON.stringify(row.threads));
+      return row.threads;
+    } catch {
+      return null;
+    } finally {
+      inflight.delete(userId);
+    }
   })();
   inflight.set(userId, promise);
   return promise;

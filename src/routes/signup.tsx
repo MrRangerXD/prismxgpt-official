@@ -10,7 +10,10 @@ export const Route = createFileRoute("/signup")({
   head: () => ({
     meta: [
       { title: "Sign up — PrismXGPT" },
-      { name: "description", content: "Create your free PrismXGPT account and start chatting with AI in seconds." },
+      {
+        name: "description",
+        content: "Create your free PrismXGPT account and start chatting with AI in seconds.",
+      },
       { property: "og:title", content: "Sign up — PrismXGPT" },
       { property: "og:description", content: "Create your free PrismXGPT account." },
       { property: "og:url", content: "https://prismxgpt.lovable.app/signup" },
@@ -77,7 +80,9 @@ function SignupPage() {
 
         <div className="w-full rounded-2xl border border-border bg-card p-5 shadow-elevated sm:rounded-3xl sm:p-8">
           <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Create your account</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Free forever. No credit card required.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Free forever. No credit card required.
+          </p>
 
           <div className="mt-5 sm:mt-6">
             <GoogleAuthButton label="Sign up with Google" />
@@ -87,10 +92,10 @@ function SignupPage() {
           </div>
 
           <form className="space-y-3.5 sm:space-y-4" onSubmit={handleSubmit}>
-
-
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Full name</label>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Full name
+              </label>
               <input
                 type="text"
                 required
@@ -101,7 +106,9 @@ function SignupPage() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Username</label>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Username
+              </label>
               <input
                 type="text"
                 required
@@ -114,7 +121,9 @@ function SignupPage() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Email</label>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Email
+              </label>
               <input
                 type="email"
                 required
@@ -125,7 +134,9 @@ function SignupPage() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Password</label>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Password
+              </label>
               <input
                 type="password"
                 required
@@ -135,7 +146,9 @@ function SignupPage() {
                 placeholder="At least 8 characters"
                 className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-base outline-none transition focus:border-brand sm:text-sm"
               />
-              <p className="mt-1.5 text-[11px] text-muted-foreground">Use 8+ characters. Avoid common or breached passwords.</p>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Use 8+ characters. Avoid common or breached passwords.
+              </p>
             </div>
             <button
               type="submit"

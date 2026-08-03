@@ -33,9 +33,7 @@ async function fetchProjects(userId: string): Promise<ProjectSummary[]> {
     .map((m) => m.projects)
     .filter((p): p is ProjectSummary => !!p && p.owner_id !== userId);
   const seen = new Set<string>();
-  const all = [...own, ...joined].filter((p) =>
-    seen.has(p.id) ? false : (seen.add(p.id), true),
-  );
+  const all = [...own, ...joined].filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)));
   return all;
 }
 
@@ -48,15 +46,17 @@ function notify(userId: string, data: ProjectSummary[]) {
 function ensureLoad(userId: string): Promise<ProjectSummary[]> {
   const existing = inflight.get(userId);
   if (existing) return existing;
-  const p = fetchProjects(userId).then((data) => {
-    cache.set(userId, { data, loadedAt: Date.now() });
-    inflight.delete(userId);
-    notify(userId, data);
-    return data;
-  }).catch((e) => {
-    inflight.delete(userId);
-    throw e;
-  });
+  const p = fetchProjects(userId)
+    .then((data) => {
+      cache.set(userId, { data, loadedAt: Date.now() });
+      inflight.delete(userId);
+      notify(userId, data);
+      return data;
+    })
+    .catch((e) => {
+      inflight.delete(userId);
+      throw e;
+    });
   inflight.set(userId, p);
   return p;
 }
@@ -81,7 +81,7 @@ export function invalidateProjects(userId: string | null | undefined) {
  * synchronously when available, revalidates in the background when stale.
  */
 export function useProjects(userId: string | null | undefined) {
-  const cached = userId ? cache.get(userId)?.data ?? null : null;
+  const cached = userId ? (cache.get(userId)?.data ?? null) : null;
   const [projects, setProjects] = useState<ProjectSummary[] | null>(cached);
   const [loading, setLoading] = useState<boolean>(!cached && !!userId);
 
@@ -115,7 +115,9 @@ export function useProjects(userId: string | null | undefined) {
       setLoading(false);
       if (Date.now() - entry.loadedAt > FRESH_MS) {
         // Background revalidate; don't flip loading.
-        ensureLoad(userId).catch(() => { /* ignore */ });
+        ensureLoad(userId).catch(() => {
+          /* ignore */
+        });
       }
     } else {
       setLoading(true);

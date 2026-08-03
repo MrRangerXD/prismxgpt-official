@@ -78,15 +78,28 @@ async function doLoad(): Promise<void> {
   }
   if (!user) {
     publish({
-      loading: false, userId: null, email: null, profile: null,
-      isAdmin: false, isPremium: false, isPro: false, planExpiresAt: null,
+      loading: false,
+      userId: null,
+      email: null,
+      profile: null,
+      isAdmin: false,
+      isPremium: false,
+      isPro: false,
+      planExpiresAt: null,
     });
     return;
   }
 
   const [{ data: prof }, { data: roles }] = await Promise.all([
-    supabase.from("profiles" as never).select("*").eq("id" as never, user.id as never).maybeSingle(),
-    supabase.from("user_roles" as never).select("role, expires_at").eq("user_id" as never, user.id as never),
+    supabase
+      .from("profiles" as never)
+      .select("*")
+      .eq("id" as never, user.id as never)
+      .maybeSingle(),
+    supabase
+      .from("user_roles" as never)
+      .select("role, expires_at")
+      .eq("user_id" as never, user.id as never),
   ]);
 
   const p = prof as Profile | null;
@@ -142,13 +155,26 @@ function ensureAuthSubscribed() {
     // renders "signed out" on refresh even though the session is valid.
     if (event === "INITIAL_SESSION") {
       if (session?.user) load();
-      else publish({
-        loading: false, userId: null, email: null, profile: null,
-        isAdmin: false, isPremium: false, isPro: false, planExpiresAt: null,
-      });
+      else
+        publish({
+          loading: false,
+          userId: null,
+          email: null,
+          profile: null,
+          isAdmin: false,
+          isPremium: false,
+          isPro: false,
+          planExpiresAt: null,
+        });
       return;
     }
-    if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED" || event === "TOKEN_REFRESHED") load();
+    if (
+      event === "SIGNED_IN" ||
+      event === "SIGNED_OUT" ||
+      event === "USER_UPDATED" ||
+      event === "TOKEN_REFRESHED"
+    )
+      load();
   });
   authSub = sub.subscription;
 }

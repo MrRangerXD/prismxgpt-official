@@ -1,5 +1,15 @@
 import { useState } from "react";
-import { X, Check, Sparkles, ExternalLink, Copy, QrCode, Smartphone, Bitcoin, FileText } from "lucide-react";
+import {
+  X,
+  Check,
+  Sparkles,
+  ExternalLink,
+  Copy,
+  QrCode,
+  Smartphone,
+  Bitcoin,
+  FileText,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useProfile } from "@/hooks/use-profile";
 import { usePlans, type PaymentMethod, type PlanRow } from "@/hooks/use-plans";
@@ -28,8 +38,13 @@ export function PlusModal({ open, onClose }: { open: boolean; onClose: () => voi
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/70 p-4 backdrop-blur-sm sm:items-center"
-      style={{ paddingTop: "max(1rem, env(safe-area-inset-top))", paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        paddingTop: "max(1rem, env(safe-area-inset-top))",
+        paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div className="relative my-auto w-full max-w-5xl rounded-3xl border border-border bg-card shadow-elevated">
         <button
@@ -54,8 +69,8 @@ export function PlusModal({ open, onClose }: { open: boolean; onClose: () => voi
               <Sparkles className="mx-auto mb-3 h-8 w-8 text-brand" />
               <div className="text-base font-semibold">No offers available right now</div>
               <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                We don't have any active plans or promotions at the moment. Please check back later —
-                new offers will appear here as soon as they're published.
+                We don't have any active plans or promotions at the moment. Please check back later
+                — new offers will appear here as soon as they're published.
               </p>
               <button
                 onClick={onClose}
@@ -65,76 +80,82 @@ export function PlusModal({ open, onClose }: { open: boolean; onClose: () => voi
               </button>
             </div>
           ) : (
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-
-            {plans.map((p) => {
-              const isCurrent = p.id === currentId;
-              const highlight = p.id === highlightId && currentId !== "pro";
-              const cta = isCurrent
-                ? `Your current plan${expiresLabel}`
-                : rank(p.id) < currentRank
-                  ? "Included"
-                  : p.cta_label || "Upgrade";
-              return (
-                <div
-                  key={p.id}
-                  className={`relative rounded-2xl border p-6 ${
-                    highlight ? "border-brand bg-brand/5 shadow-glow" : "border-border bg-background/40"
-                  }`}
-                >
-                  {highlight && (
-                    <div className="absolute -top-3 left-6 flex items-center gap-1 rounded-full bg-brand px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-foreground">
-                      <Sparkles className="h-3 w-3" /> Limited time
-                    </div>
-                  )}
-                  <div className="text-xl font-semibold">{p.name}</div>
-                  <div className="mt-4 flex items-baseline gap-2">
-                    {p.strike_price && (
-                      <span className="text-lg text-muted-foreground line-through">{p.strike_price}</span>
-                    )}
-                    <span className="text-3xl font-bold">{p.price}</span>
-                    {p.note && <span className="text-xs text-muted-foreground">{p.note}</span>}
-                  </div>
-                  <button
-                    disabled={isCurrent}
-                    onClick={() => {
-                      if (isCurrent) return;
-                      if (p.payment_methods.length === 0) {
-                        toast.info("Payment methods not configured yet. Ask an admin to add one.");
-                        return;
-                      }
-                      setActivePlan(p);
-                    }}
-                    className={`mt-5 w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
-                      isCurrent
-                        ? "cursor-default border border-border bg-background/60 text-muted-foreground"
-                        : highlight
-                          ? "text-brand-foreground hover:opacity-90"
-                          : "bg-foreground text-background hover:opacity-90"
+            <div className="mt-8 grid gap-4 md:grid-cols-3">
+              {plans.map((p) => {
+                const isCurrent = p.id === currentId;
+                const highlight = p.id === highlightId && currentId !== "pro";
+                const cta = isCurrent
+                  ? `Your current plan${expiresLabel}`
+                  : rank(p.id) < currentRank
+                    ? "Included"
+                    : p.cta_label || "Upgrade";
+                return (
+                  <div
+                    key={p.id}
+                    className={`relative rounded-2xl border p-6 ${
+                      highlight
+                        ? "border-brand bg-brand/5 shadow-glow"
+                        : "border-border bg-background/40"
                     }`}
-                    style={highlight && !isCurrent ? { background: "var(--gradient-brand)" } : undefined}
                   >
-                    {cta}
-                  </button>
-                  <ul className="mt-5 space-y-2 text-sm">
-                    {p.features.map((f) => (
-                      <li key={f} className="flex items-center gap-2 text-foreground/90">
-                        <Check className="h-4 w-4 text-brand" /> {f}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
-          </div>
+                    {highlight && (
+                      <div className="absolute -top-3 left-6 flex items-center gap-1 rounded-full bg-brand px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-foreground">
+                        <Sparkles className="h-3 w-3" /> Limited time
+                      </div>
+                    )}
+                    <div className="text-xl font-semibold">{p.name}</div>
+                    <div className="mt-4 flex items-baseline gap-2">
+                      {p.strike_price && (
+                        <span className="text-lg text-muted-foreground line-through">
+                          {p.strike_price}
+                        </span>
+                      )}
+                      <span className="text-3xl font-bold">{p.price}</span>
+                      {p.note && <span className="text-xs text-muted-foreground">{p.note}</span>}
+                    </div>
+                    <button
+                      disabled={isCurrent}
+                      onClick={() => {
+                        if (isCurrent) return;
+                        if (p.payment_methods.length === 0) {
+                          toast.info(
+                            "Payment methods not configured yet. Ask an admin to add one.",
+                          );
+                          return;
+                        }
+                        setActivePlan(p);
+                      }}
+                      className={`mt-5 w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                        isCurrent
+                          ? "cursor-default border border-border bg-background/60 text-muted-foreground"
+                          : highlight
+                            ? "text-brand-foreground hover:opacity-90"
+                            : "bg-foreground text-background hover:opacity-90"
+                      }`}
+                      style={
+                        highlight && !isCurrent
+                          ? { background: "var(--gradient-brand)" }
+                          : undefined
+                      }
+                    >
+                      {cta}
+                    </button>
+                    <ul className="mt-5 space-y-2 text-sm">
+                      {p.features.map((f) => (
+                        <li key={f} className="flex items-center gap-2 text-foreground/90">
+                          <Check className="h-4 w-4 text-brand" /> {f}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
           )}
-
         </div>
       </div>
 
-      {activePlan && (
-        <PaymentPicker plan={activePlan} onClose={() => setActivePlan(null)} />
-      )}
+      {activePlan && <PaymentPicker plan={activePlan} onClose={() => setActivePlan(null)} />}
     </div>
   );
 }
@@ -145,8 +166,13 @@ function PaymentPicker({ plan, onClose }: { plan: PlanRow; onClose: () => void }
   return (
     <div
       className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto overscroll-contain bg-black/80 p-4 backdrop-blur-sm sm:items-center"
-      style={{ paddingTop: "max(1rem, env(safe-area-inset-top))", paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        paddingTop: "max(1rem, env(safe-area-inset-top))",
+        paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div className="my-auto w-full max-w-lg overflow-hidden rounded-3xl border border-border bg-card shadow-elevated">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
@@ -233,9 +259,13 @@ function PaymentPicker({ plan, onClose }: { plan: PlanRow; onClose: () => void }
                 <img src={selected.value} alt="Payment QR code" className="max-h-64 rounded-lg" />
               </div>
             )}
-            {(selected.type === "upi" || selected.type === "crypto" || selected.type === "text") && (
+            {(selected.type === "upi" ||
+              selected.type === "crypto" ||
+              selected.type === "text") && (
               <div className="mb-4 flex items-start gap-2 rounded-xl border border-border bg-background p-4">
-                <pre className="flex-1 whitespace-pre-wrap break-all font-mono text-sm">{selected.value}</pre>
+                <pre className="flex-1 whitespace-pre-wrap break-all font-mono text-sm">
+                  {selected.value}
+                </pre>
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(selected.value);

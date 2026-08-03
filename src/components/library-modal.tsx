@@ -62,14 +62,18 @@ export function LibraryModal({ open, onClose }: { open: boolean; onClose: () => 
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
   const filtered = useMemo(() => {
     return items
-      .filter((i) => (tab === "all" ? true : tab === "images" ? i.kind === "image" : i.kind === "file"))
+      .filter((i) =>
+        tab === "all" ? true : tab === "images" ? i.kind === "image" : i.kind === "file",
+      )
       .filter((i) =>
         q.trim()
           ? (i.title ?? "").toLowerCase().includes(q.toLowerCase()) ||
@@ -138,7 +142,9 @@ export function LibraryModal({ open, onClose }: { open: boolean; onClose: () => 
               key={t}
               onClick={() => setTab(t)}
               className={`rounded-full px-4 py-1.5 text-sm font-medium capitalize transition ${
-                tab === t ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"
+                tab === t
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {t}

@@ -37,7 +37,9 @@ export function ProfileEditModal({
         .from("profiles" as never)
         .update({ display_name: displayName, username } as never)
         .eq("id" as never, profile.id as never);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     // Always mirror to auth metadata — this is the source of truth for the UI
     const { error } = await supabase.auth.updateUser({
       data: { full_name: displayName, username },
@@ -77,7 +79,9 @@ export function ProfileEditModal({
 
           <div className="mt-6 space-y-4">
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Display name</label>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Display name
+              </label>
               <input
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
@@ -85,7 +89,9 @@ export function ProfileEditModal({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Username</label>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Username
+              </label>
               <input
                 value={username}
                 onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, ""))}

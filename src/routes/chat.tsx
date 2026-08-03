@@ -84,8 +84,38 @@
  * =============================================================================
  */
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
-import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowUp, PanelLeft, Menu, Square, Plus, ImageIcon, Globe, Telescope, Paperclip, X, Copy, Check, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, UploadCloud, Mic } from "lucide-react";
+import {
+  lazy,
+  memo,
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  ArrowUp,
+  PanelLeft,
+  Menu,
+  Square,
+  Plus,
+  ImageIcon,
+  Globe,
+  Telescope,
+  Paperclip,
+  X,
+  Copy,
+  Check,
+  ThumbsUp,
+  ThumbsDown,
+  ChevronDown,
+  ChevronUp,
+  UploadCloud,
+  Mic,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
@@ -100,25 +130,39 @@ import { Button } from "@/components/ui/button";
 // Modals are code-split — none are visible on first paint, and several pull
 // heavy dependencies (image editor, project pickers, settings forms). Lazy
 // loading trims the initial chat bundle and defers their JS until opened.
-const PlusModal = lazy(() => import("@/components/plus-modal").then((m) => ({ default: m.PlusModal })));
-const ProfileEditModal = lazy(() => import("@/components/profile-edit-modal").then((m) => ({ default: m.ProfileEditModal })));
-const SearchModal = lazy(() => import("@/components/search-modal").then((m) => ({ default: m.SearchModal })));
-const LibraryModal = lazy(() => import("@/components/library-modal").then((m) => ({ default: m.LibraryModal })));
-const ProjectsModal = lazy(() => import("@/components/projects-modal").then((m) => ({ default: m.ProjectsModal })));
-const ImageModal = lazy(() => import("@/components/image-modal").then((m) => ({ default: m.ImageModal })));
-const SettingsModal = lazy(() => import("@/components/settings-modal").then((m) => ({ default: m.SettingsModal })));
-const MoveToProjectModal = lazy(() => import("@/components/move-to-project-modal").then((m) => ({ default: m.MoveToProjectModal })));
-const RenameChatModal = lazy(() => import("@/components/rename-chat-modal").then((m) => ({ default: m.RenameChatModal })));
-const CreateChatModal = lazy(() => import("@/components/create-chat-modal").then((m) => ({ default: m.CreateChatModal })));
-
+const PlusModal = lazy(() =>
+  import("@/components/plus-modal").then((m) => ({ default: m.PlusModal })),
+);
+const ProfileEditModal = lazy(() =>
+  import("@/components/profile-edit-modal").then((m) => ({ default: m.ProfileEditModal })),
+);
+const SearchModal = lazy(() =>
+  import("@/components/search-modal").then((m) => ({ default: m.SearchModal })),
+);
+const LibraryModal = lazy(() =>
+  import("@/components/library-modal").then((m) => ({ default: m.LibraryModal })),
+);
+const ProjectsModal = lazy(() =>
+  import("@/components/projects-modal").then((m) => ({ default: m.ProjectsModal })),
+);
+const ImageModal = lazy(() =>
+  import("@/components/image-modal").then((m) => ({ default: m.ImageModal })),
+);
+const SettingsModal = lazy(() =>
+  import("@/components/settings-modal").then((m) => ({ default: m.SettingsModal })),
+);
+const MoveToProjectModal = lazy(() =>
+  import("@/components/move-to-project-modal").then((m) => ({ default: m.MoveToProjectModal })),
+);
+const RenameChatModal = lazy(() =>
+  import("@/components/rename-chat-modal").then((m) => ({ default: m.RenameChatModal })),
+);
+const CreateChatModal = lazy(() =>
+  import("@/components/create-chat-modal").then((m) => ({ default: m.CreateChatModal })),
+);
 
 import { useProfile } from "@/hooks/use-profile";
-import {
-  loadThreads,
-  saveThreads,
-  newThreadId,
-  type ChatThread,
-} from "@/lib/chat-store";
+import { loadThreads, saveThreads, newThreadId, type ChatThread } from "@/lib/chat-store";
 import { loadThreadsFromCloud, saveThreadsToCloud } from "@/lib/chat-sync";
 import { supabase } from "@/integrations/supabase/client";
 import { classifyMessageIntent } from "@/lib/image-intent";
@@ -176,7 +220,9 @@ function isImageLifecycleText(text: string): boolean {
     t === "⟪imggen:editing⟫" ||
     /^⟪(?:imggen|imgedit):pending:[0-9a-f-]{36}⟫$/i.test(t) ||
     /^⟪(?:imggen|imgedit):failed:[0-9a-f-]{36}:/i.test(t) ||
-    /^(generating your image|creating image|editing image|interrupted|loading|generating\.\.\.|creating\.\.\.)[.…\s]*$/i.test(t)
+    /^(generating your image|creating image|editing image|interrupted|loading|generating\.\.\.|creating\.\.\.)[.…\s]*$/i.test(
+      t,
+    )
   );
 }
 
@@ -184,14 +230,22 @@ function isTransientImageLifecycleMessage(m: UIMessage): boolean {
   if (m.role !== "assistant") return false;
   const parts = (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts;
   if (!Array.isArray(parts) || parts.length === 0) return false;
-  return parts.every((p) => p.type === "text" && typeof p.text === "string" && isImageLifecycleText(p.text));
+  return parts.every(
+    (p) => p.type === "text" && typeof p.text === "string" && isImageLifecycleText(p.text),
+  );
 }
 
-function imageFailureMarker(kind: "imggen" | "imgedit", generationId: string, message: string): string {
+function imageFailureMarker(
+  kind: "imggen" | "imgedit",
+  generationId: string,
+  message: string,
+): string {
   return `⟪${kind}:failed:${generationId}:${encodeURIComponent(message).slice(0, 500)}⟫`;
 }
 
-function parseImageFailureMarker(text: string): { kind: "imggen" | "imgedit"; generationId: string; message: string } | null {
+function parseImageFailureMarker(
+  text: string,
+): { kind: "imggen" | "imgedit"; generationId: string; message: string } | null {
   const match = text.trim().match(/^⟪(imggen|imgedit):failed:([0-9a-f-]{36}):(.+)⟫$/i);
   if (!match) return null;
   let message = "Image generation failed. Please retry.";
@@ -216,7 +270,10 @@ function extractMessageContent(m: unknown): { role: "user" | "assistant"; conten
       .map((p) => {
         if (!p || typeof p !== "object") return "";
         if (typeof (p as { text?: unknown }).text === "string") return (p as { text: string }).text;
-        if ((p as { type?: string }).type === "file" && typeof (p as { url?: string }).url === "string") {
+        if (
+          (p as { type?: string }).type === "file" &&
+          typeof (p as { url?: string }).url === "string"
+        ) {
           const url = (p as { url: string }).url;
           return url.startsWith("data:image/") ? `![attached image](${url})` : "";
         }
@@ -247,7 +304,11 @@ export const Route = createFileRoute("/chat")({
   head: () => ({
     meta: [
       { title: "Chat — PrismXGPT" },
-      { name: "description", content: "Chat with PrismXGPT — a modern AI assistant for writing, code, research, and image generation. Free forever with an optional Premium plan." },
+      {
+        name: "description",
+        content:
+          "Chat with PrismXGPT — a modern AI assistant for writing, code, research, and image generation. Free forever with an optional Premium plan.",
+      },
       { name: "robots", content: "noindex,nofollow" },
     ],
   }),
@@ -305,7 +366,11 @@ export function ChatPage() {
       const idx = prev.findIndex((t) => t.id === threadId);
       if (idx === -1) return prev;
       const next = prev.slice();
-      next[idx] = { ...next[idx], messages: nextMessages as unknown as ChatThread["messages"], updatedAt: Date.now() };
+      next[idx] = {
+        ...next[idx],
+        messages: nextMessages as unknown as ChatThread["messages"],
+        updatedAt: Date.now(),
+      };
       if (persistNow) {
         saveThreads(userIdRef.current, next);
         if (userIdRef.current) saveThreadsToCloud(userIdRef.current, next);
@@ -317,7 +382,9 @@ export function ChatPage() {
   const addFiles = (files: File[]) => {
     const isZip = (f: File) =>
       /\.(zip|rar|7z|tar|gz|tgz)$/i.test(f.name) ||
-      /^application\/(zip|x-zip-compressed|x-rar-compressed|x-7z-compressed|x-tar|gzip)$/i.test(f.type);
+      /^application\/(zip|x-zip-compressed|x-rar-compressed|x-7z-compressed|x-tar|gzip)$/i.test(
+        f.type,
+      );
     const archives = files.filter(isZip);
     const nonArchive = files.filter((f) => !isZip(f));
     if (archives.length) {
@@ -336,7 +403,6 @@ export function ChatPage() {
     }
     if (valid.length) setAttachments((a) => [...a, ...valid].slice(0, 10));
   };
-
 
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = Array.from(e.clipboardData.items);
@@ -393,7 +459,9 @@ export function ChatPage() {
       setThreads(merged);
       saveThreads(user.userId!, merged);
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user.userId]);
 
   // Sync active chat to the URL. `/chat` (no id) ALWAYS opens a fresh empty
@@ -409,15 +477,13 @@ export function ChatPage() {
     }
   }, [user.userId, urlChatId]);
 
-
-  const active = useMemo(
-    () => threads.find((t) => t.id === activeId) ?? null,
-    [threads, activeId],
-  );
+  const active = useMemo(() => threads.find((t) => t.id === activeId) ?? null, [threads, activeId]);
 
   // Refs so the memoized transport reads the latest mode without recreating.
   const modeRef = useRef(mode);
-  useEffect(() => { modeRef.current = mode; }, [mode]);
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
 
   // Stable transport — recreating it on every render can drop the in-flight
   // stream (that's why the FIRST message sometimes never produced a reply).
@@ -441,7 +507,9 @@ export function ChatPage() {
               try {
                 const pRaw = window.localStorage.getItem("prismxgpt.personalization.v1");
                 if (pRaw) parsed.personalization = JSON.parse(pRaw);
-              } catch { /* ignore */ }
+              } catch {
+                /* ignore */
+              }
               // Strip base64 data-URL images from prior message history so
               // follow-ups after an inline-generated image (or any pasted
               // data URL) don't blow past the server's payload limit. We
@@ -505,17 +573,26 @@ export function ChatPage() {
         }
       }
       let friendly = "I ran into a problem generating that reply. Please try again in a moment.";
-      if (/401|unauthor/i.test(raw)) friendly = "Your session expired — please sign in again to continue chatting.";
-      else if (/429|rate.?limit|too many/i.test(raw)) friendly = "I'm getting a lot of requests right now. Please wait a few seconds and try again.";
-      else if (/402|credit|quota|billing/i.test(raw)) friendly = "The AI credits for this workspace have run out. Please add credits and try again.";
-      else if (/413|too large/i.test(raw)) friendly = "That message is too long for me to process. Try shortening it or starting a new chat.";
-      else if (/network|failed to fetch|load failed/i.test(raw)) friendly = "I couldn't reach the AI service. Check your connection and try again.";
+      if (/401|unauthor/i.test(raw))
+        friendly = "Your session expired — please sign in again to continue chatting.";
+      else if (/429|rate.?limit|too many/i.test(raw))
+        friendly =
+          "I'm getting a lot of requests right now. Please wait a few seconds and try again.";
+      else if (/402|credit|quota|billing/i.test(raw))
+        friendly =
+          "The AI credits for this workspace have run out. Please add credits and try again.";
+      else if (/413|too large/i.test(raw))
+        friendly =
+          "That message is too long for me to process. Try shortening it or starting a new chat.";
+      else if (/network|failed to fetch|load failed/i.test(raw))
+        friendly = "I couldn't reach the AI service. Check your connection and try again.";
       else if (raw && raw.length < 200 && !/^\{|<html/i.test(raw)) friendly = raw;
       // Append the friendly reply as an assistant message so history stays intact.
       setMessages((prev) => {
         const last = prev[prev.length - 1];
         if (last && last.role === "assistant") {
-          const hasText = Array.isArray(last.parts) && last.parts.some((p) => p.type === "text" && p.text);
+          const hasText =
+            Array.isArray(last.parts) && last.parts.some((p) => p.type === "text" && p.text);
           if (!hasText) {
             return prev.slice(0, -1).concat({
               ...last,
@@ -533,7 +610,6 @@ export function ChatPage() {
         ];
       });
     },
-
   });
 
   // Hydrate useChat when the active thread changes (URL nav, sidebar select).
@@ -570,120 +646,144 @@ export function ChatPage() {
   }, [chatId, threads, urlChatId, user.userId, setMessages]);
 
   // Recovery poller: for every pending image-generation marker in the current
-   // thread, poll GET /api/image?id=<id> until the row is completed/failed.
-   // This is what makes "refresh mid-edit" resume without losing progress.
-   //
-   // Perf: the effect used to depend on `messages` directly, which caused it
-   // to tear down/rebuild every streaming token (60+ times/sec). We now
-   // derive a stable fingerprint of pending markers so the effect only
-   // re-runs when the set of pending generations actually changes.
-   const recoveryTrackedRef = useRef<Set<string>>(new Set());
-     const pendingGenerations = useMemo(() => {
-      const out: Array<{ msgId: string; genId: string; kind: "imggen" | "imgedit" }> = [];
-     for (const m of messages) {
-       if (m.role !== "assistant") continue;
-       const parts = (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts ?? [];
-       for (const p of parts) {
-         if (p.type !== "text" || typeof p.text !== "string") continue;
-          const match = p.text.trim().match(/^⟪(imggen|imgedit):pending:([0-9a-f-]{36})⟫$/i);
-          if (match) out.push({ msgId: m.id, genId: match[2], kind: match[1].toLowerCase() as "imggen" | "imgedit" });
-       }
-     }
-     return out;
-   }, [messages]);
-    const pendingKey = pendingGenerations.map((p) => `${p.msgId}:${p.genId}:${p.kind}`).join("|");
-   useEffect(() => {
-     if (pendingGenerations.length === 0) return;
-     let cancelled = false;
-     const timers: Array<ReturnType<typeof setTimeout>> = [];
-     const seen = recoveryTrackedRef.current;
-      const trackedThisRun = new Set<string>();
+  // thread, poll GET /api/image?id=<id> until the row is completed/failed.
+  // This is what makes "refresh mid-edit" resume without losing progress.
+  //
+  // Perf: the effect used to depend on `messages` directly, which caused it
+  // to tear down/rebuild every streaming token (60+ times/sec). We now
+  // derive a stable fingerprint of pending markers so the effect only
+  // re-runs when the set of pending generations actually changes.
+  const recoveryTrackedRef = useRef<Set<string>>(new Set());
+  const pendingGenerations = useMemo(() => {
+    const out: Array<{ msgId: string; genId: string; kind: "imggen" | "imgedit" }> = [];
+    for (const m of messages) {
+      if (m.role !== "assistant") continue;
+      const parts =
+        (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts ?? [];
+      for (const p of parts) {
+        if (p.type !== "text" || typeof p.text !== "string") continue;
+        const match = p.text.trim().match(/^⟪(imggen|imgedit):pending:([0-9a-f-]{36})⟫$/i);
+        if (match)
+          out.push({
+            msgId: m.id,
+            genId: match[2],
+            kind: match[1].toLowerCase() as "imggen" | "imgedit",
+          });
+      }
+    }
+    return out;
+  }, [messages]);
+  const pendingKey = pendingGenerations.map((p) => `${p.msgId}:${p.genId}:${p.kind}`).join("|");
+  useEffect(() => {
+    if (pendingGenerations.length === 0) return;
+    let cancelled = false;
+    const timers: Array<ReturnType<typeof setTimeout>> = [];
+    const seen = recoveryTrackedRef.current;
+    const trackedThisRun = new Set<string>();
 
-      const finalize = (msgId: string, genId: string, text: string, remove = false) => {
-        seen.delete(`${msgId}:${genId}`);
-       setMessages((prev) => {
-          const next = remove
-            ? prev.filter((m) => m.id !== msgId)
-            : prev.map((m) =>
-                m.id === msgId
-                  ? ({ ...m, parts: [{ type: "text", text }] } as unknown as UIMessage)
-                  : m,
-              );
-         queueMicrotask(() => syncActiveThreadMessages(next, true));
-         return next;
-       });
-     };
+    const finalize = (msgId: string, genId: string, text: string, remove = false) => {
+      seen.delete(`${msgId}:${genId}`);
+      setMessages((prev) => {
+        const next = remove
+          ? prev.filter((m) => m.id !== msgId)
+          : prev.map((m) =>
+              m.id === msgId
+                ? ({ ...m, parts: [{ type: "text", text }] } as unknown as UIMessage)
+                : m,
+            );
+        queueMicrotask(() => syncActiveThreadMessages(next, true));
+        return next;
+      });
+    };
 
-      const pollOnce = async (msgId: string, genId: string, kind: "imggen" | "imgedit", attempt: number) => {
-       if (cancelled) return;
-       try {
-         const { data } = await supabase.auth.getSession();
-         const token = data.session?.access_token;
-         if (!token) return;
-         const res = await fetch(`/api/image?id=${encodeURIComponent(genId)}`, {
-           headers: { Authorization: `Bearer ${token}` },
-         });
-         if (cancelled) return;
-         if (res.status === 404) {
-           if (attempt < 8) {
-              timers.push(setTimeout(() => pollOnce(msgId, genId, kind, attempt + 1), 2000));
-             return;
-           }
-            finalize(msgId, genId, "", true);
-           return;
-         }
-         const payload = (await res.json().catch(() => null)) as {
-           status?: string;
-           imageUrl?: string;
-           error?: string;
-         } | null;
-          if (!payload) {
-            timers.push(setTimeout(() => pollOnce(msgId, genId, kind, attempt + 1), 3000));
+    const pollOnce = async (
+      msgId: string,
+      genId: string,
+      kind: "imggen" | "imgedit",
+      attempt: number,
+    ) => {
+      if (cancelled) return;
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) return;
+        const res = await fetch(`/api/image?id=${encodeURIComponent(genId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (cancelled) return;
+        if (res.status === 404) {
+          if (attempt < 8) {
+            timers.push(setTimeout(() => pollOnce(msgId, genId, kind, attempt + 1), 2000));
             return;
           }
-         if (payload.status === "completed" && payload.imageUrl) {
-            finalize(msgId, genId, `![generated image](${payload.imageUrl})`);
-           return;
-         }
-          if (payload.status === "failed" || payload.status === "cancelled") {
-            finalize(msgId, genId, imageFailureMarker(kind, genId, payload.error || "Image generation failed. Please retry."));
-           return;
-         }
-         if (attempt > 60) {
-            finalize(msgId, genId, imageFailureMarker(kind, genId, "Image generation timed out. Please retry."));
-           return;
-         }
-         const delay = Math.min(4000, 1500 + attempt * 100);
-          timers.push(setTimeout(() => pollOnce(msgId, genId, kind, attempt + 1), delay));
-       } catch (e) {
-         if (cancelled) return;
-         console.error("[image] recovery poll error", e);
-          if (attempt > 60) {
-            finalize(msgId, genId, imageFailureMarker(kind, genId, "Image generation timed out. Please retry."));
-            return;
-          }
+          finalize(msgId, genId, "", true);
+          return;
+        }
+        const payload = (await res.json().catch(() => null)) as {
+          status?: string;
+          imageUrl?: string;
+          error?: string;
+        } | null;
+        if (!payload) {
           timers.push(setTimeout(() => pollOnce(msgId, genId, kind, attempt + 1), 3000));
-       }
-     };
+          return;
+        }
+        if (payload.status === "completed" && payload.imageUrl) {
+          finalize(msgId, genId, `![generated image](${payload.imageUrl})`);
+          return;
+        }
+        if (payload.status === "failed" || payload.status === "cancelled") {
+          finalize(
+            msgId,
+            genId,
+            imageFailureMarker(
+              kind,
+              genId,
+              payload.error || "Image generation failed. Please retry.",
+            ),
+          );
+          return;
+        }
+        if (attempt > 60) {
+          finalize(
+            msgId,
+            genId,
+            imageFailureMarker(kind, genId, "Image generation timed out. Please retry."),
+          );
+          return;
+        }
+        const delay = Math.min(4000, 1500 + attempt * 100);
+        timers.push(setTimeout(() => pollOnce(msgId, genId, kind, attempt + 1), delay));
+      } catch (e) {
+        if (cancelled) return;
+        console.error("[image] recovery poll error", e);
+        if (attempt > 60) {
+          finalize(
+            msgId,
+            genId,
+            imageFailureMarker(kind, genId, "Image generation timed out. Please retry."),
+          );
+          return;
+        }
+        timers.push(setTimeout(() => pollOnce(msgId, genId, kind, attempt + 1), 3000));
+      }
+    };
 
-      for (const { msgId, genId, kind } of pendingGenerations) {
-       const key = `${msgId}:${genId}`;
-       if (seen.has(key)) continue;
-       seen.add(key);
-        trackedThisRun.add(key);
-        pollOnce(msgId, genId, kind, 0);
-     }
+    for (const { msgId, genId, kind } of pendingGenerations) {
+      const key = `${msgId}:${genId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      trackedThisRun.add(key);
+      pollOnce(msgId, genId, kind, 0);
+    }
 
-     return () => {
-       cancelled = true;
-        for (const key of trackedThisRun) seen.delete(key);
-       for (const t of timers) clearTimeout(t);
-     };
-     // eslint-disable-next-line react-hooks/exhaustive-deps
-   }, [pendingKey, setMessages, syncActiveThreadMessages]);
-
-
-
+    return () => {
+      cancelled = true;
+      for (const key of trackedThisRun) seen.delete(key);
+      for (const t of timers) clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingKey, setMessages, syncActiveThreadMessages]);
 
   // Persist messages back to storage. Streaming updates are throttled so the
   // sidebar and cloud sync don't re-render on every token.
@@ -708,9 +808,12 @@ export function ChatPage() {
     syncActiveThreadMessages(messages, true);
   }, [messages, status, syncActiveThreadMessages]);
 
-  useEffect(() => () => {
-    if (deferredMessageSaveRef.current) clearTimeout(deferredMessageSaveRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (deferredMessageSaveRef.current) clearTimeout(deferredMessageSaveRef.current);
+    },
+    [],
+  );
 
   // rAF-throttle auto-scroll so streaming tokens don't flood scroll events.
   const scrollFrame = useRef<number | null>(null);
@@ -725,11 +828,14 @@ export function ChatPage() {
     });
   }, [messages, status]);
 
-  const persist = useCallback((next: ChatThread[]) => {
-    setThreads(next);
-    saveThreads(user.userId, next);
-    if (user.userId) saveThreadsToCloud(user.userId, next);
-  }, [user.userId]);
+  const persist = useCallback(
+    (next: ChatThread[]) => {
+      setThreads(next);
+      saveThreads(user.userId, next);
+      if (user.userId) saveThreadsToCloud(user.userId, next);
+    },
+    [user.userId],
+  );
 
   const handleNewChat = () => {
     setShowCreateChat(true);
@@ -737,8 +843,11 @@ export function ChatPage() {
 
   // Build a default title like "<Name> Chat 3" — unique across existing threads.
   const defaultChatName = useCallback(() => {
-    const first =
-      (user.profile?.display_name?.split(" ")[0] || user.profile?.email?.split("@")[0] || "New").trim();
+    const first = (
+      user.profile?.display_name?.split(" ")[0] ||
+      user.profile?.email?.split("@")[0] ||
+      "New"
+    ).trim();
     const re = new RegExp(`^${first.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} Chat (\\d+)$`);
     let max = 0;
     for (const t of threads) {
@@ -811,15 +920,17 @@ export function ChatPage() {
 
   const confirmRename = (name: string) => {
     if (!renameModal || !name.trim()) return;
-    persist(threads.map((x) => (x.id === renameModal.id ? { ...x, title: name.trim(), updatedAt: Date.now() } : x)));
+    persist(
+      threads.map((x) =>
+        x.id === renameModal.id ? { ...x, title: name.trim(), updatedAt: Date.now() } : x,
+      ),
+    );
     setRenameModal(null);
   };
-
 
   const handlePin = (id: string) => {
     persist(threads.map((x) => (x.id === id ? { ...x, pinned: !x.pinned } : x)));
   };
-
 
   const handleShare = async (id: string) => {
     const t = threads.find((x) => x.id === id);
@@ -832,10 +943,16 @@ export function ChatPage() {
       // AI SDK v5 messages carry text inside `parts`. Older cached threads
       // may have a flat `content` string. Extract a plain-text snapshot so
       // the read-only share page renders the actual conversation.
-      const payload = t.messages.map(extractMessageContent).filter((m): m is { role: "user" | "assistant"; content: string } => !!m);
+      const payload = t.messages
+        .map(extractMessageContent)
+        .filter((m): m is { role: "user" | "assistant"; content: string } => !!m);
       const { data, error } = await supabase
         .from("public_chat_snapshots" as never)
-        .insert({ owner_id: user.userId, title: t.title || "Shared chat", messages: payload } as never)
+        .insert({
+          owner_id: user.userId,
+          title: t.title || "Shared chat",
+          messages: payload,
+        } as never)
         .select("id" as never)
         .single();
       if (error || !data) throw new Error(error?.message ?? "Failed to share");
@@ -897,19 +1014,12 @@ export function ChatPage() {
         await supabase.from("project_messages" as never).insert(rows as never);
       }
       // Tag the local thread so we know where it lives
-      persist(
-        threads.map((x) =>
-          x.id === id ? { ...x, projectId, updatedAt: Date.now() } : x,
-        ),
-      );
+      persist(threads.map((x) => (x.id === id ? { ...x, projectId, updatedAt: Date.now() } : x)));
       toast.success(`Moved to ${projectName}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not move chat");
     }
   };
-
-
-
 
   const toggleVoiceInput = () => {
     if (typeof window === "undefined") return;
@@ -929,7 +1039,11 @@ export function ChatPage() {
     }
 
     if (listening) {
-      try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        /* ignore */
+      }
       recognitionRef.current = null;
       setListening(false);
       return;
@@ -960,8 +1074,18 @@ export function ChatPage() {
           toast.error("No microphone detected. Connect a mic and try again.");
         } else if (err === "network" && !retriedNetwork) {
           retriedNetwork = true;
-          try { rec.stop(); } catch { /* ignore */ }
-          setTimeout(() => { try { rec.start(); } catch { /* ignore */ } }, 400);
+          try {
+            rec.stop();
+          } catch {
+            /* ignore */
+          }
+          setTimeout(() => {
+            try {
+              rec.start();
+            } catch {
+              /* ignore */
+            }
+          }, 400);
           return;
         } else if (err === "network") {
           toast.error("Voice recognition unavailable right now. Try again in a moment.");
@@ -984,8 +1108,6 @@ export function ChatPage() {
     }
   };
 
-
-
   // Current-message intent classification lives in `@/lib/image-intent`.
   // Returns the URL of the most recently *completed* generated image so
   // explicit edit prompts can reuse it. We match http(s) URLs (public bucket)
@@ -997,10 +1119,13 @@ export function ChatPage() {
     for (let i = msgs.length - 1; i >= 0; i--) {
       const m = msgs[i];
       if (m.role !== "assistant") continue;
-      const parts = (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts ?? [];
+      const parts =
+        (m as unknown as { parts?: Array<{ type: string; text?: string }> }).parts ?? [];
       for (const p of parts) {
         if (p.type === "text" && typeof p.text === "string") {
-          const match = p.text.match(/!\[(?:generated|edited) image\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/i);
+          const match = p.text.match(
+            /!\[(?:generated|edited) image\]\((https?:\/\/[^)\s]+|data:image\/[^)]+)\)/i,
+          );
           if (match) {
             // Assistant image messages created by generateImageInline use
             // id `a_<uuid>`; parse that back so we can persist provenance.
@@ -1022,12 +1147,18 @@ export function ChatPage() {
       const p = JSON.parse(raw) as { count: number; resetAt: number };
       if (Date.now() > p.resetAt) return { count: 0, resetAt: Date.now() + 86400000 };
       return p;
-    } catch { return { count: 0, resetAt: Date.now() + 86400000 }; }
+    } catch {
+      return { count: 0, resetAt: Date.now() + 86400000 };
+    }
   };
   const bumpImgQuota = () => {
     const q = readImgQuota();
     const next = { count: q.count + 1, resetAt: q.resetAt };
-    try { window.localStorage.setItem(IMG_QUOTA_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+    try {
+      window.localStorage.setItem(IMG_QUOTA_KEY, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
   };
 
   const generateImageInline = async (prompt: string, inputImage?: string, parentId?: string) => {
@@ -1045,17 +1176,29 @@ export function ChatPage() {
       typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
         : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) =>
-            (Number(c) ^ (Math.random() * 16 >> (Number(c) / 4))).toString(16),
+            (Number(c) ^ ((Math.random() * 16) >> (Number(c) / 4))).toString(16),
           );
     const marker = inputImage
       ? `⟪imgedit:pending:${generationId}⟫`
       : `⟪imggen:pending:${generationId}⟫`;
-    const userMsg = { id: `u_${Date.now()}`, role: "user" as const, parts: [{ type: "text" as const, text: prompt }] };
+    const userMsg = {
+      id: `u_${Date.now()}`,
+      role: "user" as const,
+      parts: [{ type: "text" as const, text: prompt }],
+    };
     const asstId = `a_${generationId}`;
-    const asstPlaceholder = { id: asstId, role: "assistant" as const, parts: [{ type: "text" as const, text: marker }] };
+    const asstPlaceholder = {
+      id: asstId,
+      role: "assistant" as const,
+      parts: [{ type: "text" as const, text: marker }],
+    };
     // Force-persist the placeholder immediately so refresh can recover it.
     setMessages((prev) => {
-      const next = [...prev, userMsg as unknown as UIMessage, asstPlaceholder as unknown as UIMessage];
+      const next = [
+        ...prev,
+        userMsg as unknown as UIMessage,
+        asstPlaceholder as unknown as UIMessage,
+      ];
       queueMicrotask(() => syncActiveThreadMessages(next, true));
       return next;
     });
@@ -1065,8 +1208,17 @@ export function ChatPage() {
       const token = data.session?.access_token;
       return fetch("/api/image", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ generationId, messageId: asstId, prompt, ...(inputImage ? { inputImage } : {}), ...(parentId ? { parentId } : {}) }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          generationId,
+          messageId: asstId,
+          prompt,
+          ...(inputImage ? { inputImage } : {}),
+          ...(parentId ? { parentId } : {}),
+        }),
       });
     };
 
@@ -1089,7 +1241,7 @@ export function ChatPage() {
         return;
       }
 
-      const payload = await res.json().catch(() => null) as {
+      const payload = (await res.json().catch(() => null)) as {
         imageUrl?: string;
         dataUrl?: string;
         status?: string;
@@ -1100,14 +1252,19 @@ export function ChatPage() {
       }
       const finalUrl = payload?.imageUrl || payload?.dataUrl;
       if (!res.ok || !finalUrl || payload?.status === "failed" || payload?.status === "cancelled") {
-        const msg = payload?.error || "Image generation is temporarily unavailable. Please try again in a moment.";
+        const msg =
+          payload?.error ||
+          "Image generation is temporarily unavailable. Please try again in a moment.";
         throw new Error(msg);
       }
       if (isFree) bumpImgQuota();
       setMessages((prev) => {
         const next = prev.map((m) =>
           m.id === asstId
-            ? ({ ...m, parts: [{ type: "text", text: `![generated image](${finalUrl})` }] } as unknown as UIMessage)
+            ? ({
+                ...m,
+                parts: [{ type: "text", text: `![generated image](${finalUrl})` }],
+              } as unknown as UIMessage)
             : m,
         );
         queueMicrotask(() => syncActiveThreadMessages(next, true));
@@ -1115,7 +1272,10 @@ export function ChatPage() {
       });
     } catch (e) {
       console.error("[image] failed", e);
-      const msg = e instanceof Error ? e.message : "Image generation is temporarily unavailable. Please try again in a moment.";
+      const msg =
+        e instanceof Error
+          ? e.message
+          : "Image generation is temporarily unavailable. Please try again in a moment.";
       const failure = imageFailureMarker(inputImage ? "imgedit" : "imggen", generationId, msg);
       setMessages((prev) => {
         const next = prev.map((m) =>
@@ -1129,31 +1289,35 @@ export function ChatPage() {
     }
   };
 
-  const retryImageMessage = useCallback((assistantMessageId: string) => {
-    const idx = messages.findIndex((m) => m.id === assistantMessageId);
-    if (idx < 0) return;
-    const failedText = getMessageText(messages[idx]);
-    const failed = parseImageFailureMarker(failedText);
-    if (!failed) return;
-    const priorUser = messages.slice(0, idx).reverse().find((m) => m.role === "user");
-    const prompt = priorUser ? getMessageText(priorUser).trim() : "";
-    if (!prompt) {
-      toast.error("I couldn't find the original image prompt to retry.");
-      return;
-    }
-    if (failed.kind === "imgedit") {
-      const source = extractLastGeneratedImage(messages.slice(0, idx));
-      if (!source) {
-        toast.error("I couldn't find the image to edit. Generate a new image first.");
+  const retryImageMessage = useCallback(
+    (assistantMessageId: string) => {
+      const idx = messages.findIndex((m) => m.id === assistantMessageId);
+      if (idx < 0) return;
+      const failedText = getMessageText(messages[idx]);
+      const failed = parseImageFailureMarker(failedText);
+      if (!failed) return;
+      const priorUser = messages
+        .slice(0, idx)
+        .reverse()
+        .find((m) => m.role === "user");
+      const prompt = priorUser ? getMessageText(priorUser).trim() : "";
+      if (!prompt) {
+        toast.error("I couldn't find the original image prompt to retry.");
         return;
       }
-      void generateImageInline(prompt, source.url, source.parentId);
-      return;
-    }
-    void generateImageInline(prompt);
-  }, [messages]);
-
-
+      if (failed.kind === "imgedit") {
+        const source = extractLastGeneratedImage(messages.slice(0, idx));
+        if (!source) {
+          toast.error("I couldn't find the image to edit. Generate a new image first.");
+          return;
+        }
+        void generateImageInline(prompt, source.url, source.parentId);
+        return;
+      }
+      void generateImageInline(prompt);
+    },
+    [messages],
+  );
 
   // Core send: create thread if none active (fallback for typing straight into
   // /chat), then dispatch AI SDK message. We NEVER auto-rename the chat from
@@ -1178,7 +1342,6 @@ export function ChatPage() {
       }
     }
 
-
     // Route ONLY the current user message. Previous images are used solely as
     // edit input after the current text is classified as IMAGE_EDIT.
     if (files.length === 0) {
@@ -1194,24 +1357,24 @@ export function ChatPage() {
       }
     }
 
-
-
     const fileParts = files.length
       ? await Promise.all(
           files.map(
             (f) =>
-              new Promise<{ type: "file"; mediaType: string; url: string; filename: string }>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () =>
-                  resolve({
-                    type: "file",
-                    mediaType: f.type || "application/octet-stream",
-                    url: reader.result as string,
-                    filename: f.name,
-                  });
-                reader.onerror = () => reject(reader.error);
-                reader.readAsDataURL(f);
-              }),
+              new Promise<{ type: "file"; mediaType: string; url: string; filename: string }>(
+                (resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = () =>
+                    resolve({
+                      type: "file",
+                      mediaType: f.type || "application/octet-stream",
+                      url: reader.result as string,
+                      filename: f.name,
+                    });
+                  reader.onerror = () => reject(reader.error);
+                  reader.readAsDataURL(f);
+                },
+              ),
           ),
         )
       : undefined;
@@ -1220,7 +1383,8 @@ export function ChatPage() {
 
   const handleSend = async () => {
     const text = input.trim();
-    if ((!text && attachments.length === 0) || status === "streaming" || status === "submitted") return;
+    if ((!text && attachments.length === 0) || status === "streaming" || status === "submitted")
+      return;
     const files = attachments.slice();
     setInput("");
     setAttachments([]);
@@ -1231,7 +1395,11 @@ export function ChatPage() {
       setMessages((prev) => [
         ...prev,
         { id: `u-${now}`, role: "user", parts: [{ type: "text", text }] } as UIMessage,
-        { id: `a-${now}`, role: "assistant", parts: [{ type: "text", text: instant }] } as UIMessage,
+        {
+          id: `a-${now}`,
+          role: "assistant",
+          parts: [{ type: "text", text: instant }],
+        } as UIMessage,
       ]);
       return;
     }
@@ -1249,21 +1417,48 @@ export function ChatPage() {
         onMobileClose={() => setMobileNavOpen(false)}
         threads={threads}
         activeId={activeId}
-        onSelectThread={(id) => { setMobileNavOpen(false); handleSelect(id); }}
-        onNewChat={() => { setMobileNavOpen(false); handleNewChat(); }}
+        onSelectThread={(id) => {
+          setMobileNavOpen(false);
+          handleSelect(id);
+        }}
+        onNewChat={() => {
+          setMobileNavOpen(false);
+          handleNewChat();
+        }}
         onDeleteThread={handleDelete}
         onRenameThread={handleRename}
         onPinThread={handlePin}
         onShareThread={handleShare}
         onMoveThread={handleMoveToProject}
         user={user}
-        onOpenSearch={() => { setMobileNavOpen(false); setShowSearch(true); }}
-        onOpenLibrary={() => { setMobileNavOpen(false); setShowLibrary(true); }}
-        onOpenProjects={() => { setMobileNavOpen(false); setShowProjects(true); }}
-        onOpenPlus={() => { setMobileNavOpen(false); setShowPlus(true); }}
-        onOpenProfile={() => { setMobileNavOpen(false); setShowProfile(true); }}
-        onOpenImage={() => { setMobileNavOpen(false); setShowImage(true); }}
-        onOpenSettings={() => { setMobileNavOpen(false); setShowSettings(true); }}
+        onOpenSearch={() => {
+          setMobileNavOpen(false);
+          setShowSearch(true);
+        }}
+        onOpenLibrary={() => {
+          setMobileNavOpen(false);
+          setShowLibrary(true);
+        }}
+        onOpenProjects={() => {
+          setMobileNavOpen(false);
+          setShowProjects(true);
+        }}
+        onOpenPlus={() => {
+          setMobileNavOpen(false);
+          setShowPlus(true);
+        }}
+        onOpenProfile={() => {
+          setMobileNavOpen(false);
+          setShowProfile(true);
+        }}
+        onOpenImage={() => {
+          setMobileNavOpen(false);
+          setShowImage(true);
+        }}
+        onOpenSettings={() => {
+          setMobileNavOpen(false);
+          setShowSettings(true);
+        }}
       />
 
       <main
@@ -1298,7 +1493,9 @@ export function ChatPage() {
             <div className="flex flex-col items-center gap-3 rounded-3xl border-2 border-dashed border-brand/60 bg-card/80 px-10 py-8 shadow-elevated">
               <UploadCloud className="h-10 w-10 text-brand" />
               <div className="text-base font-semibold">Drop files to attach</div>
-              <div className="text-xs text-muted-foreground">Images, PDFs, docs — up to 20MB each</div>
+              <div className="text-xs text-muted-foreground">
+                Images, PDFs, docs — up to 20MB each
+              </div>
             </div>
           </div>
         )}
@@ -1309,7 +1506,6 @@ export function ChatPage() {
         />
 
         <header className="relative z-10 flex items-center gap-2 border-b border-border px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
-
           <button
             onClick={() => setMobileNavOpen(true)}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-accent hover:text-foreground md:hidden"
@@ -1326,10 +1522,11 @@ export function ChatPage() {
               <PanelLeft className="h-4 w-4" />
             </button>
           )}
-          <div className="min-w-0 flex-1 truncate text-sm font-medium">{active?.title ?? "New chat"}</div>
+          <div className="min-w-0 flex-1 truncate text-sm font-medium">
+            {active?.title ?? "New chat"}
+          </div>
         </header>
         <AnnouncementBanner settingKey="chat_announcement" />
-
 
         <div ref={scrollRef} className="relative z-10 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-3xl px-3 py-6 sm:px-4 sm:py-8">
@@ -1340,18 +1537,23 @@ export function ChatPage() {
                 </div>
                 <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
                   How can I help you today
-                  {user.profile?.display_name ? `, ${user.profile.display_name.split(" ")[0]}` : ""}?
+                  {user.profile?.display_name ? `, ${user.profile.display_name.split(" ")[0]}` : ""}
+                  ?
                 </h1>
                 <p className="mt-2 text-sm text-muted-foreground">
                   Ask anything — writing, coding, research, ideas.
                 </p>
                 <NewChatHintBanner userId={user.userId} onNewChat={handleNewChat} />
               </div>
-
             ) : (
               <div className="space-y-6">
                 {messages.map((m) => (
-                  <MessageBubble key={m.id} message={m} text={getMessageText(m)} onRetryImage={retryImageMessage} />
+                  <MessageBubble
+                    key={m.id}
+                    message={m}
+                    text={getMessageText(m)}
+                    onRetryImage={retryImageMessage}
+                  />
                 ))}
                 {isBusy && messages[messages.length - 1]?.role === "user" && (
                   <div className="flex gap-3">
@@ -1548,8 +1750,6 @@ export function ChatPage() {
         </div>
       </main>
 
-
-
       {/*
        * Lazy modal shell. Wrapped in an ErrorBoundary so that a broken
        * modal (e.g. a runtime error inside SettingsModal) never white-
@@ -1558,72 +1758,72 @@ export function ChatPage() {
        */}
       <ErrorBoundary boundary="chat_modals" fallback={null}>
         <Suspense fallback={null}>
-
-        {showPlus && <PlusModal open={showPlus} onClose={() => setShowPlus(false)} />}
-        {showProfile && (
-          <ProfileEditModal
-            open={showProfile}
-            onClose={() => setShowProfile(false)}
-            profile={user.profile}
-            onSaved={() => user.refresh()}
-          />
-        )}
-        {showSearch && (
-          <SearchModal
-            open={showSearch}
-            onClose={() => setShowSearch(false)}
-            threads={threads}
-            onSelect={handleSelect}
-            onNewChat={handleNewChat}
-          />
-        )}
-        {showLibrary && <LibraryModal open={showLibrary} onClose={() => setShowLibrary(false)} />}
-        {showProjects && <ProjectsModal open={showProjects} onClose={() => setShowProjects(false)} />}
-        {showImage && <ImageModal open={showImage} onClose={() => setShowImage(false)} />}
-        {showSettings && (
-          <SettingsModal
-            open={showSettings}
-            onClose={() => setShowSettings(false)}
-            profile={user.profile}
-            onSaved={() => user.refresh()}
-            onClearHistory={() => {
-              if (!user.userId) return;
-              persist([]);
-              setActiveId(null);
-              setChatId(newThreadId());
-              setMessages([]);
-              toast.success("Chat history cleared");
-              navigate({ to: "/chat" });
-            }}
-          />
-        )}
-        {moveTargetId !== null && (
-          <MoveToProjectModal
-            open={moveTargetId !== null}
-            onClose={() => setMoveTargetId(null)}
-            chatTitle={threads.find((t) => t.id === moveTargetId)?.title ?? ""}
-            onMove={performMove}
-          />
-        )}
-        {renameModal && (
-          <RenameChatModal
-            open={!!renameModal}
-            currentName={renameModal?.currentName ?? ""}
-            onClose={() => setRenameModal(null)}
-            onSave={confirmRename}
-          />
-        )}
-        {showCreateChat && (
-          <CreateChatModal
-            open={showCreateChat}
-            onClose={() => setShowCreateChat(false)}
-            onContinue={handleCreateContinue}
-            onSkip={handleCreateSkip}
-          />
-        )}
+          {showPlus && <PlusModal open={showPlus} onClose={() => setShowPlus(false)} />}
+          {showProfile && (
+            <ProfileEditModal
+              open={showProfile}
+              onClose={() => setShowProfile(false)}
+              profile={user.profile}
+              onSaved={() => user.refresh()}
+            />
+          )}
+          {showSearch && (
+            <SearchModal
+              open={showSearch}
+              onClose={() => setShowSearch(false)}
+              threads={threads}
+              onSelect={handleSelect}
+              onNewChat={handleNewChat}
+            />
+          )}
+          {showLibrary && <LibraryModal open={showLibrary} onClose={() => setShowLibrary(false)} />}
+          {showProjects && (
+            <ProjectsModal open={showProjects} onClose={() => setShowProjects(false)} />
+          )}
+          {showImage && <ImageModal open={showImage} onClose={() => setShowImage(false)} />}
+          {showSettings && (
+            <SettingsModal
+              open={showSettings}
+              onClose={() => setShowSettings(false)}
+              profile={user.profile}
+              onSaved={() => user.refresh()}
+              onClearHistory={() => {
+                if (!user.userId) return;
+                persist([]);
+                setActiveId(null);
+                setChatId(newThreadId());
+                setMessages([]);
+                toast.success("Chat history cleared");
+                navigate({ to: "/chat" });
+              }}
+            />
+          )}
+          {moveTargetId !== null && (
+            <MoveToProjectModal
+              open={moveTargetId !== null}
+              onClose={() => setMoveTargetId(null)}
+              chatTitle={threads.find((t) => t.id === moveTargetId)?.title ?? ""}
+              onMove={performMove}
+            />
+          )}
+          {renameModal && (
+            <RenameChatModal
+              open={!!renameModal}
+              currentName={renameModal?.currentName ?? ""}
+              onClose={() => setRenameModal(null)}
+              onSave={confirmRename}
+            />
+          )}
+          {showCreateChat && (
+            <CreateChatModal
+              open={showCreateChat}
+              onClose={() => setShowCreateChat(false)}
+              onContinue={handleCreateContinue}
+              onSkip={handleCreateSkip}
+            />
+          )}
         </Suspense>
       </ErrorBoundary>
-
     </div>
   );
 }
@@ -1633,31 +1833,45 @@ export function ChatPage() {
  * remembered per-user in localStorage; it never blocks the interface and
  * disappears the moment any message exists.
  */
-function NewChatHintBanner({ userId, onNewChat }: { userId: string | null; onNewChat: () => void }) {
+function NewChatHintBanner({
+  userId,
+  onNewChat,
+}: {
+  userId: string | null;
+  onNewChat: () => void;
+}) {
   const key = `prismxgpt.newchat-hint-dismissed:${userId ?? "anon"}`;
   const [dismissed, setDismissed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
-    try { return window.localStorage.getItem(key) === "1"; } catch { return false; }
+    try {
+      return window.localStorage.getItem(key) === "1";
+    } catch {
+      return false;
+    }
   });
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try { setDismissed(window.localStorage.getItem(key) === "1"); } catch { /* ignore */ }
+    try {
+      setDismissed(window.localStorage.getItem(key) === "1");
+    } catch {
+      /* ignore */
+    }
   }, [key]);
   if (dismissed) return null;
   return (
     <div className="mt-6 inline-flex max-w-md items-center gap-3 rounded-2xl border border-brand/30 bg-brand/10 px-4 py-2.5 text-left text-sm">
       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
-      <button
-        type="button"
-        onClick={onNewChat}
-        className="flex-1 text-foreground hover:text-brand"
-      >
+      <button type="button" onClick={onNewChat} className="flex-1 text-foreground hover:text-brand">
         Click <span className="font-semibold">'New Chat'</span> to create a conversation.
       </button>
       <button
         type="button"
         onClick={() => {
-          try { window.localStorage.setItem(key, "1"); } catch { /* ignore */ }
+          try {
+            window.localStorage.setItem(key, "1");
+          } catch {
+            /* ignore */
+          }
           setDismissed(true);
         }}
         className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -1683,18 +1897,29 @@ export function CodeBlock({ language, code }: { language: string; code: string }
   };
   const label = (language || "code").toLowerCase();
   const pretty =
-    label === "js" ? "JavaScript"
-    : label === "ts" ? "TypeScript"
-    : label === "tsx" ? "TSX"
-    : label === "jsx" ? "JSX"
-    : label === "py" ? "Python"
-    : label === "sh" || label === "bash" ? "Bash"
-    : label === "md" ? "Markdown"
-    : label === "html" ? "HTML"
-    : label === "css" ? "CSS"
-    : label === "json" ? "JSON"
-    : label === "sql" ? "SQL"
-    : label.charAt(0).toUpperCase() + label.slice(1);
+    label === "js"
+      ? "JavaScript"
+      : label === "ts"
+        ? "TypeScript"
+        : label === "tsx"
+          ? "TSX"
+          : label === "jsx"
+            ? "JSX"
+            : label === "py"
+              ? "Python"
+              : label === "sh" || label === "bash"
+                ? "Bash"
+                : label === "md"
+                  ? "Markdown"
+                  : label === "html"
+                    ? "HTML"
+                    : label === "css"
+                      ? "CSS"
+                      : label === "json"
+                        ? "JSON"
+                        : label === "sql"
+                          ? "SQL"
+                          : label.charAt(0).toUpperCase() + label.slice(1);
 
   return (
     <div className="group relative my-4 overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0a0d14] shadow-[0_1px_0_0_rgba(255,255,255,0.03)_inset,0_10px_30px_-15px_rgba(0,0,0,0.6)]">
@@ -1742,25 +1967,48 @@ function sanitizeAssistantText(raw: string): string {
   if (!raw) return raw;
   let s = raw;
   // Fenced ```json / ```tool blocks whose body mentions action/thought/tool
-  s = s.replace(/```(?:json|tool[a-z_]*|function[a-z_]*)?\s*\n([\s\S]*?)```/gi, (m, body: string) => {
-    return /"?(action|action_input|tool|tool_name|thought|function|arguments)"?\s*[:=]/i.test(body) ? "" : m;
-  });
+  s = s.replace(
+    /```(?:json|tool[a-z_]*|function[a-z_]*)?\s*\n([\s\S]*?)```/gi,
+    (m, body: string) => {
+      return /"?(action|action_input|tool|tool_name|thought|function|arguments)"?\s*[:=]/i.test(
+        body,
+      )
+        ? ""
+        : m;
+    },
+  );
   // Bare JSON object containing action/action_input/tool/thought
-  s = s.replace(/^\s*\{[\s\S]{0,2000}?"(?:action|action_input|tool|thought)"[\s\S]{0,2000}?\}\s*$/gim, "");
+  s = s.replace(
+    /^\s*\{[\s\S]{0,2000}?"(?:action|action_input|tool|thought)"[\s\S]{0,2000}?\}\s*$/gim,
+    "",
+  );
   // ReAct-style prefixes on their own line
-  s = s.replace(/^\s*(?:Thought|Action|Action Input|Observation|Tool|Tool Input|Function Call)\s*:.*$/gim, "");
+  s = s.replace(
+    /^\s*(?:Thought|Action|Action Input|Observation|Tool|Tool Input|Function Call)\s*:.*$/gim,
+    "",
+  );
   s = s.replace(/\n{3,}/g, "\n\n").trim();
   return s;
 }
 
 const MessageBubble = memo(
-  function MessageBubble({ message, text, onRetryImage }: { message: UIMessage; text: string; onRetryImage?: (messageId: string) => void }) {
+  function MessageBubble({
+    message,
+    text,
+    onRetryImage,
+  }: {
+    message: UIMessage;
+    text: string;
+    onRetryImage?: (messageId: string) => void;
+  }) {
     if (message.role === "user") {
       return (
         <div className="flex justify-end">
           <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-secondary px-4 py-2.5 text-sm">
             <Collapsible maxHeight={280}>
-              <div className="whitespace-pre-wrap [overflow-wrap:anywhere] [word-break:break-word]">{text}</div>
+              <div className="whitespace-pre-wrap [overflow-wrap:anywhere] [word-break:break-word]">
+                {text}
+              </div>
             </Collapsible>
           </div>
         </div>
@@ -1961,47 +2209,48 @@ export function AssistantMessage({ text }: { text: string }) {
             [&_:not(pre)>code]:font-mono [&_:not(pre)>code]:text-[0.88em] [&_:not(pre)>code]:text-foreground"
         >
           <Collapsible maxHeight={/!\[[^\]]*\]\(data:image\//.test(text) ? 9999 : 340}>
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            urlTransform={(url) => (url.startsWith("data:image/") ? url : defaultUrlTransform(url))}
-            components={{
-              code({ className, children, ...props }) {
-                const match = /language-(\w+)/.exec(className || "");
-                const isBlock = /\n/.test(String(children)) || Boolean(match);
-                if (!isBlock) {
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              urlTransform={(url) =>
+                url.startsWith("data:image/") ? url : defaultUrlTransform(url)
+              }
+              components={{
+                code({ className, children, ...props }) {
+                  const match = /language-(\w+)/.exec(className || "");
+                  const isBlock = /\n/.test(String(children)) || Boolean(match);
+                  if (!isBlock) {
+                    return (
+                      <code className={className} {...props}>
+                        {children}
+                      </code>
+                    );
+                  }
                   return (
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
+                    <CodeBlock
+                      language={match?.[1] ?? ""}
+                      code={String(children).replace(/\n$/, "")}
+                    />
                   );
-                }
-                return (
-                  <CodeBlock
-                    language={match?.[1] ?? ""}
-                    code={String(children).replace(/\n$/, "")}
-                  />
-                );
-              },
-              pre({ children }) {
-                return <>{children}</>;
-              },
-              img({ src, alt }) {
-                if (!src) return null;
-                return (
-                  <img
-                    src={typeof src === "string" ? src : ""}
-                    alt={alt ?? "generated image"}
-                    className="my-3 max-h-[480px] w-auto max-w-full rounded-xl border border-border"
-                    loading="lazy"
-                  />
-                );
-              },
-            }}
-          >
-            {text}
-          </ReactMarkdown>
+                },
+                pre({ children }) {
+                  return <>{children}</>;
+                },
+                img({ src, alt }) {
+                  if (!src) return null;
+                  return (
+                    <img
+                      src={typeof src === "string" ? src : ""}
+                      alt={alt ?? "generated image"}
+                      className="my-3 max-h-[480px] w-auto max-w-full rounded-xl border border-border"
+                      loading="lazy"
+                    />
+                  );
+                },
+              }}
+            >
+              {text}
+            </ReactMarkdown>
           </Collapsible>
-
         </div>
 
         <div
@@ -2069,7 +2318,11 @@ function Collapsible({ children, maxHeight = 320 }: { children: ReactNode; maxHe
       <div
         ref={ref}
         style={!expanded && overflowing ? { maxHeight, overflow: "hidden" } : undefined}
-        className={!expanded && overflowing ? "transition-[max-height] duration-300" : "transition-[max-height] duration-300"}
+        className={
+          !expanded && overflowing
+            ? "transition-[max-height] duration-300"
+            : "transition-[max-height] duration-300"
+        }
       >
         {children}
       </div>
@@ -2085,7 +2338,15 @@ function Collapsible({ children, maxHeight = 320 }: { children: ReactNode; maxHe
           onClick={() => setExpanded((v) => !v)}
           className="mt-2 inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
         >
-          {expanded ? (<><ChevronUp className="h-3.5 w-3.5" /> Show less</>) : (<><ChevronDown className="h-3.5 w-3.5" /> Show more</>)}
+          {expanded ? (
+            <>
+              <ChevronUp className="h-3.5 w-3.5" /> Show less
+            </>
+          ) : (
+            <>
+              <ChevronDown className="h-3.5 w-3.5" /> Show more
+            </>
+          )}
         </button>
       )}
     </div>
@@ -2094,4 +2355,3 @@ function Collapsible({ children, maxHeight = 320 }: { children: ReactNode; maxHe
 
 // Prevent lint unused
 void supabase;
-
