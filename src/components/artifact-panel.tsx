@@ -32,7 +32,11 @@ import {
   downloadZip,
   exportPdf,
 } from "@/lib/artifact-export";
-import { getArtifactVersions, recordArtifactVersion, type ArtifactVersion } from "@/lib/artifact-history";
+import {
+  getArtifactVersions,
+  recordArtifactVersion,
+  type ArtifactVersion,
+} from "@/lib/artifact-history";
 
 /** Fires a composer prefill request handled by the chat route. */
 function compose(text: string, send = false) {
@@ -204,7 +208,12 @@ export const ArtifactPanel = memo(function ArtifactPanel({
           </div>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
-          <Button size="sm" variant="outline" className="h-7 gap-1.5 text-[11px]" onClick={() => downloadZip(snapshot)}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1.5 text-[11px]"
+            onClick={() => downloadZip(snapshot)}
+          >
             <Download className="h-3.5 w-3.5" /> ZIP
           </Button>
           <Button
@@ -253,7 +262,11 @@ export const ArtifactPanel = memo(function ArtifactPanel({
             <button
               key={v.version}
               type="button"
-              onClick={() => setViewVersion(v.version === versions[versions.length - 1].version ? null : v.version)}
+              onClick={() =>
+                setViewVersion(
+                  v.version === versions[versions.length - 1].version ? null : v.version,
+                )
+              }
               className={`rounded-md border px-2 py-0.5 text-[11px] transition ${
                 (viewVersion ?? versions[versions.length - 1].version) === v.version
                   ? "border-brand/50 bg-brand/15 text-foreground"
@@ -352,7 +365,11 @@ export const ArtifactPanel = memo(function ArtifactPanel({
           <button
             key={label}
             type="button"
-            onClick={() => compose(`In the project "${artifact.name}": ${label}. Return only the files that change, as full files.`)}
+            onClick={() =>
+              compose(
+                `In the project "${artifact.name}": ${label}. Return only the files that change, as full files.`,
+              )
+            }
             className="rounded-full border border-white/[0.08] px-2.5 py-0.5 text-[11px] text-muted-foreground transition hover:border-brand/40 hover:text-foreground"
           >
             {label}
@@ -361,7 +378,9 @@ export const ArtifactPanel = memo(function ArtifactPanel({
         <button
           type="button"
           onClick={() =>
-            compose(`Regenerate the project "${artifact.name}" from scratch with the same requirements, improved architecture and production-ready code.`)
+            compose(
+              `Regenerate the project "${artifact.name}" from scratch with the same requirements, improved architecture and production-ready code.`,
+            )
           }
           className="ml-auto inline-flex items-center gap-1 rounded-full border border-white/[0.08] px-2.5 py-0.5 text-[11px] text-muted-foreground transition hover:border-brand/40 hover:text-foreground"
         >

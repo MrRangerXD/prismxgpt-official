@@ -36,7 +36,16 @@ export type MessageSegment = TextSegment | ProjectArtifact;
 const FENCE = /^[ \t]*(`{3,}|~{3,})[ \t]*([^\n]*)\n([\s\S]*?)^[ \t]*\1[ \t]*$/gm;
 
 /** Languages that are never treated as project files on their own. */
-const NON_FILE_LANGS = new Set(["bash", "sh", "shell", "zsh", "console", "text", "diff", "mermaid"]);
+const NON_FILE_LANGS = new Set([
+  "bash",
+  "sh",
+  "shell",
+  "zsh",
+  "console",
+  "text",
+  "diff",
+  "mermaid",
+]);
 
 const EXT_LANG: Record<string, string> = {
   ts: "ts",
@@ -217,11 +226,7 @@ export function parseMessageSegments(text: string): MessageSegment[] {
 }
 
 function normalizePath(path: string): string {
-  return path
-    .trim()
-    .replace(/^\.\//, "")
-    .replace(/^\/+/, "")
-    .replace(/\\/g, "/");
+  return path.trim().replace(/^\.\//, "").replace(/^\/+/, "").replace(/\\/g, "/");
 }
 
 // ---------------------------------------------------------------------------
@@ -279,7 +284,16 @@ export function renderTreeText(files: ArtifactFile[]): string {
 }
 
 export function artifactToMarkdown(artifact: ProjectArtifact): string {
-  const head = [`# ${artifact.name}`, "", "## Project structure", "", "```text", renderTreeText(artifact.files), "```", ""];
+  const head = [
+    `# ${artifact.name}`,
+    "",
+    "## Project structure",
+    "",
+    "```text",
+    renderTreeText(artifact.files),
+    "```",
+    "",
+  ];
   for (const file of artifact.files) {
     head.push(`## \`${file.path}\``, "", "```" + (file.lang || ""), file.code, "```", "");
   }

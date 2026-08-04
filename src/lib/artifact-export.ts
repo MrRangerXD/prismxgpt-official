@@ -28,7 +28,10 @@ export function safeFilename(name: string, fallback = "prismxgpt-project"): stri
 }
 
 export function downloadFile(path: string, code: string) {
-  downloadBlob(new Blob([code], { type: "text/plain;charset=utf-8" }), path.split("/").pop() || "file.txt");
+  downloadBlob(
+    new Blob([code], { type: "text/plain;charset=utf-8" }),
+    path.split("/").pop() || "file.txt",
+  );
 }
 
 /**
@@ -40,9 +43,13 @@ export function downloadZip(artifact: ProjectArtifact) {
   const root = safeFilename(artifact.name);
   const entries: Record<string, Uint8Array> = {};
   for (const file of artifact.files) {
-    entries[`${root}/${file.path}`] = strToU8(file.code.endsWith("\n") ? file.code : `${file.code}\n`);
+    entries[`${root}/${file.path}`] = strToU8(
+      file.code.endsWith("\n") ? file.code : `${file.code}\n`,
+    );
   }
-  entries[`${root}/STRUCTURE.txt`] = strToU8(`${artifact.name}\n\n${renderTreeText(artifact.files)}\n`);
+  entries[`${root}/STRUCTURE.txt`] = strToU8(
+    `${artifact.name}\n\n${renderTreeText(artifact.files)}\n`,
+  );
   entries[`${root}/prismxgpt.manifest.json`] = strToU8(artifactManifest(artifact));
   const zipped = zipSync(entries, { level: 6 });
   const copy = new Uint8Array(zipped.length);
@@ -72,8 +79,7 @@ export function downloadSingleFile(artifact: ProjectArtifact) {
 
 /** PDF export via the browser print dialog (no extra dependency, works offline). */
 export function exportPdf(artifact: ProjectArtifact) {
-  const esc = (s: string) =>
-    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(artifact.name)}</title>
 <style>
   body{font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#111;margin:32px;}

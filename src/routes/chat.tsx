@@ -1430,8 +1430,6 @@ export function ChatPage() {
 
   const isBusy = status === "streaming" || status === "submitted";
 
-
-
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       <PrismSidebar
@@ -2027,8 +2025,6 @@ function MarkdownBody({ text }: { text: string }) {
   );
 }
 
-
-
 // Strip accidental tool-call / ReAct scaffolding from assistant text so
 // users never see JSON, action_input, or "Thought:" traces. Applied only
 // to assistant messages — user text is rendered as-is.
@@ -2290,7 +2286,6 @@ export function AssistantMessage({ text, messageId }: { text: string; messageId?
               ),
             )}
           </Collapsible>
-
         </div>
 
         <div
