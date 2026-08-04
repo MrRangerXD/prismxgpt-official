@@ -126,6 +126,8 @@ import { PrismXLogo } from "@/components/prismx-logo";
 import { AnnouncementBanner } from "@/components/announcement-banner";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Button } from "@/components/ui/button";
+import { parseMessageSegments } from "@/lib/artifacts";
+import { ArtifactPanel } from "@/components/artifact-panel";
 
 // Modals are code-split — none are visible on first paint, and several pull
 // heavy dependencies (image editor, project pickers, settings forms). Lazy
@@ -1406,7 +1408,29 @@ export function ChatPage() {
     await performSend({ text, files });
   };
 
+  // "Continue editing" actions inside an artifact pre-fill the composer (and
+  // optionally send) instead of regenerating the whole project.
+  useEffect(() => {
+    const onCompose = (e: Event) => {
+      const detail = (e as CustomEvent<{ text?: string; send?: boolean }>).detail;
+      const next = detail?.text?.trim();
+      if (!next) return;
+      setInput(next);
+      const el = document.getElementById("chat-composer-input") as HTMLTextAreaElement | null;
+      el?.focus();
+      if (detail?.send && status !== "streaming" && status !== "submitted") {
+        void performSend({ text: next, files: [] });
+        setInput("");
+      }
+    };
+    window.addEventListener("prismx:compose", onCompose as EventListener);
+    return () => window.removeEventListener("prismx:compose", onCompose as EventListener);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
   const isBusy = status === "streaming" || status === "submitted";
+
+
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
@@ -1683,6 +1707,7 @@ export function ChatPage() {
               }}
             />
             <textarea
+              id="chat-composer-input"
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -1960,6 +1985,50 @@ export function CodeBlock({ language, code }: { language: string; code: string }
   );
 }
 
+/** Prose renderer for the non-artifact segments of an assistant message. */
+function MarkdownBody({ text }: { text: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      urlTransform={(url) => (url.startsWith("data:image/") ? url : defaultUrlTransform(url))}
+      components={{
+        code({ className, children, ...props }) {
+          const match = /language-(\w+)/.exec(className || "");
+          const isBlock = /\n/.test(String(children)) || Boolean(match);
+          if (!isBlock) {
+            return (
+              <code className={className} {...props}>
+                {children}
+              </code>
+            );
+          }
+          return (
+            <CodeBlock language={match?.[1] ?? ""} code={String(children).replace(/\n$/, "")} />
+          );
+        },
+        pre({ children }) {
+          return <>{children}</>;
+        },
+        img({ src, alt }) {
+          if (!src) return null;
+          return (
+            <img
+              src={typeof src === "string" ? src : ""}
+              alt={alt ?? "generated image"}
+              className="my-3 max-h-[480px] w-auto max-w-full rounded-xl border border-border"
+              loading="lazy"
+            />
+          );
+        },
+      }}
+    >
+      {text}
+    </ReactMarkdown>
+  );
+}
+
+
+
 // Strip accidental tool-call / ReAct scaffolding from assistant text so
 // users never see JSON, action_input, or "Thought:" traces. Applied only
 // to assistant messages — user text is rendered as-is.
@@ -2047,7 +2116,7 @@ const MessageBubble = memo(
         </div>
       );
     }
-    return <AssistantMessage text={sanitizeAssistantText(text)} />;
+    return <AssistantMessage text={sanitizeAssistantText(text)} messageId={message.id} />;
   },
   (prev, next) => {
     if (prev.message.id !== next.message.id) return false;
@@ -2170,7 +2239,7 @@ function getMessageText(message: UIMessage) {
   return (message as unknown as { content?: string }).content ?? "";
 }
 
-export function AssistantMessage({ text }: { text: string }) {
+export function AssistantMessage({ text, messageId }: { text: string; messageId?: string }) {
   const [copied, setCopied] = useState(false);
   const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
 
@@ -2209,48 +2278,19 @@ export function AssistantMessage({ text }: { text: string }) {
             [&_:not(pre)>code]:font-mono [&_:not(pre)>code]:text-[0.88em] [&_:not(pre)>code]:text-foreground"
         >
           <Collapsible maxHeight={/!\[[^\]]*\]\(data:image\//.test(text) ? 9999 : 340}>
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              urlTransform={(url) =>
-                url.startsWith("data:image/") ? url : defaultUrlTransform(url)
-              }
-              components={{
-                code({ className, children, ...props }) {
-                  const match = /language-(\w+)/.exec(className || "");
-                  const isBlock = /\n/.test(String(children)) || Boolean(match);
-                  if (!isBlock) {
-                    return (
-                      <code className={className} {...props}>
-                        {children}
-                      </code>
-                    );
-                  }
-                  return (
-                    <CodeBlock
-                      language={match?.[1] ?? ""}
-                      code={String(children).replace(/\n$/, "")}
-                    />
-                  );
-                },
-                pre({ children }) {
-                  return <>{children}</>;
-                },
-                img({ src, alt }) {
-                  if (!src) return null;
-                  return (
-                    <img
-                      src={typeof src === "string" ? src : ""}
-                      alt={alt ?? "generated image"}
-                      className="my-3 max-h-[480px] w-auto max-w-full rounded-xl border border-border"
-                      loading="lazy"
-                    />
-                  );
-                },
-              }}
-            >
-              {text}
-            </ReactMarkdown>
+            {parseMessageSegments(text).map((seg, i) =>
+              seg.kind === "artifact" ? (
+                <ArtifactPanel
+                  key={`art-${seg.id}-${i}`}
+                  artifact={seg}
+                  messageId={messageId ?? "local"}
+                />
+              ) : (
+                <MarkdownBody key={`md-${i}`} text={seg.text} />
+              ),
+            )}
           </Collapsible>
+
         </div>
 
         <div
