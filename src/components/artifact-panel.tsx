@@ -77,6 +77,7 @@ function highlight(code: string, lang: string): string {
   rest = rest.replace(KEYWORDS, '<span class="text-[#ff7b72]">$1</span>');
   rest = rest.replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="text-[#79c0ff]">$1</span>');
   rest = rest.replace(/([\w$]+)(\s*\()/g, '<span class="text-[#d2a8ff]">$1</span>$2');
+  // eslint-disable-next-line no-control-regex
   return rest.replace(/\u0000(\d+)\u0000/g, (_, i: string) => parts[Number(i)]);
 }
 
