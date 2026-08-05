@@ -201,7 +201,29 @@ export const ArtifactPanel = memo(function ArtifactPanel({
     }
   };
 
-  const snapshot: ProjectArtifact = { ...artifact, files };
+  const snapshot: ProjectArtifact = useMemo(() => ({ ...artifact, files }), [artifact, files]);
+  const validation: ArtifactValidation = useMemo(() => validateArtifact(snapshot), [snapshot]);
+  const [issuesOpen, setIssuesOpen] = useState(false);
+
+  // ZIP export runs pre-flight validation first: the download is never blocked,
+  // but the user is told exactly what a reviewer would catch before shipping.
+  const onZip = () => {
+    downloadZip(snapshot);
+    if (validation.errors.length > 0) {
+      setIssuesOpen(true);
+      toast.warning(`ZIP exported with ${summarizeValidation(validation)}`, {
+        description: validation.errors[0].path
+          ? `${validation.errors[0].path}: ${validation.errors[0].message}`
+          : validation.errors[0].message,
+        action: {
+          label: "Ask AI to fix",
+          onClick: () => compose(repairPrompt(snapshot, validation), true),
+        },
+      });
+    } else {
+      toast.success("ZIP exported — all checks passed");
+    }
+  };
 
   return (
     <div className="my-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a0d14] shadow-[0_1px_0_0_rgba(255,255,255,0.03)_inset,0_18px_40px_-24px_rgba(0,0,0,0.8)]">
@@ -216,14 +238,29 @@ export const ArtifactPanel = memo(function ArtifactPanel({
           </div>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 gap-1.5 text-[11px]"
-            onClick={() => downloadZip(snapshot)}
+          <button
+            type="button"
+            onClick={() => setIssuesOpen((v) => !v)}
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition ${
+              validation.issues.length === 0
+                ? "border-emerald-500/40 text-emerald-400"
+                : validation.errors.length > 0
+                  ? "border-amber-500/50 text-amber-400"
+                  : "border-white/[0.1] text-muted-foreground hover:text-foreground"
+            }`}
+            title="Pre-export validation"
           >
+            {validation.issues.length === 0 ? (
+              <ShieldCheck className="h-3 w-3" />
+            ) : (
+              <AlertTriangle className="h-3 w-3" />
+            )}
+            {summarizeValidation(validation)}
+          </button>
+          <Button size="sm" variant="outline" className="h-7 gap-1.5 text-[11px]" onClick={onZip}>
             <Download className="h-3.5 w-3.5" /> ZIP
           </Button>
+
           <Button
             size="sm"
             variant="outline"
