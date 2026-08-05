@@ -8,6 +8,7 @@
  */
 import { memo, useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
   Check,
   ChevronDown,
   ChevronRight,
@@ -21,6 +22,7 @@ import {
   Package,
   Pencil,
   RefreshCw,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -33,10 +35,17 @@ import {
   exportPdf,
 } from "@/lib/artifact-export";
 import {
+  repairPrompt,
+  summarizeValidation,
+  validateArtifact,
+  type ArtifactValidation,
+} from "@/lib/artifact-validate";
+import {
   getArtifactVersions,
   recordArtifactVersion,
   type ArtifactVersion,
 } from "@/lib/artifact-history";
+
 
 /** Fires a composer prefill request handled by the chat route. */
 function compose(text: string, send = false) {
