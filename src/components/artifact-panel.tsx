@@ -300,6 +300,44 @@ export const ArtifactPanel = memo(function ArtifactPanel({
         </div>
       </div>
 
+      {issuesOpen && (
+        <div className="space-y-1 border-b border-white/[0.06] bg-white/[0.02] px-4 py-2">
+          {validation.issues.length === 0 ? (
+            <p className="text-[11px] text-emerald-400">
+              Every file parses, all relative imports resolve, and the project scaffolding is
+              complete.
+            </p>
+          ) : (
+            <>
+              <ul className="space-y-0.5">
+                {validation.issues.slice(0, 12).map((issue, i) => (
+                  <li
+                    key={`${issue.path ?? "project"}-${i}`}
+                    className={`text-[11px] ${issue.level === "error" ? "text-amber-300" : "text-muted-foreground"}`}
+                  >
+                    <span className="font-mono">{issue.path ?? "project"}</span> — {issue.message}
+                  </li>
+                ))}
+                {validation.issues.length > 12 && (
+                  <li className="text-[11px] text-muted-foreground">
+                    +{validation.issues.length - 12} more
+                  </li>
+                )}
+              </ul>
+              <button
+                type="button"
+                onClick={() => compose(repairPrompt(snapshot, validation), true)}
+                className="mt-1 inline-flex items-center gap-1 rounded-full border border-brand/40 px-2.5 py-0.5 text-[11px] text-foreground transition hover:bg-brand/10"
+              >
+                <RefreshCw className="h-3 w-3" /> Ask AI to fix these
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+
+
       {historyOpen && versions.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 border-b border-white/[0.06] bg-white/[0.02] px-4 py-2">
           <span className="text-[11px] text-muted-foreground">Version history:</span>
