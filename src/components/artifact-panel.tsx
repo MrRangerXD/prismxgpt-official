@@ -42,9 +42,6 @@ import {
 } from "@/lib/artifact-validate";
 import { recordArtifactVersion, type ArtifactVersion } from "@/lib/artifact-history";
 
-
-
-
 /** Fires a composer prefill request handled by the chat route. */
 function compose(text: string, send = false) {
   window.dispatchEvent(new CustomEvent("prismx:compose", { detail: { text, send } }));
@@ -335,8 +332,6 @@ export const ArtifactPanel = memo(function ArtifactPanel({
           )}
         </div>
       )}
-
-
 
       {historyOpen && versions.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 border-b border-white/[0.06] bg-white/[0.02] px-4 py-2">

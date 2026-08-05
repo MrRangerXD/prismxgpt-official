@@ -192,7 +192,10 @@ export function validateArtifact(artifact: ProjectArtifact): ArtifactValidation 
       issues.push({ level: "warning", message: "No README.md with install and run instructions" });
     }
     if (hasJs && !files.some((f) => /(^|\/)package\.json$/.test(f.path))) {
-      issues.push({ level: "warning", message: "No package.json for a JavaScript/TypeScript project" });
+      issues.push({
+        level: "warning",
+        message: "No package.json for a JavaScript/TypeScript project",
+      });
     }
     const usesEnv = files.some((f) => /process\.env\.|import\.meta\.env\./.test(f.code));
     if (usesEnv && !files.some((f) => /(^|\/)\.env\.example$/.test(f.path))) {
