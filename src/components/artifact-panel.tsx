@@ -40,11 +40,9 @@ import {
   validateArtifact,
   type ArtifactValidation,
 } from "@/lib/artifact-validate";
-import {
-  getArtifactVersions,
-  recordArtifactVersion,
-  type ArtifactVersion,
-} from "@/lib/artifact-history";
+import { recordArtifactVersion, type ArtifactVersion } from "@/lib/artifact-history";
+
+
 
 
 /** Fires a composer prefill request handled by the chat route. */
