@@ -41,14 +41,11 @@ function inlineHtml(entry: ArtifactFile, files: ArtifactFile[]): string {
   const byPath = new Map(files.map((f) => [f.path, f]));
   let html = entry.code;
 
-  html = html.replace(
-    /<link\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>/gi,
-    (match, href: string) => {
-      if (/^(https?:|data:|\/\/)/i.test(href)) return match;
-      const file = byPath.get(resolveRef(entry.path, href.split(/[?#]/)[0]));
-      return file ? `<style>\n${file.code}\n</style>` : match;
-    },
-  );
+  html = html.replace(/<link\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>/gi, (match, href: string) => {
+    if (/^(https?:|data:|\/\/)/i.test(href)) return match;
+    const file = byPath.get(resolveRef(entry.path, href.split(/[?#]/)[0]));
+    return file ? `<style>\n${file.code}\n</style>` : match;
+  });
 
   html = html.replace(
     /<script\b([^>]*)src\s*=\s*["']([^"']+)["']([^>]*)><\/script>/gi,

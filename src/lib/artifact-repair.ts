@@ -166,7 +166,11 @@ function buildPackageJson(artifact: ProjectArtifact, files: ArtifactFile[]): str
   const scripts: Record<string, string> = isNext
     ? { dev: "next dev", build: "next build", start: "next start" }
     : isVite
-      ? { dev: "vite", build: isTs ? "tsc -b && vite build" : "vite build", preview: "vite preview" }
+      ? {
+          dev: "vite",
+          build: isTs ? "tsc -b && vite build" : "vite build",
+          preview: "vite preview",
+        }
       : { start: `node ${entry}`, dev: `node ${entry}` };
 
   const dependencies: Record<string, string> = {};

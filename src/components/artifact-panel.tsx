@@ -684,7 +684,8 @@ export const ArtifactPanel = memo(function ArtifactPanel({
               ) : (
                 <>
                   <div className="px-2 pb-1 text-[11px] text-muted-foreground">
-                    vs v{diff.fromVersion} · <span className="text-emerald-400">+{diff.stats.added}</span>{" "}
+                    vs v{diff.fromVersion} ·{" "}
+                    <span className="text-emerald-400">+{diff.stats.added}</span>{" "}
                     <span className="text-rose-400">−{diff.stats.removed}</span>
                   </div>
                   {diff.rows.map((row, i) =>
@@ -728,9 +729,9 @@ export const ArtifactPanel = memo(function ArtifactPanel({
                 </div>
               ) : (
                 <p className="px-2 py-8 text-center text-[12px] text-muted-foreground">
-                  {preview?.reason ??
-                    "Nothing to preview yet."}{" "}
-                  {!isPreviewable(active) && "Open an HTML, Markdown, CSS or SVG file to preview it."}
+                  {preview?.reason ?? "Nothing to preview yet."}{" "}
+                  {!isPreviewable(active) &&
+                    "Open an HTML, Markdown, CSS or SVG file to preview it."}
                 </p>
               )}
             </div>
