@@ -1,12 +1,14 @@
 /**
- * Artifact panel — the ChatGPT/Claude-style project viewer.
+ * Artifact panel — the ChatGPT/Claude-style project workspace.
  *
- * Renders a generated project as a browsable workspace: folder tree, file
- * viewer with lightweight syntax highlighting, one-click copy, per-file and
- * ZIP download, markdown/PDF/single-file export, version history and
- * "continue editing" actions that pre-fill the composer.
+ * Renders a generated project as a browsable IDE-like surface: folder tree,
+ * multi-file tabs, quick open, search across files, breadcrumbs, live preview,
+ * version history with a diff viewer, pre-export validation + deterministic
+ * auto-repair, and "continue editing" actions that pre-fill the composer.
+ *
+ * Everything is derived and read-only: chat history is never mutated.
  */
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Check,
@@ -14,15 +16,21 @@ import {
   ChevronRight,
   Copy,
   Download,
+  Eye,
   FileCode2,
   FileDown,
   Folder,
   FolderOpen,
+  GitCompare,
   History,
   Package,
   Pencil,
   RefreshCw,
+  Search,
   ShieldCheck,
+  Smartphone,
+  Wrench,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -40,6 +48,9 @@ import {
   validateArtifact,
   type ArtifactValidation,
 } from "@/lib/artifact-validate";
+import { repairArtifact } from "@/lib/artifact-repair";
+import { collapseContext, diffLines, diffStats } from "@/lib/artifact-diff";
+import { buildPreview, isPreviewable } from "@/lib/artifact-preview";
 import { recordArtifactVersion, type ArtifactVersion } from "@/lib/artifact-history";
 
 /** Fires a composer prefill request handled by the chat route. */
@@ -158,6 +169,8 @@ function DirNode({
   );
 }
 
+type ViewMode = "code" | "preview" | "diff";
+
 export const ArtifactPanel = memo(function ArtifactPanel({
   artifact,
   messageId,
@@ -166,11 +179,20 @@ export const ArtifactPanel = memo(function ArtifactPanel({
   messageId: string;
 }) {
   const [activePath, setActivePath] = useState(artifact.files[0]?.path ?? "");
+  const [openTabs, setOpenTabs] = useState<string[]>(
+    artifact.files[0]?.path ? [artifact.files[0].path] : [],
+  );
   const [copied, setCopied] = useState(false);
   const [showTree, setShowTree] = useState(true);
   const [versions, setVersions] = useState<ArtifactVersion[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [viewVersion, setViewVersion] = useState<number | null>(null);
+  const [view, setView] = useState<ViewMode>("code");
+  const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+  const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [issuesOpen, setIssuesOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setVersions(recordArtifactVersion(artifact, messageId));
@@ -187,6 +209,20 @@ export const ArtifactPanel = memo(function ArtifactPanel({
   const active = files.find((f) => f.path === activePath) ?? files[0];
   const totalBytes = files.reduce((n, f) => n + f.code.length, 0);
 
+  const openFile = useCallback((path: string) => {
+    setActivePath(path);
+    setOpenTabs((tabs) => (tabs.includes(path) ? tabs : [...tabs, path].slice(-8)));
+    setView((v) => (v === "diff" ? "code" : v));
+  }, []);
+
+  const closeTab = (path: string) => {
+    setOpenTabs((tabs) => {
+      const next = tabs.filter((t) => t !== path);
+      if (path === activePath && next.length) setActivePath(next[next.length - 1]);
+      return next;
+    });
+  };
+
   const onCopy = async (value: string, label = "Copied") => {
     try {
       await navigator.clipboard.writeText(value);
@@ -200,27 +236,88 @@ export const ArtifactPanel = memo(function ArtifactPanel({
 
   const snapshot: ProjectArtifact = useMemo(() => ({ ...artifact, files }), [artifact, files]);
   const validation: ArtifactValidation = useMemo(() => validateArtifact(snapshot), [snapshot]);
-  const [issuesOpen, setIssuesOpen] = useState(false);
 
-  // ZIP export runs pre-flight validation first: the download is never blocked,
-  // but the user is told exactly what a reviewer would catch before shipping.
+  // Search across files (quick open + content matches).
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return files
+      .map((f) => {
+        const pathHit = f.path.toLowerCase().includes(q);
+        const lines: { n: number; text: string }[] = [];
+        f.code.split("\n").forEach((line, i) => {
+          if (lines.length < 4 && line.toLowerCase().includes(q))
+            lines.push({ n: i + 1, text: line.trim().slice(0, 140) });
+        });
+        return { path: f.path, pathHit, lines };
+      })
+      .filter((r) => r.pathHit || r.lines.length > 0)
+      .slice(0, 20);
+  }, [files, query]);
+
+  // Diff of the active file against the previous version.
+  const diff = useMemo(() => {
+    if (view !== "diff" || !active || versions.length < 2) return null;
+    const currentIndex = versions.findIndex(
+      (v) => v.version === (viewVersion ?? versions[versions.length - 1].version),
+    );
+    const prev = versions[currentIndex - 1];
+    if (!prev) return null;
+    const before = prev.files.find((f) => f.path === active.path)?.code ?? "";
+    const rows = diffLines(before, active.code);
+    return { rows: collapseContext(rows), stats: diffStats(rows), fromVersion: prev.version };
+  }, [view, active, versions, viewVersion]);
+
+  const preview = useMemo(
+    () => (view === "preview" ? buildPreview(snapshot, active?.path) : null),
+    [view, snapshot, active?.path],
+  );
+
+  // ZIP export: deterministic auto-repair first (README, package.json,
+  // .env.example, .gitignore, files referenced but never emitted), then
+  // validation reporting for anything only the model can fix.
   const onZip = () => {
-    downloadZip(snapshot);
-    if (validation.errors.length > 0) {
+    const { artifact: repaired, applied } = repairArtifact(snapshot);
+    const after = validateArtifact(repaired);
+    downloadZip(repaired);
+    if (after.errors.length > 0) {
       setIssuesOpen(true);
-      toast.warning(`ZIP exported with ${summarizeValidation(validation)}`, {
-        description: validation.errors[0].path
-          ? `${validation.errors[0].path}: ${validation.errors[0].message}`
-          : validation.errors[0].message,
+      toast.warning(`ZIP exported — ${summarizeValidation(after)} need the AI`, {
+        description: applied.length
+          ? `Auto-repaired: ${applied.join(", ")}`
+          : `${after.errors[0].path ? `${after.errors[0].path}: ` : ""}${after.errors[0].message}`,
         action: {
           label: "Ask AI to fix",
-          onClick: () => compose(repairPrompt(snapshot, validation), true),
+          onClick: () => compose(repairPrompt(repaired, after), true),
         },
       });
     } else {
-      toast.success("ZIP exported — all checks passed");
+      toast.success(
+        applied.length
+          ? `ZIP exported — auto-repaired ${applied.length} item${applied.length === 1 ? "" : "s"}`
+          : "ZIP exported — all checks passed",
+      );
     }
   };
+
+  const onRepair = () => {
+    const { applied, unresolved } = repairArtifact(snapshot);
+    if (!applied.length && !unresolved.length) {
+      toast.success("Nothing to repair — the project is complete");
+      return;
+    }
+    toast.success(
+      applied.length ? `Repair ready: ${applied.join(", ")}` : "No safe automatic fixes left",
+      {
+        description: unresolved.length
+          ? `${unresolved.length} item${unresolved.length === 1 ? "" : "s"} need the AI`
+          : "Included automatically in the next ZIP export",
+      },
+    );
+    if (unresolved.length) setIssuesOpen(true);
+  };
+
+  const crumbs = (active?.path ?? "").split("/");
 
   return (
     <div className="my-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a0d14] shadow-[0_1px_0_0_rgba(255,255,255,0.03)_inset,0_18px_40px_-24px_rgba(0,0,0,0.8)]">
@@ -254,6 +351,17 @@ export const ArtifactPanel = memo(function ArtifactPanel({
             )}
             {summarizeValidation(validation)}
           </button>
+          {validation.issues.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1.5 text-[11px]"
+              onClick={onRepair}
+              title="Add missing scaffolding automatically"
+            >
+              <Wrench className="h-3.5 w-3.5" /> Repair
+            </Button>
+          )}
           <Button size="sm" variant="outline" className="h-7 gap-1.5 text-[11px]" onClick={onZip}>
             <Download className="h-3.5 w-3.5" /> ZIP
           </Button>
@@ -321,13 +429,22 @@ export const ArtifactPanel = memo(function ArtifactPanel({
                   </li>
                 )}
               </ul>
-              <button
-                type="button"
-                onClick={() => compose(repairPrompt(snapshot, validation), true)}
-                className="mt-1 inline-flex items-center gap-1 rounded-full border border-brand/40 px-2.5 py-0.5 text-[11px] text-foreground transition hover:bg-brand/10"
-              >
-                <RefreshCw className="h-3 w-3" /> Ask AI to fix these
-              </button>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => compose(repairPrompt(snapshot, validation), true)}
+                  className="inline-flex items-center gap-1 rounded-full border border-brand/40 px-2.5 py-0.5 text-[11px] text-foreground transition hover:bg-brand/10"
+                >
+                  <RefreshCw className="h-3 w-3" /> Ask AI to fix these
+                </button>
+                <button
+                  type="button"
+                  onClick={onRepair}
+                  className="inline-flex items-center gap-1 rounded-full border border-white/[0.1] px-2.5 py-0.5 text-[11px] text-muted-foreground transition hover:text-foreground"
+                >
+                  <Wrench className="h-3 w-3" /> Auto-repair scaffolding
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -358,29 +475,122 @@ export const ArtifactPanel = memo(function ArtifactPanel({
         </div>
       )}
 
+      {searchOpen && (
+        <div className="border-b border-white/[0.06] bg-white/[0.02] px-4 py-2">
+          <div className="flex items-center gap-2">
+            <Search className="h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              ref={searchRef}
+              value={query}
+              autoFocus
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search files and contents…"
+              className="w-full bg-transparent text-[12px] text-foreground outline-none placeholder:text-muted-foreground"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setSearchOpen(false);
+                setQuery("");
+              }}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {query.trim() && (
+            <ul className="mt-2 max-h-52 space-y-1 overflow-y-auto">
+              {results.length === 0 && (
+                <li className="text-[11px] text-muted-foreground">No matches</li>
+              )}
+              {results.map((r) => (
+                <li key={r.path}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      openFile(r.path);
+                      setSearchOpen(false);
+                    }}
+                    className="w-full rounded-md px-2 py-1 text-left transition hover:bg-white/[0.04]"
+                  >
+                    <span className="font-mono text-[11px] text-foreground">{r.path}</span>
+                    {r.lines.map((l) => (
+                      <span
+                        key={l.n}
+                        className="block truncate font-mono text-[10.5px] text-muted-foreground"
+                      >
+                        {l.n}: {l.text}
+                      </span>
+                    ))}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {/* Body */}
       <div className="flex min-h-[220px] flex-col sm:flex-row">
         {showTree && (
           <div className="w-full shrink-0 border-b border-white/[0.06] bg-black/20 py-2 sm:w-56 sm:border-r sm:border-b-0">
             <div className="flex items-center justify-between px-3 pb-1">
               <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-                Files
+                Explorer
               </span>
-              <button
-                type="button"
-                className="text-[10px] text-muted-foreground hover:text-foreground"
-                onClick={() => onCopy(renderTreeText(files), "Folder tree copied")}
-              >
-                Copy tree
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="text-[10px] text-muted-foreground hover:text-foreground"
+                  onClick={() => setSearchOpen(true)}
+                >
+                  Search
+                </button>
+                <button
+                  type="button"
+                  className="text-[10px] text-muted-foreground hover:text-foreground"
+                  onClick={() => onCopy(renderTreeText(files), "Folder tree copied")}
+                >
+                  Copy tree
+                </button>
+              </div>
             </div>
             <div className="max-h-[420px] overflow-y-auto pr-1">
-              <TreeView nodes={tree} active={active?.path ?? ""} onSelect={setActivePath} />
+              <TreeView nodes={tree} active={active?.path ?? ""} onSelect={openFile} />
             </div>
           </div>
         )}
 
         <div className="min-w-0 flex-1">
+          {/* Tabs */}
+          {openTabs.length > 0 && (
+            <div className="flex items-center gap-1 overflow-x-auto border-b border-white/[0.06] px-2 py-1">
+              {openTabs.map((path) => (
+                <span
+                  key={path}
+                  className={`inline-flex shrink-0 items-center gap-1 rounded-t-md px-2 py-1 text-[11px] transition ${
+                    path === active?.path
+                      ? "bg-white/[0.06] text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <button type="button" onClick={() => setActivePath(path)} className="font-mono">
+                    {path.split("/").pop()}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => closeTab(path)}
+                    className="opacity-60 hover:opacity-100"
+                    aria-label={`Close ${path}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Breadcrumbs + actions */}
           <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-1.5">
             <button
               type="button"
@@ -389,10 +599,49 @@ export const ArtifactPanel = memo(function ArtifactPanel({
             >
               {showTree ? "Hide tree" : "Show tree"}
             </button>
-            <span className="truncate font-mono text-[11px] text-muted-foreground">
-              {active?.path}
-            </span>
+            <nav className="flex min-w-0 items-center gap-1 truncate font-mono text-[11px] text-muted-foreground">
+              {crumbs.map((c, i) => (
+                <span key={`${c}-${i}`} className="truncate">
+                  {i > 0 && <span className="opacity-40"> / </span>}
+                  <span className={i === crumbs.length - 1 ? "text-foreground/80" : ""}>{c}</span>
+                </span>
+              ))}
+            </nav>
             <div className="ml-auto flex items-center gap-1.5">
+              <div className="flex items-center rounded-md border border-white/[0.06]">
+                {(["code", "preview", "diff"] as ViewMode[]).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    disabled={m === "diff" && versions.length < 2}
+                    onClick={() => setView(m)}
+                    className={`px-2 py-0.5 text-[11px] capitalize transition disabled:opacity-40 ${
+                      view === m ? "bg-brand/15 text-foreground" : "text-muted-foreground"
+                    }`}
+                  >
+                    {m === "preview" ? (
+                      <span className="inline-flex items-center gap-1">
+                        <Eye className="h-3 w-3" /> Preview
+                      </span>
+                    ) : m === "diff" ? (
+                      <span className="inline-flex items-center gap-1">
+                        <GitCompare className="h-3 w-3" /> Diff
+                      </span>
+                    ) : (
+                      "Code"
+                    )}
+                  </button>
+                ))}
+              </div>
+              {view === "preview" && (
+                <button
+                  type="button"
+                  onClick={() => setDevice((d) => (d === "desktop" ? "mobile" : "desktop"))}
+                  className="inline-flex items-center gap-1 rounded-md border border-white/[0.06] px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+                >
+                  <Smartphone className="h-3 w-3" /> {device === "desktop" ? "Desktop" : "Mobile"}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => active && onCopy(active.code, "File copied")}
@@ -414,14 +663,79 @@ export const ArtifactPanel = memo(function ArtifactPanel({
               </button>
             </div>
           </div>
-          <pre className="max-h-[520px] overflow-auto px-4 py-3 text-[12.5px] leading-[1.6]">
-            <code
-              className="font-mono text-[#e6edf3]"
-              dangerouslySetInnerHTML={{
-                __html: highlight(active?.code ?? "", active?.lang ?? "text"),
-              }}
-            />
-          </pre>
+
+          {view === "code" && (
+            <pre className="max-h-[520px] overflow-auto px-4 py-3 text-[12.5px] leading-[1.6]">
+              <code
+                className="font-mono text-[#e6edf3]"
+                dangerouslySetInnerHTML={{
+                  __html: highlight(active?.code ?? "", active?.lang ?? "text"),
+                }}
+              />
+            </pre>
+          )}
+
+          {view === "diff" && (
+            <div className="max-h-[520px] overflow-auto px-2 py-2 font-mono text-[12px] leading-[1.55]">
+              {!diff ? (
+                <p className="px-2 py-4 text-[11px] text-muted-foreground">
+                  No earlier version of this file to compare against.
+                </p>
+              ) : (
+                <>
+                  <div className="px-2 pb-1 text-[11px] text-muted-foreground">
+                    vs v{diff.fromVersion} ·{" "}
+                    <span className="text-emerald-400">+{diff.stats.added}</span>{" "}
+                    <span className="text-rose-400">−{diff.stats.removed}</span>
+                  </div>
+                  {diff.rows.map((row, i) =>
+                    row.type === "gap" ? (
+                      <div key={i} className="px-2 text-[11px] text-muted-foreground/60">
+                        ⋯
+                      </div>
+                    ) : (
+                      <div
+                        key={i}
+                        className={`whitespace-pre-wrap px-2 ${
+                          row.type === "add"
+                            ? "bg-emerald-500/10 text-emerald-200"
+                            : row.type === "del"
+                              ? "bg-rose-500/10 text-rose-200"
+                              : "text-[#8b949e]"
+                        }`}
+                      >
+                        {row.type === "add" ? "+" : row.type === "del" ? "−" : " "} {row.text}
+                      </div>
+                    ),
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {view === "preview" && (
+            <div className="bg-black/30 p-3">
+              {preview?.ok ? (
+                <div className={device === "mobile" ? "mx-auto w-[390px] max-w-full" : "w-full"}>
+                  <div className="mb-1 text-[11px] text-muted-foreground">
+                    Previewing <span className="font-mono">{preview.entry}</span>
+                  </div>
+                  <iframe
+                    title={`Preview of ${preview.entry}`}
+                    srcDoc={preview.html}
+                    sandbox="allow-scripts allow-modals allow-forms"
+                    className="h-[480px] w-full rounded-lg border border-white/[0.08] bg-white"
+                  />
+                </div>
+              ) : (
+                <p className="px-2 py-8 text-center text-[12px] text-muted-foreground">
+                  {preview?.reason ?? "Nothing to preview yet."}{" "}
+                  {!isPreviewable(active) &&
+                    "Open an HTML, Markdown, CSS or SVG file to preview it."}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -453,6 +767,19 @@ export const ArtifactPanel = memo(function ArtifactPanel({
             {label}
           </button>
         ))}
+        {active && (
+          <button
+            type="button"
+            onClick={() =>
+              compose(
+                `In the project "${artifact.name}": regenerate ONLY the file \`${active.path}\` as a complete, production-ready file. Keep every other file unchanged.`,
+              )
+            }
+            className="rounded-full border border-white/[0.08] px-2.5 py-0.5 text-[11px] text-muted-foreground transition hover:border-brand/40 hover:text-foreground"
+          >
+            Regenerate this file
+          </button>
+        )}
         <button
           type="button"
           onClick={() =>
