@@ -180,7 +180,7 @@ export const ArtifactPanel = memo(function ArtifactPanel({
 }) {
   const [activePath, setActivePath] = useState(artifact.files[0]?.path ?? "");
   const [openTabs, setOpenTabs] = useState<string[]>(
-    artifact.files[0］?.path ? [artifact.files[0].path] : [],
+    artifact.files[0]?.path ? [artifact.files[0].path] : [],
   );
   const [copied, setCopied] = useState(false);
   const [showTree, setShowTree] = useState(true);
