@@ -370,7 +370,12 @@ export const Route = createFileRoute("/api/chat")({
           const result = streamText({
             model,
             system,
+            // Full-project artifacts routinely need far more than the
+            // provider default; a low ceiling is what truncates files.
+            maxOutputTokens: 32000,
+            temperature: 0.3,
             messages: await convertToModelMessages(body.messages),
+
             onError: ({ error }) => {
               console.error("[api/chat] stream error on", entry.upstreamId);
               describe(error);
