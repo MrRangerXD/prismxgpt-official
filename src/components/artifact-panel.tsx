@@ -178,15 +178,30 @@ export const ArtifactPanel = memo(function ArtifactPanel({
   artifact: ProjectArtifact;
   messageId: string;
 }) {
-  const [activePath, setActivePath] = useState(artifact.files[0]?.path ?? "");
+  // Workspace continuity: a follow-up answer usually re-emits only the files
+  // it changed. Fold it onto the previous snapshot of the same project so the
+  // panel (tree, preview, validation, ZIP) always shows the COMPLETE project.
+  const workspace: ProjectArtifact = useMemo(() => {
+    const prior = [...getArtifactVersions(artifact.name)]
+      .reverse()
+      .find((v) => v.messageId !== messageId);
+    const base = prior?.files ?? [];
+    if (!base.length) return artifact;
+    if (!artifact.ops && !looksLikeEdit(base, artifact.files)) return artifact;
+    return mergeArtifact(artifact, base);
+  }, [artifact, messageId]);
+
+  const [activePath, setActivePath] = useState(workspace.files[0]?.path ?? "");
   const [openTabs, setOpenTabs] = useState<string[]>(
-    artifact.files[0]?.path ? [artifact.files[0].path] : [],
+    workspace.files[0]?.path ? [workspace.files[0].path] : [],
   );
   const [copied, setCopied] = useState(false);
   const [showTree, setShowTree] = useState(true);
   const [versions, setVersions] = useState<ArtifactVersion[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [viewVersion, setViewVersion] = useState<number | null>(null);
+  /** Non-null while the user has undone to the previous workspace snapshot. */
+  const [undone, setUndone] = useState<ArtifactFile[] | null>(null);
   const [view, setView] = useState<ViewMode>("code");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [query, setQuery] = useState("");
@@ -195,15 +210,18 @@ export const ArtifactPanel = memo(function ArtifactPanel({
   const searchRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    setVersions(recordArtifactVersion(artifact, messageId));
+    setVersions(recordArtifactVersion(workspace, messageId));
     // Artifacts are immutable once rendered; identity is the derived id.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [artifact.id, messageId]);
+  }, [workspace.id, workspace.files.length, messageId]);
 
   const files = useMemo(() => {
-    if (viewVersion == null) return artifact.files;
-    return versions.find((v) => v.version === viewVersion)?.files ?? artifact.files;
-  }, [artifact.files, versions, viewVersion]);
+    if (undone) return undone;
+    if (viewVersion == null) return workspace.files;
+    return versions.find((v) => v.version === viewVersion)?.files ?? workspace.files;
+  }, [workspace.files, versions, viewVersion, undone]);
+
+  const previousSnapshot = versions.length > 1 ? versions[versions.length - 2] : null;
 
   const tree = useMemo(() => buildTree(files), [files]);
   const active = files.find((f) => f.path === activePath) ?? files[0];
