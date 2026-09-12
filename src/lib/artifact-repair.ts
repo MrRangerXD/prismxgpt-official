@@ -10,7 +10,8 @@
  */
 import type { ArtifactFile, ProjectArtifact } from "./artifacts";
 import { renderTreeText } from "./artifacts";
-import { validateArtifact } from "./artifact-validate";
+import { validateArtifact, type ArtifactValidation } from "./artifact-validate";
+import { buildGraph, repairImportPaths } from "./artifact-graph";
 
 export type RepairResult = {
   artifact: ProjectArtifact;
