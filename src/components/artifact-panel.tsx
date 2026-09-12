@@ -55,7 +55,7 @@ import {
   validateArtifact,
   type ArtifactValidation,
 } from "@/lib/artifact-validate";
-import { repairArtifact } from "@/lib/artifact-repair";
+import { repairUntilStable } from "@/lib/artifact-repair";
 import { collapseContext, diffLines, diffStats } from "@/lib/artifact-diff";
 import { buildPreview, isPreviewable } from "@/lib/artifact-preview";
 import {
