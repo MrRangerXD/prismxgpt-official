@@ -718,11 +718,18 @@ CREATE POLICY "Participants can view shared chat" ON public.shared_chats FOR SEL
 
 DROP POLICY IF EXISTS "Participants can view members"           ON public.shared_chat_members;
 DROP POLICY IF EXISTS "User can join via valid invite"          ON public.shared_chat_members;
+DROP POLICY IF EXISTS "Owner can add self as member"            ON public.shared_chat_members;
+DROP POLICY IF EXISTS "Owner can invite members"                ON public.shared_chat_members;
 DROP POLICY IF EXISTS "Owner removes members; user removes self" ON public.shared_chat_members;
 CREATE POLICY "Participants can view members" ON public.shared_chat_members FOR SELECT TO authenticated
   USING (private.is_shared_chat_participant(chat_id, auth.uid()));
-CREATE POLICY "User can join via valid invite" ON public.shared_chat_members FOR INSERT TO authenticated
-  WITH CHECK (user_id = auth.uid());
+-- Invite-token joins are handled server-side with the service role. Direct
+-- client inserts are limited to the chat owner adding members.
+CREATE POLICY "Owner can invite members" ON public.shared_chat_members FOR INSERT TO authenticated
+  WITH CHECK (EXISTS (
+    SELECT 1 FROM public.shared_chats c
+    WHERE c.id = shared_chat_members.chat_id AND c.owner_id = auth.uid()
+  ));
 CREATE POLICY "Owner removes members; user removes self" ON public.shared_chat_members FOR DELETE TO authenticated
   USING (user_id = auth.uid()
       OR EXISTS (SELECT 1 FROM public.shared_chats WHERE id = chat_id AND owner_id = auth.uid()));
