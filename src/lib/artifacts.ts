@@ -16,6 +16,8 @@
  * message — parsing is pure and derived, so history stays immutable.
  */
 
+import { parseFileOps, type FileOps } from "./artifact-workspace";
+
 export type ArtifactFile = {
   path: string;
   lang: string;
@@ -28,6 +30,12 @@ export type ProjectArtifact = {
   id: string;
   name: string;
   files: ArtifactFile[];
+  /**
+   * Explicit file operations the model declared in prose
+   * (`DELETE: src/old.ts`, `RENAME: a.ts -> b.ts`). Optional: artifacts parsed
+   * before this existed, or messages without directives, simply omit it.
+   */
+  ops?: FileOps;
 };
 
 export type TextSegment = { kind: "text"; text: string };
