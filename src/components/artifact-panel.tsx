@@ -34,7 +34,14 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { buildTree, renderTreeText, type ProjectArtifact, type TreeNode } from "@/lib/artifacts";
+import {
+  buildTree,
+  renderTreeText,
+  type ArtifactFile,
+  type ProjectArtifact,
+  type TreeNode,
+} from "@/lib/artifacts";
+import { looksLikeEdit, mergeArtifact } from "@/lib/artifact-workspace";
 import {
   downloadFile,
   downloadMarkdown,
