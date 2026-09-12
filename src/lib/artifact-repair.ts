@@ -10,7 +10,8 @@
  */
 import type { ArtifactFile, ProjectArtifact } from "./artifacts";
 import { renderTreeText } from "./artifacts";
-import { validateArtifact } from "./artifact-validate";
+import { validateArtifact, type ArtifactValidation } from "./artifact-validate";
+import { buildGraph, repairImportPaths } from "./artifact-graph";
 
 export type RepairResult = {
   artifact: ProjectArtifact;
@@ -284,14 +285,92 @@ export function repairArtifact(artifact: ProjectArtifact): RepairResult {
     }
   }
 
+  // 3. Graph repairs — rewrite relative imports that don't resolve but match
+  //    an emitted file exactly once (wrong casing, wrong/missing extension,
+  //    moved file). Never invents a file for an unresolvable import.
+  const fixed = repairImportPaths(files);
+  let working = fixed.files;
+  applied.push(...fixed.applied.map((a) => `fixed import ${a}`));
+
+  // 4. Declare external packages that are imported but missing from
+  //    package.json. Only touches the dependency map, never other fields.
+  const draft: ProjectArtifact = { ...artifact, files: working };
+  const graph = buildGraph(draft);
+  if (graph.missingPackages.length) {
+    const idx = working.findIndex((f) => /(^|\/)package\.json$/.test(f.path));
+    if (idx >= 0) {
+      try {
+        const pkg = JSON.parse(working[idx].code) as {
+          dependencies?: Record<string, string>;
+        } & Record<string, unknown>;
+        const deps = { ...(pkg.dependencies ?? {}) };
+        for (const name of graph.missingPackages) deps[name] = KNOWN_VERSIONS[name] ?? "*";
+        const nextPkg = { ...pkg, dependencies: Object.fromEntries(Object.entries(deps).sort()) };
+        working = working.map((f, i) =>
+          i === idx ? { ...f, code: `${JSON.stringify(nextPkg, null, 2)}\n` } : f,
+        );
+        applied.push(`declared ${graph.missingPackages.join(", ")} in package.json`);
+      } catch {
+        /* invalid JSON is reported by validation */
+      }
+    }
+  }
+
   const repaired: ProjectArtifact = {
     ...artifact,
-    files: files.sort((a, b) => a.path.localeCompare(b.path)),
+    files: [...working].sort((a, b) => a.path.localeCompare(b.path)),
   };
   const after = validateArtifact(repaired);
   return {
     artifact: repaired,
     applied,
     unresolved: after.issues.map((i) => `${i.path ? `${i.path}: ` : ""}${i.message}`),
+  };
+}
+
+const KNOWN_VERSIONS: Record<string, string> = {
+  react: "^19.0.0",
+  "react-dom": "^19.0.0",
+  next: "^15.0.0",
+  express: "^4.19.2",
+  vite: "^7.0.0",
+  typescript: "^5.6.0",
+  zod: "^3.23.8",
+};
+
+export type StableRepairResult = {
+  artifact: ProjectArtifact;
+  applied: string[];
+  validation: ArtifactValidation;
+  cycles: number;
+  /** Issues left after the last cycle — these need the model. */
+  unresolved: string[];
+};
+
+/**
+ * VALIDATE → REPAIR → VALIDATE, at most 3 cycles. Stops as soon as validation
+ * is clean or a cycle applies no deterministic fix, so it can never loop.
+ */
+export function repairUntilStable(artifact: ProjectArtifact, maxCycles = 3): StableRepairResult {
+  let current = artifact;
+  let validation = validateArtifact(current);
+  const applied: string[] = [];
+  let cycles = 0;
+
+  while (cycles < maxCycles && validation.issues.length > 0) {
+    const pass = repairArtifact(current);
+    cycles++;
+    if (pass.applied.length === 0) break;
+    applied.push(...pass.applied);
+    current = pass.artifact;
+    validation = validateArtifact(current);
+  }
+
+  return {
+    artifact: current,
+    applied,
+    validation,
+    cycles,
+    unresolved: validation.issues.map((i) => `${i.path ? `${i.path}: ` : ""}${i.message}`),
   };
 }

@@ -34,7 +34,14 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { buildTree, renderTreeText, type ProjectArtifact, type TreeNode } from "@/lib/artifacts";
+import {
+  buildTree,
+  renderTreeText,
+  type ArtifactFile,
+  type ProjectArtifact,
+  type TreeNode,
+} from "@/lib/artifacts";
+import { looksLikeEdit, mergeArtifact } from "@/lib/artifact-workspace";
 import {
   downloadFile,
   downloadMarkdown,
@@ -48,10 +55,14 @@ import {
   validateArtifact,
   type ArtifactValidation,
 } from "@/lib/artifact-validate";
-import { repairArtifact } from "@/lib/artifact-repair";
+import { repairUntilStable } from "@/lib/artifact-repair";
 import { collapseContext, diffLines, diffStats } from "@/lib/artifact-diff";
 import { buildPreview, isPreviewable } from "@/lib/artifact-preview";
-import { recordArtifactVersion, type ArtifactVersion } from "@/lib/artifact-history";
+import {
+  getArtifactVersions,
+  recordArtifactVersion,
+  type ArtifactVersion,
+} from "@/lib/artifact-history";
 
 /** Fires a composer prefill request handled by the chat route. */
 function compose(text: string, send = false) {
@@ -178,15 +189,30 @@ export const ArtifactPanel = memo(function ArtifactPanel({
   artifact: ProjectArtifact;
   messageId: string;
 }) {
-  const [activePath, setActivePath] = useState(artifact.files[0]?.path ?? "");
+  // Workspace continuity: a follow-up answer usually re-emits only the files
+  // it changed. Fold it onto the previous snapshot of the same project so the
+  // panel (tree, preview, validation, ZIP) always shows the COMPLETE project.
+  const workspace: ProjectArtifact = useMemo(() => {
+    const prior = [...getArtifactVersions(artifact.name)]
+      .reverse()
+      .find((v) => v.messageId !== messageId);
+    const base = prior?.files ?? [];
+    if (!base.length) return artifact;
+    if (!artifact.ops && !looksLikeEdit(base, artifact.files)) return artifact;
+    return mergeArtifact(artifact, base);
+  }, [artifact, messageId]);
+
+  const [activePath, setActivePath] = useState(workspace.files[0]?.path ?? "");
   const [openTabs, setOpenTabs] = useState<string[]>(
-    artifact.files[0]?.path ? [artifact.files[0].path] : [],
+    workspace.files[0]?.path ? [workspace.files[0].path] : [],
   );
   const [copied, setCopied] = useState(false);
   const [showTree, setShowTree] = useState(true);
   const [versions, setVersions] = useState<ArtifactVersion[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [viewVersion, setViewVersion] = useState<number | null>(null);
+  /** Non-null while the user has undone to the previous workspace snapshot. */
+  const [undone, setUndone] = useState<ArtifactFile[] | null>(null);
   const [view, setView] = useState<ViewMode>("code");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [query, setQuery] = useState("");
@@ -195,15 +221,18 @@ export const ArtifactPanel = memo(function ArtifactPanel({
   const searchRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    setVersions(recordArtifactVersion(artifact, messageId));
+    setVersions(recordArtifactVersion(workspace, messageId));
     // Artifacts are immutable once rendered; identity is the derived id.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [artifact.id, messageId]);
+  }, [workspace.id, workspace.files.length, messageId]);
 
   const files = useMemo(() => {
-    if (viewVersion == null) return artifact.files;
-    return versions.find((v) => v.version === viewVersion)?.files ?? artifact.files;
-  }, [artifact.files, versions, viewVersion]);
+    if (undone) return undone;
+    if (viewVersion == null) return workspace.files;
+    return versions.find((v) => v.version === viewVersion)?.files ?? workspace.files;
+  }, [workspace.files, versions, viewVersion, undone]);
+
+  const previousSnapshot = versions.length > 1 ? versions[versions.length - 2] : null;
 
   const tree = useMemo(() => buildTree(files), [files]);
   const active = files.find((f) => f.path === activePath) ?? files[0];
@@ -273,12 +302,10 @@ export const ArtifactPanel = memo(function ArtifactPanel({
     [view, snapshot, active?.path],
   );
 
-  // ZIP export: deterministic auto-repair first (README, package.json,
-  // .env.example, .gitignore, files referenced but never emitted), then
-  // validation reporting for anything only the model can fix.
+  // ZIP export pipeline: merged workspace → validate → repair → validate again
+  // → export. The raw (possibly partial) AI response is never exported.
   const onZip = () => {
-    const { artifact: repaired, applied } = repairArtifact(snapshot);
-    const after = validateArtifact(repaired);
+    const { artifact: repaired, applied, validation: after } = repairUntilStable(snapshot);
     downloadZip(repaired);
     if (after.errors.length > 0) {
       setIssuesOpen(true);
@@ -301,7 +328,7 @@ export const ArtifactPanel = memo(function ArtifactPanel({
   };
 
   const onRepair = () => {
-    const { applied, unresolved } = repairArtifact(snapshot);
+    const { applied, unresolved } = repairUntilStable(snapshot);
     if (!applied.length && !unresolved.length) {
       toast.success("Nothing to repair — the project is complete");
       return;
@@ -316,6 +343,21 @@ export const ArtifactPanel = memo(function ArtifactPanel({
     );
     if (unresolved.length) setIssuesOpen(true);
   };
+
+  const onUndo = () => {
+    if (undone) {
+      setUndone(null);
+      setViewVersion(null);
+      toast.success("Restored the latest workspace");
+      return;
+    }
+    if (!previousSnapshot) return;
+    setUndone(previousSnapshot.files);
+    setViewVersion(null);
+    setView((v) => (v === "diff" ? "code" : v));
+    toast.success(`Undone — workspace restored to v${previousSnapshot.version}`);
+  };
+
 
   const crumbs = (active?.path ?? "").split("/");
 
@@ -391,6 +433,22 @@ export const ArtifactPanel = memo(function ArtifactPanel({
             onClick={() => downloadSingleFile(snapshot)}
           >
             Single file
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1.5 text-[11px]"
+            disabled={!undone && !previousSnapshot}
+            onClick={onUndo}
+            title={
+              undone
+                ? "Return to the latest workspace snapshot"
+                : previousSnapshot
+                  ? `Restore the workspace as it was at v${previousSnapshot.version}`
+                  : "No earlier snapshot to undo to"
+            }
+          >
+            <Undo2 className="h-3.5 w-3.5" /> {undone ? "Redo" : "Undo"}
           </Button>
           {versions.length > 1 && (
             <Button

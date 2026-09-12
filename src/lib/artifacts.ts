@@ -16,6 +16,8 @@
  * message — parsing is pure and derived, so history stays immutable.
  */
 
+import { parseFileOps, type FileOps } from "./artifact-workspace";
+
 export type ArtifactFile = {
   path: string;
   lang: string;
@@ -28,6 +30,12 @@ export type ProjectArtifact = {
   id: string;
   name: string;
   files: ArtifactFile[];
+  /**
+   * Explicit file operations the model declared in prose
+   * (`DELETE: src/old.ts`, `RENAME: a.ts -> b.ts`). Optional: artifacts parsed
+   * before this existed, or messages without directives, simply omit it.
+   */
+  ops?: FileOps;
 };
 
 export type TextSegment = { kind: "text"; text: string };
@@ -197,6 +205,10 @@ export function parseMessageSegments(text: string): MessageSegment[] {
   if (current.length) groups.push(current);
 
   const segments: MessageSegment[] = [];
+  // DELETE / RENAME directives are declared in prose, so they are parsed once
+  // per message and carried on every artifact it produced.
+  const ops = parseFileOps(text);
+  const hasOps = ops.deletes.length > 0 || ops.renames.length > 0;
   let pos = 0;
   for (const group of groups) {
     const gStart = group[0].start;
@@ -217,6 +229,7 @@ export function parseMessageSegments(text: string): MessageSegment[] {
       id: `${slug(name)}-${files.length}-${files.map((f) => f.path).join("|").length}`,
       name,
       files,
+      ...(hasOps ? { ops } : {}),
     });
     pos = gEnd;
   }
