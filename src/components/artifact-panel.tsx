@@ -434,6 +434,22 @@ export const ArtifactPanel = memo(function ArtifactPanel({
           >
             Single file
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1.5 text-[11px]"
+            disabled={!undone && !previousSnapshot}
+            onClick={onUndo}
+            title={
+              undone
+                ? "Return to the latest workspace snapshot"
+                : previousSnapshot
+                  ? `Restore the workspace as it was at v${previousSnapshot.version}`
+                  : "No earlier snapshot to undo to"
+            }
+          >
+            <Undo2 className="h-3.5 w-3.5" /> {undone ? "Redo" : "Undo"}
+          </Button>
           {versions.length > 1 && (
             <Button
               size="sm"
