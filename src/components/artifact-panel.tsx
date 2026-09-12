@@ -58,7 +58,11 @@ import {
 import { repairArtifact } from "@/lib/artifact-repair";
 import { collapseContext, diffLines, diffStats } from "@/lib/artifact-diff";
 import { buildPreview, isPreviewable } from "@/lib/artifact-preview";
-import { recordArtifactVersion, type ArtifactVersion } from "@/lib/artifact-history";
+import {
+  getArtifactVersions,
+  recordArtifactVersion,
+  type ArtifactVersion,
+} from "@/lib/artifact-history";
 
 /** Fires a composer prefill request handled by the chat route. */
 function compose(text: string, send = false) {
