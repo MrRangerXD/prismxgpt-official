@@ -302,12 +302,10 @@ export const ArtifactPanel = memo(function ArtifactPanel({
     [view, snapshot, active?.path],
   );
 
-  // ZIP export: deterministic auto-repair first (README, package.json,
-  // .env.example, .gitignore, files referenced but never emitted), then
-  // validation reporting for anything only the model can fix.
+  // ZIP export pipeline: merged workspace → validate → repair → validate again
+  // → export. The raw (possibly partial) AI response is never exported.
   const onZip = () => {
-    const { artifact: repaired, applied } = repairArtifact(snapshot);
-    const after = validateArtifact(repaired);
+    const { artifact: repaired, applied, validation: after } = repairUntilStable(snapshot);
     downloadZip(repaired);
     if (after.errors.length > 0) {
       setIssuesOpen(true);
@@ -330,7 +328,7 @@ export const ArtifactPanel = memo(function ArtifactPanel({
   };
 
   const onRepair = () => {
-    const { applied, unresolved } = repairArtifact(snapshot);
+    const { applied, unresolved } = repairUntilStable(snapshot);
     if (!applied.length && !unresolved.length) {
       toast.success("Nothing to repair — the project is complete");
       return;
@@ -345,6 +343,21 @@ export const ArtifactPanel = memo(function ArtifactPanel({
     );
     if (unresolved.length) setIssuesOpen(true);
   };
+
+  const onUndo = () => {
+    if (undone) {
+      setUndone(null);
+      setViewVersion(null);
+      toast.success("Restored the latest workspace");
+      return;
+    }
+    if (!previousSnapshot) return;
+    setUndone(previousSnapshot.files);
+    setViewVersion(null);
+    setView((v) => (v === "diff" ? "code" : v));
+    toast.success(`Undone — workspace restored to v${previousSnapshot.version}`);
+  };
+
 
   const crumbs = (active?.path ?? "").split("/");
 
