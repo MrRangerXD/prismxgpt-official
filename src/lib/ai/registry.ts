@@ -5,14 +5,16 @@
  * model ids; the provider layer maps each one to an ordered list of upstream
  * candidates (provider + upstream model id) and fails over between them at
  * request time. Keys are read from the environment on the server only.
+ *
+ * Uncensored providers lead every chain. Groq / OpenRouter / Lovable sit behind
+ * them purely as availability fallbacks, so a missing Venice key degrades
+ * quality instead of breaking the app.
  */
 
-export type ProviderName = "groq" | "openrouter" | "lovable";
+export type ProviderName = "venice" | "groq" | "openrouter" | "lovable";
 
-/** One concrete upstream target for a canonical model. */
 export type ModelCandidate = {
   provider: ProviderName;
-  /** Exact model id sent to that provider. */
   model: string;
 };
 
@@ -24,13 +26,10 @@ export type ModelCapabilities = {
 };
 
 export type ModelEntry = {
-  id: string; // canonical id (what the app uses)
+  id: string;
   displayName: string;
-  /** Primary provider (the first candidate) — informational. */
   provider: ProviderName;
-  /** Ordered failover chain. First available + healthy wins. */
   candidates: ModelCandidate[];
-  /** Kept for logging/back-compat: the primary upstream model id. */
   upstreamId: string;
   contextLength: number;
   capabilities: ModelCapabilities;
@@ -54,39 +53,48 @@ function entry(
 }
 
 /**
- * Free-tier chains.
- * - Groq free tier serves the OpenAI `gpt-oss` open models reliably and fast.
- * - OpenRouter `:free` models are the secondary chain (rate limited per model,
- *   so several are listed).
- * - The Lovable gateway is kept last: it only serves when the workspace has
- *   credits, and never blocks a request when it does not.
+ * Uncensored chains. Venice first (no prompt filtering, no "I can't"),
+ * Dolphin-Venice on OpenRouter as the free fallback, then the boring models.
+ * NOTE: upstream ids drift — verify once with
+ *   curl https://api.venice.ai/api/v1/models -H "Authorization: Bearer $VENICE_API_KEY"
  */
-const TEXT_CHAIN_FAST: ModelCandidate[] = [
+const CHAIN_UNCENSORED: ModelCandidate[] = [
+  { provider: "venice", model: "venice-uncensored" },
+  {
+    provider: "openrouter",
+    model: "cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
+  },
+  { provider: "groq", model: "openai/gpt-oss-120b" },
+  { provider: "lovable", model: "google/gemini-3-flash-preview" },
+];
+
+/** Code-quality chain: strong reasoning first, still uncensored at the top. */
+const CHAIN_BALANCED: ModelCandidate[] = [
+  { provider: "venice", model: "deepseek-v4" },
+  { provider: "venice", model: "venice-uncensored" },
+  { provider: "groq", model: "openai/gpt-oss-120b" },
+  { provider: "openrouter", model: "z-ai/glm-5.2:free" },
+  { provider: "lovable", model: "google/gemini-3-flash-preview" },
+];
+
+const CHAIN_FAST: ModelCandidate[] = [
+  { provider: "venice", model: "venice-uncensored" },
   { provider: "groq", model: "openai/gpt-oss-20b" },
-  { provider: "groq", model: "openai/gpt-oss-120b" },
   { provider: "openrouter", model: "openai/gpt-oss-20b:free" },
-  { provider: "openrouter", model: "z-ai/glm-5.2:free" },
   { provider: "lovable", model: "google/gemini-3-flash-preview" },
 ];
 
-const TEXT_CHAIN_BALANCED: ModelCandidate[] = [
-  { provider: "groq", model: "openai/gpt-oss-120b" },
-  { provider: "groq", model: "qwen/qwen3.6-27b" },
-  { provider: "openrouter", model: "z-ai/glm-5.2:free" },
-  { provider: "openrouter", model: "nvidia/nemotron-3-super-120b-a12b:free" },
-  { provider: "lovable", model: "google/gemini-3-flash-preview" },
-];
-
-const TEXT_CHAIN_PRO: ModelCandidate[] = [
+const CHAIN_PRO: ModelCandidate[] = [
+  { provider: "venice", model: "deepseek-v4" },
+  { provider: "venice", model: "qwen3-235b-a22b-instruct-2507" },
   { provider: "groq", model: "openai/gpt-oss-120b" },
   { provider: "openrouter", model: "nvidia/nemotron-3-ultra-550b-a55b:free" },
-  { provider: "openrouter", model: "nvidia/nemotron-3-super-120b-a12b:free" },
-  { provider: "openrouter", model: "z-ai/glm-5.2:free" },
   { provider: "lovable", model: "google/gemini-2.5-pro" },
 ];
 
-/** Vision-capable free chain (used when the turn contains an image part). */
+/** Vision chain — Venice vision first so image turns don't hit Gemini refusals. */
 export const VISION_CHAIN: ModelCandidate[] = [
+  { provider: "venice", model: "qwen3-vl-235b-a22b" },
   { provider: "openrouter", model: "nvidia/nemotron-nano-12b-v2-vl:free" },
   { provider: "openrouter", model: "google/gemma-4-31b-it:free" },
   { provider: "lovable", model: "google/gemini-3-flash-preview" },
@@ -94,9 +102,18 @@ export const VISION_CHAIN: ModelCandidate[] = [
 
 export const MODEL_REGISTRY: ModelEntry[] = [
   entry({
+    id: "prismx/uncensored",
+    displayName: "PrismX Uncensored",
+    candidates: CHAIN_UNCENSORED,
+    contextLength: 131_072,
+    capabilities: cap({ vision: true }),
+    free: true,
+    availability: "available",
+  }),
+  entry({
     id: "prismx/flash",
     displayName: "PrismX Flash",
-    candidates: TEXT_CHAIN_BALANCED,
+    candidates: CHAIN_BALANCED,
     contextLength: 131_072,
     capabilities: cap({ vision: true }),
     free: true,
@@ -105,7 +122,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   entry({
     id: "prismx/flash-lite",
     displayName: "PrismX Flash Lite",
-    candidates: TEXT_CHAIN_FAST,
+    candidates: CHAIN_FAST,
     contextLength: 131_072,
     capabilities: cap({ vision: true }),
     free: true,
@@ -114,7 +131,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   entry({
     id: "prismx/pro",
     displayName: "PrismX Pro",
-    candidates: TEXT_CHAIN_PRO,
+    candidates: CHAIN_PRO,
     contextLength: 131_072,
     capabilities: cap({ vision: true, reasoning: true }),
     free: true,
@@ -125,9 +142,9 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   entry({
     id: "prismx/image",
     displayName: "PrismX Image",
-    // No free-tier image provider exists on the configured keys; the Lovable
-    // gateway is the only legitimately configured image backend.
+    // Venice SD is uncensored; Gemini image is the SFW-but-reliable fallback.
     candidates: [
+      { provider: "venice", model: "venice-sd35" },
       { provider: "lovable", model: "google/gemini-3.1-flash-image" },
       { provider: "openrouter", model: "google/gemini-2.5-flash-image" },
     ],
@@ -138,7 +155,8 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   }),
 ];
 
-export const DEFAULT_CHAT_MODEL_ID = "prismx/flash";
+/** Uncensored is the default now — that's the point of the app. */
+export const DEFAULT_CHAT_MODEL_ID = "prismx/uncensored";
 export const DEFAULT_IMAGE_MODEL_ID = "prismx/image";
 
 export function getModel(id?: string | null): ModelEntry | undefined {
