@@ -69,37 +69,32 @@ const CHAIN_UNCENSORED: ModelCandidate[] = [
 ];
 
 /** Code-quality chain: strong reasoning first, still uncensored at the top. */
-const CHAIN_BALANCED: ModelCandidate[] = [
-  { provider: "venice", model: "deepseek-v4" },
+const TEXT_CHAIN_BALANCED: ModelCandidate[] = [
   { provider: "venice", model: "venice-uncensored" },
   { provider: "groq", model: "openai/gpt-oss-120b" },
   { provider: "openrouter", model: "z-ai/glm-5.2:free" },
   { provider: "lovable", model: "google/gemini-3-flash-preview" },
 ];
 
-const CHAIN_FAST: ModelCandidate[] = [
+const TEXT_CHAIN_PRO: ModelCandidate[] = [
+  { provider: "venice", model: "venice-uncensored" },
+  { provider: "groq", model: "openai/gpt-oss-120b" },
+  { provider: "openrouter", model: "nvidia/nemotron-3-ultra-550b-a55b:free" },
+  { provider: "lovable", model: "google/gemini-2.5-pro" },
+];
+
+const TEXT_CHAIN_FAST: ModelCandidate[] = [
   { provider: "venice", model: "venice-uncensored" },
   { provider: "groq", model: "openai/gpt-oss-20b" },
   { provider: "openrouter", model: "openai/gpt-oss-20b:free" },
   { provider: "lovable", model: "google/gemini-3-flash-preview" },
 ];
 
-const CHAIN_PRO: ModelCandidate[] = [
-  { provider: "venice", model: "deepseek-v4" },
-  { provider: "venice", model: "qwen3-235b-a22b-instruct-2507" },
-  { provider: "groq", model: "openai/gpt-oss-120b" },
-  { provider: "openrouter", model: "nvidia/nemotron-3-ultra-550b-a55b:free" },
-  { provider: "lovable", model: "google/gemini-2.5-pro" },
-];
-
-/** Vision chain — Venice vision first so image turns don't hit Gemini refusals. */
 export const VISION_CHAIN: ModelCandidate[] = [
-  { provider: "venice", model: "qwen3-vl-235b-a22b" },
+  { provider: "venice", model: "venice-uncensored" },
   { provider: "openrouter", model: "nvidia/nemotron-nano-12b-v2-vl:free" },
-  { provider: "openrouter", model: "google/gemma-4-31b-it:free" },
   { provider: "lovable", model: "google/gemini-3-flash-preview" },
 ];
-
 export const MODEL_REGISTRY: ModelEntry[] = [
   entry({
     id: "prismx/uncensored",
