@@ -26,6 +26,9 @@ export const Route = createFileRoute("/api/payments/create")({
         if (cfg.chain !== "upi" && !cfg.address) {
           return new Response("That asset isn't configured yet.", { status: 503 });
         }
+        if (cfg.chain === "upi" && !process.env.UPI_VPA) {
+          return new Response("UPI isn't configured yet.", { status: 503 });
+        }
 
         const open = await supabaseAdmin
           .from("payment_orders")
