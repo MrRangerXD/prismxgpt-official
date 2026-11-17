@@ -31,14 +31,14 @@ type ProviderConfig = {
 };
 
 const PROVIDERS: Record<ProviderName, ProviderConfig> = {
-  groq: {
-    baseUrl: "https://api.groq.com/openai/v1",
-    envVar: "GROQ_API_KEY",
-    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
-  },
   venice: {
     baseUrl: "https://api.venice.ai/api/v1",
     envVar: "VENICE_API_KEY",
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
+  groq: {
+    baseUrl: "https://api.groq.com/openai/v1",
+    envVar: "GROQ_API_KEY",
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
   },
   openrouter: {
@@ -136,7 +136,18 @@ function failoverFetch(candidates: ModelCandidate[]): typeof fetch {
       for (const [k, v] of Object.entries(cfg.authHeader(key))) headers.set(k, v);
       headers.set("content-type", "application/json");
 
-      const body = parsed ? JSON.stringify({ ...parsed, model: candidate.model }) : rawBody;
+      let body: string | undefined;
+      if (parsed) {
+        const next: Record<string, unknown> = { ...parsed, model: candidate.model };
+        // Venice ships its own assistant preamble by default, which is what
+        // adds "As an AI…" back in. Our own system prompt is enough.
+        if (candidate.provider === "venice") {
+          next.venice_parameters = { include_venice_system_prompt: false };
+        }
+        body = JSON.stringify(next);
+      } else {
+        body = rawBody;
+      }
 
       try {
         const res = await fetch(`${cfg.baseUrl}${suffix}`, {
@@ -223,47 +234,53 @@ async function callImageCandidate(
     ...cfg.authHeader(key),
   };
 
+  // Venice: /image/generate (base64 array out).
   // Lovable gateway: dedicated images endpoint.
   // OpenRouter: image output rides on /chat/completions with `modalities`.
   const url =
-    candidate.provider === "lovable"
-      ? `${cfg.baseUrl}/images/generations`
-      : candidate.provider === "venice"
-        ? `${cfg.baseUrl}/image/generate`
+    candidate.provider === "venice"
+      ? `${cfg.baseUrl}/image/generate`
+      : candidate.provider === "lovable"
+        ? `${cfg.baseUrl}/images/generations`
         : `${cfg.baseUrl}/chat/completions`;
 
-  const payload: Record<string, unknown> =
-    candidate.provider === "lovable"
-      ? {
-          model: candidate.model,
-          prompt,
-          ...(inputImageUrl ? { image: [inputImageUrl] } : {}),
-        }
-      : candidate.provider === "venice"
-        ? {
-            model: candidate.model,
-            prompt,
-            width: 1024,
-            height: 1024,
-            steps: 30,
-            hide_watermark: true,
-            safe_mode: false, // <- asli uncensored switch
-          } 
+  let payload: Record<string, unknown>;
+  if (candidate.provider === "venice") {
+    payload = {
+      model: candidate.model,
+      prompt,
+      width: 1024,
+      height: 1024,
+      steps: 30,
+      hide_watermark: true,
+      safe_mode: false, // <- asli uncensored switch
+      ...(inputImageUrl
+        ? { image: inputImageUrl.replace(/^data:[^;]+;base64,/, "") }
+        : {}),
+    };
+  } else if (candidate.provider === "lovable") {
+    payload = {
+      model: candidate.model,
+      prompt,
+      ...(inputImageUrl ? { image: [inputImageUrl] } : {}),
+    };
+  } else {
+    payload = {
+      model: candidate.model,
+      modalities: ["image", "text"],
+      messages: [
         {
-          model: candidate.model,
-          modalities: ["image", "text"],
-          messages: [
-            {
-              role: "user",
-              content: inputImageUrl
-                ? [
-                    { type: "text", text: prompt },
-                    { type: "image_url", image_url: { url: inputImageUrl } },
-                  ]
-                : prompt,
-            },
-          ],
-        };
+          role: "user",
+          content: inputImageUrl
+            ? [
+                { type: "text", text: prompt },
+                { type: "image_url", image_url: { url: inputImageUrl } },
+              ]
+            : prompt,
+        },
+      ],
+    };
+  }
 
   try {
     const res = await fetch(url, {
@@ -293,22 +310,26 @@ function extractImage(json: unknown): { dataUrl: string; mimeType: string } | un
   const first = j?.data?.[0];
   const mimeType = first?.mime_type ?? "image/png";
   let dataUrl: string | undefined;
+
   if (first?.b64_json) {
     dataUrl = first.b64_json.startsWith("data:")
       ? first.b64_json
       : `data:${mimeType};base64,${first.b64_json}`;
   } else if (first?.url?.startsWith("data:")) {
     dataUrl = first.url;
+  } else if (typeof j?.images?.[0] === "string") {
+    // Venice returns a bare base64 array.
+    dataUrl = j.images[0].startsWith("data:")
+      ? j.images[0]
+      : `data:image/png;base64,${j.images[0]}`;
   } else {
     // OpenRouter chat-completions image output.
     const url = j?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
     if (url?.startsWith("data:")) dataUrl = url;
   }
+
   if (!dataUrl) return undefined;
   const mimeMatch = /^data:([^;]+);base64,/.exec(dataUrl);
-  if (!dataUrl && typeof j?.images?.[0] === "string") {
-    dataUrl = `data:image/png;base64,${j.images[0]}`;
-  }
   return { dataUrl, mimeType: mimeMatch?.[1] ?? mimeType };
 }
 
