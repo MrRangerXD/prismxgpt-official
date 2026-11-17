@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requireApiAuth } from "@/lib/api-auth.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { ASSETS } from "@/lib/payments/assets";
 import { creditPlan } from "@/lib/payments/credit.server";
@@ -10,8 +11,10 @@ export const Route = createFileRoute("/api/payments/verify")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        if (request.headers.get("x-cron-secret") !== process.env.CRON_SECRET) {
-          return new Response("Forbidden.", { status: 403 });
+        const viaCron = request.headers.get("x-cron-secret") === process.env.CRON_SECRET;
+        if (!viaCron) {
+          const auth = await requireApiAuth(request);
+          if (!auth.ok) return new Response("Forbidden.", { status: 403 });
         }
 
         const { data: orders } = await supabaseAdmin
@@ -55,7 +58,6 @@ export const Route = createFileRoute("/api/payments/verify")({
             continue;
           }
 
-          // Claim first, credit second. Unique index on tx_hash blocks replays.
           const { data: claimed } = await supabaseAdmin
             .from("payment_orders")
             .update({
