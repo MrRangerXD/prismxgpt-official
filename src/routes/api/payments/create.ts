@@ -7,6 +7,8 @@ import { expectedAtomic, qrPayload } from "@/lib/payments/pricing.server";
 const MAX_OPEN = 3;
 const MAX_PER_HOUR = 20;
 
+type Method = { type?: string; value?: string; label?: string };
+
 export const Route = createFileRoute("/api/payments/create")({
   server: {
     handlers: {
@@ -23,12 +25,6 @@ export const Route = createFileRoute("/api/payments/create")({
 
         const cfg = body.asset ? ASSETS[body.asset] : undefined;
         if (!cfg || !body.planId) return new Response("Unknown asset or plan.", { status: 400 });
-        if (cfg.chain !== "upi" && !cfg.address) {
-          return new Response("That asset isn't configured yet.", { status: 503 });
-        }
-        if (cfg.chain === "upi" && !process.env.UPI_VPA) {
-          return new Response("UPI isn't configured yet.", { status: 503 });
-        }
 
         const open = await supabaseAdmin
           .from("payment_orders")
@@ -51,6 +47,41 @@ export const Route = createFileRoute("/api/payments/create")({
           return new Response("Too many orders this hour.", { status: 429 });
         }
 
+        // Admin-authored payment methods win over env. A crypto method only
+        // applies when its label or value names the asset's symbol, so an LTC
+        // address is never handed out for a SOL order.
+        const { data: planRow } = await supabaseAdmin
+          .from("plan_settings")
+          .select("payment_methods")
+          .eq("id", body.planId)
+          .maybeSingle();
+        const methods = Array.isArray(planRow?.payment_methods)
+          ? (planRow.payment_methods as Method[])
+          : [];
+        const qrImage = methods.find((m) => m.type === "qr" && m.value)?.value ?? null;
+
+        let payTo: string | null = null;
+        if (cfg.chain === "upi") {
+          payTo =
+            methods.find((m) => m.type === "upi" && m.value)?.value ??
+            process.env.UPI_VPA ??
+            null;
+        } else {
+          const sym = cfg.symbol.toLowerCase();
+          payTo =
+            methods.find(
+              (m) =>
+                m.type === "crypto" &&
+                m.value &&
+                `${m.label ?? ""} ${m.value}`.toLowerCase().includes(sym),
+            )?.value ??
+            cfg.address ??
+            null;
+        }
+        if (!payTo) {
+          return new Response(`${cfg.label} isn't configured for this plan.`, { status: 503 });
+        }
+
         let atomic: string;
         try {
           atomic = await expectedAtomic(body.planId, cfg);
@@ -66,7 +97,7 @@ export const Route = createFileRoute("/api/payments/create")({
             plan_id: body.planId,
             asset: body.asset,
             expected_atomic: atomic,
-            address: cfg.address ?? null,
+            address: payTo,
           })
           .select("id, expires_at")
           .single();
@@ -79,7 +110,7 @@ export const Route = createFileRoute("/api/payments/create")({
         return Response.json({
           orderId: data.id,
           asset: body.asset,
-          address: cfg.address ?? null,
+          address: payTo,
           contract: cfg.contract ?? null,
           expectedAtomic: atomic,
           decimals: cfg.decimals,
@@ -87,7 +118,8 @@ export const Route = createFileRoute("/api/payments/create")({
           network: cfg.network,
           confirmations: cfg.confirmations,
           expiresAt: data.expires_at,
-          qrPayload: qrPayload(data.id, cfg, atomic),
+          qrImage,
+          qrPayload: qrPayload(data.id, { ...cfg, address: payTo }, atomic),
         });
       },
     },
