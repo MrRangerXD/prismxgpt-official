@@ -1,32 +1,73 @@
-import * as esbuild from 'esbuild-wasm';
-import { buildGraph, findUnresolved, findWrongCasing, findMissingPackages } from './artifact-graph';
-import type { ProjectArtifact } from './artifact-workspace';
+import type { ArtifactFile, ProjectArtifact } from "./artifacts";
+import { buildGraph } from "./artifact-graph";
 
-export type Diagnostic = { path: string; code: string; message: string };
+export type Diagnostic = {
+  path: string;
+  code: "SYNTAX" | "TRUNCATED" | "UNRESOLVED" | "MISSING_DEP" | "MISSING_ASSET" | "PLACEHOLDER";
+  message: string;
+};
 
-export async function validate(artifact: ProjectArtifact): Promise<Diagnostic[]> {
+const JS_LIKE = /\.(ts|tsx|js|jsx|mjs|cjs)$/;
+const STRINGS = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`)/g;
+const PAIRS: [string, string][] = [["{", "}"], ["(", ")"], ["[", "]"]];
+const PLACEHOLDER = /(\/\/\s*(TODO|FIXME|\.\.\.|rest unchanged)|\{\s*\/\* *\.\.\. *\*\/\s*\}|\.\.\. *rest of)/i;
+
+function balance(file: ArtifactFile): Diagnostic[] {
   const out: Diagnostic[] = [];
+  const bare = file.code.replace(STRINGS, "");
 
-  // 1. Syntax — har ts/tsx/js/jsx file transform karke
-  for (const [path, file] of Object.entries(artifact.files)) {
-    if (!/\.(ts|tsx|js|jsx)$/.test(path)) continue;
-    try {
-      await esbuild.transform(file.content, { loader: path.endsWith('x') ? 'tsx' : 'ts', jsx: 'automatic' });
-    } catch (e: any) {
-      out.push({ path, code: 'SYNTAX', message: String(e?.errors?.[0]?.text ?? e) });
+  for (const [open, close] of PAIRS) {
+    const a = bare.split(open).length - 1;
+    const b = bare.split(close).length - 1;
+    if (a !== b) {
+      out.push({
+        path: file.path,
+        code: "SYNTAX",
+        message: `unbalanced "${open}${close}" (${a} open / ${b} close) — file is probably cut off`,
+      });
     }
   }
 
-  // 2. Graph — unresolved, casing, missing deps (V4 ke functions reuse)
-  const graph = buildGraph(artifact.files);
-  out.push(...findUnresolved(graph).map((p) => ({ path: p, code: 'UNRESOLVED', message: 'import target missing' })));
-  out.push(...findWrongCasing(graph).map((p) => ({ path: p, code: 'CASING', message: 'import casing mismatch' })));
-  out.push(...findMissingPackages(graph).map((p) => ({ path: p, code: 'MISSING_DEP', message: 'package not declared' })));
-
+  const lastLine = file.code.trimEnd().split("\n").pop() ?? "";
+  if (file.code.trim().length > 0 && /[,.(=:+\-|&]$/.test(lastLine.trim())) {
+    out.push({ path: file.path, code: "TRUNCATED", message: "file ends mid-expression" });
+  }
+  if (PLACEHOLDER.test(file.code)) {
+    out.push({ path: file.path, code: "PLACEHOLDER", message: "contains a TODO / elided section" });
+  }
   return out;
 }
 
-// Repair loop ke liye progress metric — same score = no progress = stop.
-export function scoreOf(d: Diagnostic[]) {
-  return d.length * 10 + d.filter((x) => x.code === 'SYNTAX').length * 50;
+export function validate(artifact: ProjectArtifact): Diagnostic[] {
+  const out: Diagnostic[] = [];
+
+  for (const file of artifact.files) {
+    if (!JS_LIKE.test(file.path)) continue;
+    out.push(...balance(file));
+  }
+
+  // buildGraph takes the whole artifact, not the file array.
+  const graph = buildGraph(artifact);
+  for (const u of graph.unresolved) {
+    out.push({
+      path: u.from,
+      code: "UNRESOLVED",
+      message: `"${u.spec}" resolves to nothing${u.suggestion ? ` — did you mean "${u.suggestion}"?` : ""}`,
+    });
+  }
+  for (const p of graph.missingPackages) {
+    out.push({ path: "package.json", code: "MISSING_DEP", message: `"${p}" is imported but not declared` });
+  }
+  for (const a of graph.missingAssets) {
+    out.push({ path: a.from, code: "MISSING_ASSET", message: `references missing "${a.ref}"` });
+  }
+  return out;
+}
+
+/** Same score twice = no progress = stop the loop. */
+export function scoreOf(d: Diagnostic[]): number {
+  const weight: Record<Diagnostic["code"], number> = {
+    SYNTAX: 60, TRUNCATED: 50, UNRESOLVED: 20, MISSING_DEP: 15, MISSING_ASSET: 10, PLACEHOLDER: 5,
+  };
+  return d.reduce((n, x) => n + weight[x.code], 0);
 }
