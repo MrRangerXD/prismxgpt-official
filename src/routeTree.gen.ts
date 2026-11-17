@@ -9,62 +9,32 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TermsRouteImport } from './routes/terms'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as SignupRouteImport } from './routes/signup'
-import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as HelpRouteImport } from './routes/help'
-import { Route as ChatRouteImport } from './routes/chat'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ShareIdRouteImport } from './routes/share.$id'
-import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
-import { Route as FeaturesImageGenerationRouteImport } from './routes/features.image-generation'
-import { Route as FeaturesImageEditingRouteImport } from './routes/features.image-editing'
-import { Route as FeaturesAiChatRouteImport } from './routes/features.ai-chat'
-import { Route as CompareMidjourneyAlternativeRouteImport } from './routes/compare.midjourney-alternative'
-import { Route as CompareClaudeAlternativeRouteImport } from './routes/compare.claude-alternative'
-import { Route as CompareChatgptAlternativeRouteImport } from './routes/compare.chatgpt-alternative'
-import { Route as ChatChatIdRouteImport } from './routes/chat_.$chatId'
-import { Route as ApiImageRouteImport } from './routes/api/image'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as ChatRouteImport } from './routes/chat'
+import { Route as HelpRouteImport } from './routes/help'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiImageRouteImport } from './routes/api/image'
+import { Route as ChatChatIdRouteImport } from './routes/chat_.$chatId'
+import { Route as CompareChatgptAlternativeRouteImport } from './routes/compare.chatgpt-alternative'
+import { Route as CompareClaudeAlternativeRouteImport } from './routes/compare.claude-alternative'
+import { Route as CompareMidjourneyAlternativeRouteImport } from './routes/compare.midjourney-alternative'
+import { Route as FeaturesAiChatRouteImport } from './routes/features.ai-chat'
+import { Route as FeaturesImageEditingRouteImport } from './routes/features.image-editing'
+import { Route as FeaturesImageGenerationRouteImport } from './routes/features.image-generation'
+import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
+import { Route as ShareIdRouteImport } from './routes/share.$id'
 import { Route as ProjectsJoinTokenRouteImport } from './routes/projects.join.$token'
 import { Route as ApiPublicSnapshotIdRouteImport } from './routes/api/public/snapshot.$id'
 
-const TermsRoute = TermsRouteImport.update({
-  id: '/terms',
-  path: '/terms',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SignupRoute = SignupRouteImport.update({
-  id: '/signup',
-  path: '/signup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrivacyRoute = PrivacyRouteImport.update({
-  id: '/privacy',
-  path: '/privacy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HelpRoute = HelpRouteImport.update({
-  id: '/help',
-  path: '/help',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ChatRoute = ChatRouteImport.update({
-  id: '/chat',
-  path: '/chat',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -72,40 +42,60 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const ChatRoute = ChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ShareIdRoute = ShareIdRouteImport.update({
-  id: '/share/$id',
-  path: '/share/$id',
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
-  id: '/projects/$projectId',
-  path: '/projects/$projectId',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const FeaturesImageGenerationRoute = FeaturesImageGenerationRouteImport.update({
-  id: '/features/image-generation',
-  path: '/features/image-generation',
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
-const FeaturesImageEditingRoute = FeaturesImageEditingRouteImport.update({
-  id: '/features/image-editing',
-  path: '/features/image-editing',
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
-const FeaturesAiChatRoute = FeaturesAiChatRouteImport.update({
-  id: '/features/ai-chat',
-  path: '/features/ai-chat',
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CompareMidjourneyAlternativeRoute =
-  CompareMidjourneyAlternativeRouteImport.update({
-    id: '/compare/midjourney-alternative',
-    path: '/compare/midjourney-alternative',
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiImageRoute = ApiImageRouteImport.update({
+  id: '/api/image',
+  path: '/api/image',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChatChatIdRoute = ChatChatIdRouteImport.update({
+  id: '/chat_/$chatId',
+  path: '/chat/$chatId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompareChatgptAlternativeRoute =
+  CompareChatgptAlternativeRouteImport.update({
+    id: '/compare/chatgpt-alternative',
+    path: '/compare/chatgpt-alternative',
     getParentRoute: () => rootRouteImport,
   } as any)
 const CompareClaudeAlternativeRoute =
@@ -114,25 +104,35 @@ const CompareClaudeAlternativeRoute =
     path: '/compare/claude-alternative',
     getParentRoute: () => rootRouteImport,
   } as any)
-const CompareChatgptAlternativeRoute =
-  CompareChatgptAlternativeRouteImport.update({
-    id: '/compare/chatgpt-alternative',
-    path: '/compare/chatgpt-alternative',
+const CompareMidjourneyAlternativeRoute =
+  CompareMidjourneyAlternativeRouteImport.update({
+    id: '/compare/midjourney-alternative',
+    path: '/compare/midjourney-alternative',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ChatChatIdRoute = ChatChatIdRouteImport.update({
-  id: '/chat_/$chatId',
-  path: '/chat/$chatId',
+const FeaturesAiChatRoute = FeaturesAiChatRouteImport.update({
+  id: '/features/ai-chat',
+  path: '/features/ai-chat',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiImageRoute = ApiImageRouteImport.update({
-  id: '/api/image',
-  path: '/api/image',
+const FeaturesImageEditingRoute = FeaturesImageEditingRouteImport.update({
+  id: '/features/image-editing',
+  path: '/features/image-editing',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiChatRoute = ApiChatRouteImport.update({
-  id: '/api/chat',
-  path: '/api/chat',
+const FeaturesImageGenerationRoute = FeaturesImageGenerationRouteImport.update({
+  id: '/features/image-generation',
+  path: '/features/image-generation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
+  id: '/projects/$projectId',
+  path: '/projects/$projectId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShareIdRoute = ShareIdRouteImport.update({
+  id: '/share/$id',
+  path: '/share/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectsJoinTokenRoute = ProjectsJoinTokenRouteImport.update({
@@ -321,53 +321,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/terms': {
-      id: '/terms'
-      path: '/terms'
-      fullPath: '/terms'
-      preLoaderRoute: typeof TermsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/signup': {
-      id: '/signup'
-      path: '/signup'
-      fullPath: '/signup'
-      preLoaderRoute: typeof SignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy': {
-      id: '/privacy'
-      path: '/privacy'
-      fullPath: '/privacy'
-      preLoaderRoute: typeof PrivacyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/help': {
-      id: '/help'
-      path: '/help'
-      fullPath: '/help'
-      preLoaderRoute: typeof HelpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/chat': {
-      id: '/chat'
-      path: '/chat'
-      fullPath: '/chat'
-      preLoaderRoute: typeof ChatRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -377,74 +335,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/chat': {
+      id: '/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof ChatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/share/$id': {
-      id: '/share/$id'
-      path: '/share/$id'
-      fullPath: '/share/$id'
-      preLoaderRoute: typeof ShareIdRouteImport
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/projects/$projectId': {
-      id: '/projects/$projectId'
-      path: '/projects/$projectId'
-      fullPath: '/projects/$projectId'
-      preLoaderRoute: typeof ProjectsProjectIdRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/features/image-generation': {
-      id: '/features/image-generation'
-      path: '/features/image-generation'
-      fullPath: '/features/image-generation'
-      preLoaderRoute: typeof FeaturesImageGenerationRouteImport
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/features/image-editing': {
-      id: '/features/image-editing'
-      path: '/features/image-editing'
-      fullPath: '/features/image-editing'
-      preLoaderRoute: typeof FeaturesImageEditingRouteImport
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/features/ai-chat': {
-      id: '/features/ai-chat'
-      path: '/features/ai-chat'
-      fullPath: '/features/ai-chat'
-      preLoaderRoute: typeof FeaturesAiChatRouteImport
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/compare/midjourney-alternative': {
-      id: '/compare/midjourney-alternative'
-      path: '/compare/midjourney-alternative'
-      fullPath: '/compare/midjourney-alternative'
-      preLoaderRoute: typeof CompareMidjourneyAlternativeRouteImport
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/compare/claude-alternative': {
-      id: '/compare/claude-alternative'
-      path: '/compare/claude-alternative'
-      fullPath: '/compare/claude-alternative'
-      preLoaderRoute: typeof CompareClaudeAlternativeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/compare/chatgpt-alternative': {
-      id: '/compare/chatgpt-alternative'
-      path: '/compare/chatgpt-alternative'
-      fullPath: '/compare/chatgpt-alternative'
-      preLoaderRoute: typeof CompareChatgptAlternativeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/chat_/$chatId': {
-      id: '/chat_/$chatId'
-      path: '/chat/$chatId'
-      fullPath: '/chat/$chatId'
-      preLoaderRoute: typeof ChatChatIdRouteImport
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/image': {
@@ -454,11 +398,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiImageRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/chat': {
-      id: '/api/chat'
-      path: '/api/chat'
-      fullPath: '/api/chat'
-      preLoaderRoute: typeof ApiChatRouteImport
+    '/chat_/$chatId': {
+      id: '/chat_/$chatId'
+      path: '/chat/$chatId'
+      fullPath: '/chat/$chatId'
+      preLoaderRoute: typeof ChatChatIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compare/chatgpt-alternative': {
+      id: '/compare/chatgpt-alternative'
+      path: '/compare/chatgpt-alternative'
+      fullPath: '/compare/chatgpt-alternative'
+      preLoaderRoute: typeof CompareChatgptAlternativeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compare/claude-alternative': {
+      id: '/compare/claude-alternative'
+      path: '/compare/claude-alternative'
+      fullPath: '/compare/claude-alternative'
+      preLoaderRoute: typeof CompareClaudeAlternativeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compare/midjourney-alternative': {
+      id: '/compare/midjourney-alternative'
+      path: '/compare/midjourney-alternative'
+      fullPath: '/compare/midjourney-alternative'
+      preLoaderRoute: typeof CompareMidjourneyAlternativeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/features/ai-chat': {
+      id: '/features/ai-chat'
+      path: '/features/ai-chat'
+      fullPath: '/features/ai-chat'
+      preLoaderRoute: typeof FeaturesAiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/features/image-editing': {
+      id: '/features/image-editing'
+      path: '/features/image-editing'
+      fullPath: '/features/image-editing'
+      preLoaderRoute: typeof FeaturesImageEditingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/features/image-generation': {
+      id: '/features/image-generation'
+      path: '/features/image-generation'
+      fullPath: '/features/image-generation'
+      preLoaderRoute: typeof FeaturesImageGenerationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects/$projectId': {
+      id: '/projects/$projectId'
+      path: '/projects/$projectId'
+      fullPath: '/projects/$projectId'
+      preLoaderRoute: typeof ProjectsProjectIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/share/$id': {
+      id: '/share/$id'
+      path: '/share/$id'
+      fullPath: '/share/$id'
+      preLoaderRoute: typeof ShareIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/projects/join/$token': {

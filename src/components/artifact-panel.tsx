@@ -29,6 +29,7 @@ import {
   Search,
   ShieldCheck,
   Smartphone,
+  Undo2,
   Wrench,
   X,
 } from "lucide-react";
@@ -357,7 +358,6 @@ export const ArtifactPanel = memo(function ArtifactPanel({
     setView((v) => (v === "diff" ? "code" : v));
     toast.success(`Undone — workspace restored to v${previousSnapshot.version}`);
   };
-
 
   const crumbs = (active?.path ?? "").split("/");
 

@@ -7,10 +7,23 @@ export type Diagnostic = {
   message: string;
 };
 
+export type ArtifactValidationIssue = Diagnostic & { level: "error" };
+
+export type ArtifactValidation = {
+  issues: ArtifactValidationIssue[];
+  errors: ArtifactValidationIssue[];
+};
+
 const JS_LIKE = /\.(ts|tsx|js|jsx|mjs|cjs)$/;
-const STRINGS = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`)/g;
-const PAIRS: [string, string][] = [["{", "}"], ["(", ")"], ["[", "]"]];
-const PLACEHOLDER = /(\/\/\s*(TODO|FIXME|\.\.\.|rest unchanged)|\{\s*\/\* *\.\.\. *\*\/\s*\}|\.\.\. *rest of)/i;
+const STRINGS =
+  /(\/\/[^\n]*|\/\*[\s\S]*?\*\/|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`)/g;
+const PAIRS: [string, string][] = [
+  ["{", "}"],
+  ["(", ")"],
+  ["[", "]"],
+];
+const PLACEHOLDER =
+  /(\/\/\s*(TODO|FIXME|\.\.\.|rest unchanged)|\{\s*\/\* *\.\.\. *\*\/\s*\}|\.\.\. *rest of)/i;
 
 function balance(file: ArtifactFile): Diagnostic[] {
   const out: Diagnostic[] = [];
@@ -56,7 +69,11 @@ export function validate(artifact: ProjectArtifact): Diagnostic[] {
     });
   }
   for (const p of graph.missingPackages) {
-    out.push({ path: "package.json", code: "MISSING_DEP", message: `"${p}" is imported but not declared` });
+    out.push({
+      path: "package.json",
+      code: "MISSING_DEP",
+      message: `"${p}" is imported but not declared`,
+    });
   }
   for (const a of graph.missingAssets) {
     out.push({ path: a.from, code: "MISSING_ASSET", message: `references missing "${a.ref}"` });
@@ -64,10 +81,44 @@ export function validate(artifact: ProjectArtifact): Diagnostic[] {
   return out;
 }
 
+/** Compatibility shape consumed by the artifact workspace and repair flow. */
+export function validateArtifact(artifact: ProjectArtifact): ArtifactValidation {
+  const issues: ArtifactValidationIssue[] = validate(artifact).map((issue) => ({
+    ...issue,
+    level: "error",
+  }));
+  return { issues, errors: issues };
+}
+
+export function summarizeValidation(validation: ArtifactValidation): string {
+  if (validation.issues.length === 0) return "All checks passed";
+  return `${validation.issues.length} issue${validation.issues.length === 1 ? "" : "s"}`;
+}
+
+export function repairPrompt(artifact: ProjectArtifact, validation: ArtifactValidation): string {
+  const diagnostics = validation.issues
+    .map((issue) => `- ${issue.path}: ${issue.message}`)
+    .join("\n");
+  const files = artifact.files.map((file) => `\n=== ${file.path} ===\n${file.code}`).join("\n");
+
+  return [
+    `Repair the following issues in the existing project "${artifact.name}".`,
+    "Return only the complete contents of files that need changes, using fenced code blocks with each file path.",
+    "Do not remove or rewrite unrelated files.",
+    `\nIssues:\n${diagnostics || "No issues were provided."}`,
+    `\nProject files:\n${files}`,
+  ].join("\n");
+}
+
 /** Same score twice = no progress = stop the loop. */
 export function scoreOf(d: Diagnostic[]): number {
   const weight: Record<Diagnostic["code"], number> = {
-    SYNTAX: 60, TRUNCATED: 50, UNRESOLVED: 20, MISSING_DEP: 15, MISSING_ASSET: 10, PLACEHOLDER: 5,
+    SYNTAX: 60,
+    TRUNCATED: 50,
+    UNRESOLVED: 20,
+    MISSING_DEP: 15,
+    MISSING_ASSET: 10,
+    PLACEHOLDER: 5,
   };
   return d.reduce((n, x) => n + weight[x.code], 0);
 }
