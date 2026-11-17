@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireApiAuth } from "@/lib/api-auth.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { getPlanEntitlements } from "@/lib/plan-limits.server";
+import { isAdmin } from "@/lib/admin.server";
 import { creditPlan } from "@/lib/payments/credit.server";
 
 export const Route = createFileRoute("/api/admin/payments/decide")({
@@ -11,8 +11,9 @@ export const Route = createFileRoute("/api/admin/payments/decide")({
         const auth = await requireApiAuth(request);
         if (!auth.ok) return new Response("Sign in again.", { status: 401 });
 
-        const plan = await getPlanEntitlements(auth.userId);
-        if (!plan.isAdmin) return new Response("Admins only.", { status: 403 });
+        if (!(await isAdmin(auth.userId))) {
+          return new Response("Admins only.", { status: 403 });
+        }
 
         let body: { orderId?: string; approve?: boolean };
         try {
