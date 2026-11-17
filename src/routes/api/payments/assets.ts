@@ -6,7 +6,7 @@ export const Route = createFileRoute("/api/payments/assets")({
     handlers: {
       GET: async () => {
         const assets = Object.entries(ASSETS)
-          .filter(([key, cfg]) => key === "upi" || Boolean(cfg.address))
+          .filter(([key, cfg]) => (key === "upi" ? Boolean(process.env.UPI_VPA) : Boolean(cfg.address)))
           .map(([key, cfg]) => ({
             id: key,
             label: cfg.label,
