@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   X,
   Check,
@@ -9,13 +9,14 @@ import {
   Smartphone,
   Bitcoin,
   FileText,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useProfile } from "@/hooks/use-profile";
 import { usePlans, type PaymentMethod, type PlanRow } from "@/hooks/use-plans";
 
 export function PlusModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { isPremium, isPro, isAdmin, planExpiresAt } = useProfile();
+  const { isPremium, isPro, isAdmin, planExpiresAt, refresh } = useProfile();
   const { plans, loading: loadingPlans } = usePlans();
   const [activePlan, setActivePlan] = useState<PlanRow | null>(null);
 
@@ -155,13 +156,189 @@ export function PlusModal({ open, onClose }: { open: boolean; onClose: () => voi
         </div>
       </div>
 
-      {activePlan && <PaymentPicker plan={activePlan} onClose={() => setActivePlan(null)} />}
+      {activePlan && (
+        <PaymentPicker
+          plan={activePlan}
+          onClose={() => setActivePlan(null)}
+          onPaid={() => {
+            void refresh();
+            setActivePlan(null);
+            onClose();
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function PaymentPicker({ plan, onClose }: { plan: PlanRow; onClose: () => void }) {
-  const [selected, setSelected] = useState<PaymentMethod | null>(null);
+/** Maps an admin-authored payment method to a checkout asset id. */
+function assetFor(m: PaymentMethod): string | null {
+  if (m.type === "upi") return "upi";
+  if (m.type !== "crypto") return null;
+  const hay = `${m.label} ${m.value}`.toLowerCase();
+  if (hay.includes("usdt")) {
+    return hay.includes("spl") || hay.includes("sol") ? "usdt_spl" : "usdt_trc20";
+  }
+  if (hay.includes("ltc") || hay.includes("litecoin")) return "ltc";
+  if (hay.includes("trx") || hay.includes("tron")) return "trx";
+  if (hay.includes("sol")) return "sol";
+  return null;
+}
+
+const human = (atomic: string, decimals: number) =>
+  (Number(atomic) / 10 ** decimals).toFixed(decimals).replace(/0+$/, "").replace(/\.$/, "");
+
+type Order = {
+  orderId: string;
+  asset: string;
+  address: string | null;
+  contract: string | null;
+  expectedAtomic: string;
+  decimals: number;
+  symbol: string;
+  network: string;
+  confirmations: number;
+  expiresAt: string;
+  qrImage: string | null;
+  qrPayload: string;
+};
+
+function Countdown({ until }: { until: string }) {
+  const [left, setLeft] = useState(() => Date.parse(until) - Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setLeft(Date.parse(until) - Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [until]);
+  if (left <= 0) return <span className="text-destructive">expired</span>;
+  return (
+    <span className="font-mono tabular-nums">
+      {Math.floor(left / 60000)}:{String(Math.floor((left % 60000) / 1000)).padStart(2, "0")}
+    </span>
+  );
+}
+
+function PaymentPicker({
+  plan,
+  onClose,
+  onPaid,
+}: {
+  plan: PlanRow;
+  onClose: () => void;
+  onPaid: () => void;
+}) {
+  const [order, setOrder] = useState<Order | null>(null);
+  const [qr, setQr] = useState<string | null>(null);
+  const [status, setStatus] = useState("pending");
+  const [confirmations, setConfirmations] = useState(0);
+  const [required, setRequired] = useState(0);
+  const [utr, setUtr] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const paidRef = useRef(false);
+
+  const isUpi = order?.asset === "upi";
+
+  const start = useCallback(
+    async (asset: string) => {
+      setBusy(asset);
+      setError(null);
+      try {
+        const res = await fetch("/api/payments/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ planId: plan.id, asset }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = (await res.json()) as Order;
+        setOrder(data);
+        setStatus("pending");
+        setConfirmations(0);
+        setRequired(data.confirmations);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Couldn't start the payment.");
+      } finally {
+        setBusy(null);
+      }
+    },
+    [plan.id],
+  );
+
+  // Restore an in-flight order after a reload.
+  useEffect(() => {
+    let dead = false;
+    void (async () => {
+      const res = await fetch("/api/payments/open");
+      if (!res.ok) return;
+      const { order: found } = (await res.json()) as { order: Order | null };
+      if (dead || !found) return;
+      setOrder(found);
+      setStatus(found.status ?? "pending");
+      setRequired(found.confirmations);
+    })();
+    return () => {
+      dead = true;
+    };
+  }, []);
+
+  // QR: admin's uploaded image wins, else generate from the payload.
+  useEffect(() => {
+    if (!order) return;
+    if (order.qrImage) {
+      setQr(order.qrImage);
+      return;
+    }
+    let dead = false;
+    void import("qrcode").then(async (QR) => {
+      const url = await QR.toDataURL(order.qrPayload, { margin: 1, width: 320 });
+      if (!dead) setQr(url);
+    });
+    return () => {
+      dead = true;
+    };
+  }, [order]);
+
+  useEffect(() => {
+    if (!order) return;
+    const poll = setInterval(async () => {
+      const res = await fetch(`/api/payments/status?id=${order.orderId}`);
+      if (!res.ok) return;
+      const s = (await res.json()) as { status: string; confirmations: number; required: number };
+      setStatus(s.status);
+      setConfirmations(s.confirmations);
+      setRequired(s.required);
+      if (s.status === "paid" && !paidRef.current) {
+        paidRef.current = true;
+        toast.success("Payment confirmed");
+        onPaid();
+      }
+    }, 5000);
+    const nudge = setInterval(() => {
+      void fetch("/api/payments/verify", { method: "POST" });
+    }, 60000);
+    return () => {
+      clearInterval(poll);
+      clearInterval(nudge);
+    };
+  }, [order, onPaid]);
+
+  const submitUtr = async () => {
+    if (!order) return;
+    setBusy("utr");
+    setError(null);
+    try {
+      const res = await fetch("/api/payments/submit-utr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.orderId, utr }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setStatus("review");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't submit the UTR.");
+    } finally {
+      setBusy(null);
+    }
+  };
 
   return (
     <div
@@ -176,126 +353,160 @@ function PaymentPicker({ plan, onClose }: { plan: PlanRow; onClose: () => void }
     >
       <div className="my-auto w-full max-w-lg overflow-hidden rounded-3xl border border-border bg-card shadow-elevated">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <h3 className="text-lg font-semibold">Pay for {plan.name}</h3>
+          <div>
+            <h3 className="text-lg font-semibold">Pay for {plan.name}</h3>
+            {order && (
+              <p className="text-xs text-muted-foreground">
+                Expires in <Countdown until={order.expiresAt} />
+              </p>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label="Close"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {!selected ? (
+        {error && (
+          <p className="mx-6 mt-4 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        )}
+
+        {!order ? (
           <div className="p-6">
             <p className="mb-4 text-xs text-muted-foreground">Choose a payment method</p>
             <div className="space-y-2">
-              {plan.payment_methods.map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => {
-                    if (m.type === "url") {
-                      window.open(m.value, "_blank", "noopener");
-                      onClose();
-                    } else {
-                      setSelected(m);
-                    }
-                  }}
-                  className="flex w-full items-center justify-between rounded-xl border border-border bg-background px-4 py-3 text-left transition hover:bg-accent"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand/15 text-brand">
-                      {m.type === "url" ? (
-                        <ExternalLink className="h-4 w-4" />
-                      ) : m.type === "qr" ? (
-                        <QrCode className="h-4 w-4" />
-                      ) : m.type === "upi" ? (
-                        <Smartphone className="h-4 w-4" />
-                      ) : m.type === "crypto" ? (
-                        <Bitcoin className="h-4 w-4" />
-                      ) : (
-                        <FileText className="h-4 w-4" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium">{m.label}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {m.type === "url"
-                          ? "Opens external checkout"
-                          : m.type === "qr"
-                            ? "Scan QR code"
+              {plan.payment_methods.map((m) => {
+                const asset = assetFor(m);
+                const external = m.type === "url" || m.type === "qr" || m.type === "text";
+                return (
+                  <button
+                    key={m.id}
+                    disabled={busy !== null || (!external && !asset)}
+                    onClick={() => {
+                      if (m.type === "url") {
+                        window.open(m.value, "_blank", "noopener");
+                        onClose();
+                        return;
+                      }
+                      if (asset) void start(asset);
+                    }}
+                    className="flex w-full items-center justify-between rounded-xl border border-border bg-background px-4 py-3 text-left transition hover:bg-accent disabled:opacity-60"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand/15 text-brand">
+                        {busy === asset ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : m.type === "url" ? (
+                          <ExternalLink className="h-4 w-4" />
+                        ) : m.type === "qr" ? (
+                          <QrCode className="h-4 w-4" />
+                        ) : m.type === "upi" ? (
+                          <Smartphone className="h-4 w-4" />
+                        ) : m.type === "crypto" ? (
+                          <Bitcoin className="h-4 w-4" />
+                        ) : (
+                          <FileText className="h-4 w-4" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium">{m.label}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {m.type === "url"
+                            ? "Opens external checkout"
                             : m.type === "upi"
-                              ? "Pay via UPI"
+                              ? "Pay via UPI, then enter UTR"
                               : m.type === "crypto"
-                                ? "Pay with crypto"
-                                : "Bank / manual instructions"}
+                                ? asset
+                                  ? "Auto-verified on-chain"
+                                  : "Add the coin symbol to the label"
+                                : m.type === "qr"
+                                  ? "QR image only — no auto-verify"
+                                  : "Bank / manual instructions"}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           </div>
-        ) : (
-          <div className="p-6">
-            <button
-              onClick={() => setSelected(null)}
-              className="mb-4 text-xs text-muted-foreground hover:text-foreground"
-            >
-              ← Back
-            </button>
-            <h4 className="mb-1 text-base font-semibold">{selected.label}</h4>
-            <p className="mb-3 text-xs uppercase tracking-wide text-muted-foreground">
-              {selected.type === "qr"
-                ? "Scan the QR code below"
-                : selected.type === "upi"
-                  ? "UPI ID"
-                  : selected.type === "crypto"
-                    ? "Crypto address"
-                    : "Payment details"}
-            </p>
-            {selected.type === "qr" && (
-              <div className="mb-4 flex justify-center rounded-xl border border-border bg-white p-4">
-                <img src={selected.value} alt="Payment QR code" className="max-h-64 rounded-lg" />
-              </div>
+        ) : status !== "paid" ? (
+          <div className="space-y-3 p-6">
+            {qr && (
+              <img
+                src={qr}
+                alt="Payment QR code"
+                className="mx-auto max-h-56 rounded-xl bg-white p-3"
+              />
             )}
-            {(selected.type === "upi" ||
-              selected.type === "crypto" ||
-              selected.type === "text") && (
-              <div className="mb-4 flex items-start gap-2 rounded-xl border border-border bg-background p-4">
-                <pre className="flex-1 whitespace-pre-wrap break-all font-mono text-sm">
-                  {selected.value}
-                </pre>
+
+            <div className="rounded-xl border border-border bg-background p-4">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                {isUpi
+                  ? "Pay this exact amount via UPI"
+                  : `Send only ${order.symbol} on ${order.network}`}
+              </div>
+              <div className="mt-1 font-mono text-lg">
+                {isUpi
+                  ? `₹${(Number(order.expectedAtomic) / 100).toFixed(2)}`
+                  : `${human(order.expectedAtomic, order.decimals)} ${order.symbol}`}
+              </div>
+              {order.address && (
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(selected.value);
+                    void navigator.clipboard.writeText(order.address!);
                     toast.success("Copied");
                   }}
-                  className="rounded-lg bg-accent p-1.5 text-muted-foreground hover:text-foreground"
-                  aria-label="Copy"
+                  className="mt-2 flex w-full items-center gap-2 break-all rounded-lg bg-accent/60 px-2 py-1 text-left font-mono text-xs hover:bg-accent"
                 >
-                  <Copy className="h-3.5 w-3.5" />
+                  <span className="flex-1">{order.address}</span>
+                  <Copy className="h-3.5 w-3.5 shrink-0" />
+                </button>
+              )}
+            </div>
+
+            {isUpi ? (
+              <div className="flex gap-2">
+                <input
+                  value={utr}
+                  onChange={(e) => setUtr(e.target.value.replace(/\D/g, "").slice(0, 12))}
+                  inputMode="numeric"
+                  placeholder="12-digit UTR"
+                  className="flex-1 rounded-xl border border-border bg-background px-3 py-2 font-mono text-sm outline-none focus:border-brand"
+                />
+                <button
+                  disabled={busy !== null || utr.length !== 12 || status === "review"}
+                  onClick={() => void submitUtr()}
+                  className="rounded-xl px-4 py-2 text-sm font-semibold text-brand-foreground disabled:opacity-50"
+                  style={{ background: "var(--gradient-brand)" }}
+                >
+                  Submit
                 </button>
               </div>
-            )}
-            {selected.type === "upi" && (
-              <a
-                href={`upi://pay?pa=${encodeURIComponent(selected.value)}&pn=${encodeURIComponent(plan.name)}&cu=INR`}
-                className="mb-4 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-brand-foreground"
-                style={{ background: "var(--gradient-brand)" }}
-              >
-                <Smartphone className="h-4 w-4" /> Open in UPI app
-              </a>
-            )}
-            {selected.instructions && (
-              <p className="rounded-xl bg-background/50 p-3 text-xs text-muted-foreground">
-                {selected.instructions}
+            ) : (
+              <p className="text-sm">
+                {status === "confirming"
+                  ? `Confirming ${confirmations}/${required}…`
+                  : "Waiting for your transaction…"}
               </p>
             )}
-            <p className="mt-4 text-center text-xs text-muted-foreground">
-              After payment, contact an admin with your email so they can activate {plan.name}.
+
+            {status === "review" && (
+              <p className="text-sm text-amber-500">UTR submitted — waiting for approval.</p>
+            )}
+            <p className="text-center text-xs text-muted-foreground">
+              Amounts within ±2% are accepted. This page keeps checking automatically.
             </p>
           </div>
+        ) : (
+          <p className="m-6 rounded-xl bg-emerald-500/10 px-3 py-2 text-sm text-emerald-500">
+            Payment confirmed. Your plan is active.
+          </p>
         )}
       </div>
     </div>
