@@ -36,6 +36,11 @@ const PROVIDERS: Record<ProviderName, ProviderConfig> = {
     envVar: "GROQ_API_KEY",
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
   },
+  venice: {
+    baseUrl: "https://api.venice.ai/api/v1",
+    envVar: "VENICE_API_KEY",
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
   openrouter: {
     baseUrl: "https://openrouter.ai/api/v1",
     envVar: "OPENROUTER_API_KEY",
@@ -223,7 +228,9 @@ async function callImageCandidate(
   const url =
     candidate.provider === "lovable"
       ? `${cfg.baseUrl}/images/generations`
-      : `${cfg.baseUrl}/chat/completions`;
+      : candidate.provider === "venice"
+        ? `${cfg.baseUrl}/image/generate`
+        : `${cfg.baseUrl}/chat/completions`;
 
   const payload: Record<string, unknown> =
     candidate.provider === "lovable"
@@ -232,7 +239,17 @@ async function callImageCandidate(
           prompt,
           ...(inputImageUrl ? { image: [inputImageUrl] } : {}),
         }
-      : {
+      : candidate.provider === "venice"
+        ? {
+            model: candidate.model,
+            prompt,
+            width: 1024,
+            height: 1024,
+            steps: 30,
+            hide_watermark: true,
+            safe_mode: false, // <- asli uncensored switch
+          } 
+        {
           model: candidate.model,
           modalities: ["image", "text"],
           messages: [
@@ -269,9 +286,8 @@ async function callImageCandidate(
 function extractImage(json: unknown): { dataUrl: string; mimeType: string } | undefined {
   const j = json as {
     data?: Array<{ b64_json?: string; url?: string; mime_type?: string }>;
-    choices?: Array<{
-      message?: { images?: Array<{ image_url?: { url?: string } }> };
-    }>;
+    images?: string[];
+    choices?: Array<{ message?: { images?: Array<{ image_url?: { url?: string } }> } }>;
   };
 
   const first = j?.data?.[0];
@@ -290,6 +306,9 @@ function extractImage(json: unknown): { dataUrl: string; mimeType: string } | un
   }
   if (!dataUrl) return undefined;
   const mimeMatch = /^data:([^;]+);base64,/.exec(dataUrl);
+  if (!dataUrl && typeof j?.images?.[0] === "string") {
+    dataUrl = `data:image/png;base64,${j.images[0]}`;
+  }
   return { dataUrl, mimeType: mimeMatch?.[1] ?? mimeType };
 }
 
@@ -336,7 +355,7 @@ export async function generateImage(params: {
 
 function friendlyImageError(status: number, upstream: string): string {
   if (/content.?policy|moderation|safety/i.test(upstream)) {
-    return "That prompt was blocked by the safety filter. Try rephrasing without names of real people, brands, or copyrighted characters.";
+    return "The model's filter blocked that prompt. Drop real names and brand words and it'll go through.";
   }
   if (status === 401 || status === 403)
     return "Image provider rejected the request. Please try again.";
