@@ -7,13 +7,41 @@ import { creditPlan } from "@/lib/payments/credit.server";
 export const Route = createFileRoute("/api/admin/payments/decide")({
   server: {
     handlers: {
+      GET: async ({ request }) => {
+        const auth = await requireApiAuth(request);
+        if (!auth.ok) return new Response("Sign in again.", { status: 401 });
+        if (!(await isAdmin(auth.userId))) return new Response("Admins only.", { status: 403 });
+
+        const status = new URL(request.url).searchParams.get("status") ?? "review";
+        const { data, error } = await supabaseAdmin
+          .from("payment_orders")
+          .select(
+            "id, user_id, plan_id, asset, expected_atomic, utr, tx_hash, status, created_at",
+          )
+          .eq("status", status)
+          .order("created_at", { ascending: true })
+          .limit(100);
+        if (error) return new Response(error.message, { status: 500 });
+
+        const ids = [...new Set((data ?? []).map((o) => o.user_id))];
+        const { data: profiles } = ids.length
+          ? await supabaseAdmin.from("profiles").select("id, email, display_name").in("id", ids)
+          : { data: [] as Array<{ id: string; email: string | null; display_name: string | null }> };
+        const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
+
+        return Response.json({
+          orders: (data ?? []).map((o) => ({
+            ...o,
+            email: byId.get(o.user_id)?.email ?? null,
+            display_name: byId.get(o.user_id)?.display_name ?? null,
+          })),
+        });
+      },
+
       POST: async ({ request }) => {
         const auth = await requireApiAuth(request);
         if (!auth.ok) return new Response("Sign in again.", { status: 401 });
-
-        if (!(await isAdmin(auth.userId))) {
-          return new Response("Admins only.", { status: 403 });
-        }
+        if (!(await isAdmin(auth.userId))) return new Response("Admins only.", { status: 403 });
 
         let body: { orderId?: string; approve?: boolean };
         try {
