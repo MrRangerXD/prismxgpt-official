@@ -50,7 +50,7 @@ async function scanSolana(order: Order, cfg: AssetCfg): Promise<Hit[]> {
 
   const sigs = await rpc({
     jsonrpc: "2.0", id: 1, method: "getSignaturesForAddress",
-    params: [cfg.address, { limit: 40 }],
+    params: [cfg.address, { limit: 15 }],
   });
 
   const out: Hit[] = [];
