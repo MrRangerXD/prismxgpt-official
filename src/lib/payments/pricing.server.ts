@@ -1,15 +1,51 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { ASSETS, type AssetCfg } from "./assets";
+import type { AssetCfg } from "./assets";
 
-// ADJUST: column names must match your `plans` table.
-async function planPrice(planId: string): Promise<{ usd: number; inr: number }> {
+type ParsedPrice = { amount: number; currency: "INR" | "USD" };
+
+const INR_MARK = /₹|inr|rs\.?/i;
+
+/** Prices are stored as display strings ("₹499", "$9", "Free"). */
+function parsePrice(raw: string): ParsedPrice | null {
+  const text = raw.trim();
+  if (!text) return null;
+  const currency: ParsedPrice["currency"] = INR_MARK.test(text) ? "INR" : "USD";
+  const digits = text.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1");
+  const amount = Number(digits);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  return { amount, currency };
+}
+
+async function planPrice(planId: string): Promise<ParsedPrice> {
   const { data, error } = await supabaseAdmin
-    .from("plans")
-    .select("price_usd, price_inr")
+    .from("plan_settings")
+    .select("id, price")
     .eq("id", planId)
     .maybeSingle();
-  if (error || !data) throw new Error("Unknown plan");
-  return { usd: Number(data.price_usd ?? 0), inr: Number(data.price_inr ?? 0) };
+  if (error) throw new Error(`Plan lookup failed: ${error.message}`);
+  if (!data) throw new Error("Unknown plan");
+
+  const parsed = parsePrice(String(data.price ?? ""));
+  if (!parsed) throw new Error("Plan is not purchasable");
+  return parsed;
+}
+
+// Fallback only used if the FX API is down; keeps checkout alive.
+const INR_PER_USD_FALLBACK = 88;
+
+async function usdFromInr(inr: number): Promise<number> {
+  try {
+    const res = await fetch("https://api.frankfurter.app/latest?from=USD&to=INR", {
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) throw new Error("fx");
+    const json = (await res.json()) as { rates?: { INR?: number } };
+    const rate = Number(json?.rates?.INR ?? 0);
+    if (!rate) throw new Error("fx");
+    return inr / rate;
+  } catch {
+    return inr / INR_PER_USD_FALLBACK;
+  }
 }
 
 async function cryptoRate(symbol: string): Promise<number> {
@@ -32,13 +68,15 @@ export async function expectedAtomic(planId: string, cfg: AssetCfg): Promise<str
   const price = await planPrice(planId);
 
   if (cfg.chain === "upi") {
-    if (!price.inr) throw new Error("Plan has no INR price");
-    return String(Math.round(price.inr * 100));
+    if (price.currency !== "INR") throw new Error("Plan has no INR price");
+    return String(Math.round(price.amount * 100));
   }
 
-  if (!price.usd) throw new Error("Plan has no USD price");
+  const usd = price.currency === "USD" ? price.amount : await usdFromInr(price.amount);
   const rate = await cryptoRate(cfg.symbol);
-  const base = Math.round((price.usd * 10 ** cfg.decimals) / rate);
+  const base = Math.round((usd * 10 ** cfg.decimals) / rate);
+  if (base < 1) throw new Error("Plan is too cheap for this asset");
+
   return String(base + Math.floor(Math.random() * cfg.jitter));
 }
 
