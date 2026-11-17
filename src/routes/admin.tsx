@@ -29,6 +29,7 @@ import {
   Circle,
   Sparkles,
   Loader2,
+  Receipt,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin")({
@@ -148,7 +149,7 @@ type PlanSetting = {
 const DEFAULT_FEATURES: Features = { imageGeneration: true, deepResearch: false, webSearch: false };
 const DEFAULT_ANNOUNCEMENT: Announcement = { message: "", enabled: false };
 
-type TabId = "dashboard" | "users" | "pricing" | "features" | "announcement" | "activity";
+type TabId = "dashboard" | "users" | "pricing" | "orders" | "features" | "announcement" | "activity";
 
 function AdminPage() {
   const { loading, isAdmin, userId, email, refresh } = useProfile();
@@ -157,6 +158,19 @@ function AdminPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [tab, setTab] = useState<TabId>("dashboard");
   const [plans, setPlans] = useState<PlanSetting[]>([]);
+  const [orders, setOrders] = useState<
+    Array<{
+      id: string;
+      email: string | null;
+      display_name: string | null;
+      plan_id: string;
+      asset: string;
+      expected_atomic: string;
+      utr: string | null;
+      status: string;
+      created_at: string;
+    }>
+  >([]);
   const [features, setFeatures] = useState<Features>(DEFAULT_FEATURES);
   const [homepageAnnouncement, setHomepageAnnouncement] =
     useState<Announcement>(DEFAULT_ANNOUNCEMENT);
@@ -168,6 +182,22 @@ function AdminPage() {
   const [sortKey, setSortKey] = useState<"name" | "email" | "created">("created");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [planFilter, setPlanFilter] = useState<"all" | "free" | "premium" | "pro" | "admin">("all");
+
+  const loadOrders = async () => {
+    const res = await fetch("/api/admin/payments/decide?status=review");
+    if (!res.ok) return;
+    setOrders(((await res.json()) as { orders: typeof orders }).orders);
+  };
+
+  const decideOrder = async (id: string, approve: boolean) => {
+    await fetch("/api/admin/payments/decide", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId: id, approve }),
+    });
+    void loadOrders();
+    toast.success(approve ? "Approved" : "Rejected");
+  };
 
   const load = useCallback(async () => {
     setDataLoading(true);
@@ -416,6 +446,7 @@ function AdminPage() {
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "users", label: "Users", icon: UsersIcon },
     { id: "pricing", label: "Pricing", icon: DollarSign },
+    { id: "orders", label: "Orders", icon: Receipt },
     { id: "features", label: "Features", icon: ToggleLeft },
     { id: "announcement", label: "Announcements", icon: Megaphone },
     { id: "activity", label: "Activity", icon: Activity },
@@ -473,6 +504,7 @@ function AdminPage() {
                   onClick={() => {
                     setTab(n.id);
                     setMobileNavOpen(false);
+                    if (n.id === "orders") void loadOrders();
                   }}
                   className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
                     active
@@ -865,6 +897,61 @@ function AdminPage() {
                       />
                     </div>
                   ))
+                )}
+              </section>
+            )}
+
+            {tab === "orders" && (
+              <section className="space-y-4 animate-in fade-in-50 duration-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-base font-semibold">Pending payments</h2>
+                    <p className="text-xs text-muted-foreground">
+                      Check the UTR against your bank statement before approving.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => void loadOrders()}
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-accent"
+                  >
+                    Refresh
+                  </button>
+                </div>
+                {orders.length === 0 ? (
+                  <p className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                    Nothing awaiting review.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-border rounded-2xl border border-border">
+                    {orders.map((o) => (
+                      <div key={o.id} className="flex flex-wrap items-center gap-3 p-4 text-sm">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-medium">
+                            {o.email ?? o.display_name ?? o.id}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {o.plan_id} · {o.asset} · {o.expected_atomic}
+                            {o.utr ? ` · UTR ${o.utr}` : ""}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(o.created_at).toLocaleString()}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => void decideOrder(o.id, true)}
+                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => void decideOrder(o.id, false)}
+                          className="rounded-lg border border-border px-3 py-1.5 text-xs"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </section>
             )}
