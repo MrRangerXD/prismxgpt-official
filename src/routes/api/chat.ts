@@ -234,6 +234,7 @@ export const Route = createFileRoute("/api/chat")({
         let body: {
           messages?: UIMessage[];
           mode?: string;
+          model?: string;
           personalization?: { about?: string; style?: string };
           projectId?: string;
         };
@@ -451,13 +452,16 @@ export const Route = createFileRoute("/api/chat")({
           return "Something went wrong while generating that reply. Please try again.";
         };
 
+        // Resolved once per request — not per attempt — so a retry always stays
+        // on the same model and the user's selector actually applies.
+        const preferred = requireChatModel(body.model);
+
         // One attempt at a streamed completion with a given system prompt.
         const attempt = async (
           systemPrompt: string,
           messages: UIMessage[],
           temperature: number,
         ) => {
-          const preferred = requireChatModel();
           const { entry, model } = resolveChatModelWithFallback(preferred);
           const result = streamText({
             model,
@@ -482,7 +486,10 @@ export const Route = createFileRoute("/api/chat")({
         };
 
         try {
-          const first = await attempt(system, body.messages, 0.3);
+          // Code needs a tight temperature; the uncensored general model is
+          // flat at 0.3, so it gets more room.
+          const baseTemp = preferred.id === "prismx/uncensored" ? 0.6 : 0.3;
+          const first = await attempt(system, body.messages, baseTemp);
           const stream = first.response.body;
           if (!stream) return first.response;
 
