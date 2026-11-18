@@ -199,6 +199,7 @@ type Order = {
   network: string;
   confirmations: number;
   expiresAt: string;
+  status?: string;
   qrImage: string | null;
   qrPayload: string;
 };

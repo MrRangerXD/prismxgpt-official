@@ -108,7 +108,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   entry({
     id: "prismx/flash",
     displayName: "PrismX Flash",
-    candidates: CHAIN_BALANCED,
+    candidates: TEXT_CHAIN_BALANCED,
     contextLength: 131_072,
     capabilities: cap({ vision: true }),
     free: true,
@@ -117,7 +117,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   entry({
     id: "prismx/flash-lite",
     displayName: "PrismX Flash Lite",
-    candidates: CHAIN_FAST,
+    candidates: TEXT_CHAIN_FAST,
     contextLength: 131_072,
     capabilities: cap({ vision: true }),
     free: true,
@@ -126,7 +126,7 @@ export const MODEL_REGISTRY: ModelEntry[] = [
   entry({
     id: "prismx/pro",
     displayName: "PrismX Pro",
-    candidates: CHAIN_PRO,
+    candidates: TEXT_CHAIN_PRO,
     contextLength: 131_072,
     capabilities: cap({ vision: true, reasoning: true }),
     free: true,

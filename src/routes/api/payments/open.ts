@@ -3,6 +3,9 @@ import { requireApiAuth } from "@/lib/api-auth.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { ASSETS } from "@/lib/payments/assets";
 import { qrPayload } from "@/lib/payments/pricing.server";
+import { asPaymentClient } from "@/lib/payments/database-types";
+
+const paymentsAdmin = asPaymentClient(supabaseAdmin);
 
 export const Route = createFileRoute("/api/payments/open")({
   server: {
@@ -11,7 +14,7 @@ export const Route = createFileRoute("/api/payments/open")({
         const auth = await requireApiAuth(request);
         if (!auth.ok) return new Response("Sign in again.", { status: 401 });
 
-        const { data } = await supabaseAdmin
+        const { data } = await paymentsAdmin
           .from("payment_orders")
           .select("id, asset, expected_atomic, address, status, expires_at")
           .eq("user_id", auth.userId)

@@ -3,6 +3,9 @@ import { requireApiAuth } from "@/lib/api-auth.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { ASSETS } from "@/lib/payments/assets";
 import { expectedAtomic, qrPayload } from "@/lib/payments/pricing.server";
+import { asPaymentClient } from "@/lib/payments/database-types";
+
+const paymentsAdmin = asPaymentClient(supabaseAdmin);
 
 const MAX_OPEN = 3;
 const MAX_PER_HOUR = 20;
@@ -26,7 +29,7 @@ export const Route = createFileRoute("/api/payments/create")({
         const cfg = body.asset ? ASSETS[body.asset] : undefined;
         if (!cfg || !body.planId) return new Response("Unknown asset or plan.", { status: 400 });
 
-        const open = await supabaseAdmin
+        const open = await paymentsAdmin
           .from("payment_orders")
           .select("id", { count: "exact", head: true })
           .eq("user_id", auth.userId)
@@ -38,7 +41,7 @@ export const Route = createFileRoute("/api/payments/create")({
         }
 
         const hourAgo = new Date(Date.now() - 3_600_000).toISOString();
-        const recent = await supabaseAdmin
+        const recent = await paymentsAdmin
           .from("payment_orders")
           .select("id", { count: "exact", head: true })
           .eq("user_id", auth.userId)
@@ -90,7 +93,7 @@ export const Route = createFileRoute("/api/payments/create")({
           return new Response("Couldn't price that plan right now.", { status: 503 });
         }
 
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await paymentsAdmin
           .from("payment_orders")
           .insert({
             user_id: auth.userId,

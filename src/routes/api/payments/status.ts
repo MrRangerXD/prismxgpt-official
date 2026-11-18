@@ -2,6 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { requireApiAuth } from "@/lib/api-auth.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { ASSETS } from "@/lib/payments/assets";
+import { asPaymentClient } from "@/lib/payments/database-types";
+
+const paymentsAdmin = asPaymentClient(supabaseAdmin);
 
 export const Route = createFileRoute("/api/payments/status")({
   server: {
@@ -13,7 +16,7 @@ export const Route = createFileRoute("/api/payments/status")({
         const id = new URL(request.url).searchParams.get("id");
         if (!id) return new Response("Missing id.", { status: 400 });
 
-        const { data } = await supabaseAdmin
+        const { data } = await paymentsAdmin
           .from("payment_orders")
           .select("id, status, confirmations, asset, plan_id, expires_at")
           .eq("id", id)

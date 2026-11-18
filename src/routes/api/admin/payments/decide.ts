@@ -3,6 +3,9 @@ import { requireApiAuth } from "@/lib/api-auth.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { isAdmin } from "@/lib/admin.server";
 import { creditPlan } from "@/lib/payments/credit.server";
+import { asPaymentClient } from "@/lib/payments/database-types";
+
+const paymentsAdmin = asPaymentClient(supabaseAdmin);
 
 export const Route = createFileRoute("/api/admin/payments/decide")({
   server: {
@@ -13,7 +16,7 @@ export const Route = createFileRoute("/api/admin/payments/decide")({
         if (!(await isAdmin(auth.userId))) return new Response("Admins only.", { status: 403 });
 
         const status = new URL(request.url).searchParams.get("status") ?? "review";
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await paymentsAdmin
           .from("payment_orders")
           .select(
             "id, user_id, plan_id, asset, expected_atomic, utr, tx_hash, status, created_at",
@@ -51,7 +54,7 @@ export const Route = createFileRoute("/api/admin/payments/decide")({
         }
         if (!body.orderId) return new Response("Missing order.", { status: 400 });
 
-        const { data: order } = await supabaseAdmin
+        const { data: order } = await paymentsAdmin
           .from("payment_orders")
           .select("id, user_id, plan_id, status")
           .eq("id", body.orderId)
@@ -61,7 +64,7 @@ export const Route = createFileRoute("/api/admin/payments/decide")({
         if (order.status !== "review") return new Response("Not awaiting review.", { status: 409 });
 
         if (!body.approve) {
-          await supabaseAdmin
+          await paymentsAdmin
             .from("payment_orders")
             .update({ status: "failed" })
             .eq("id", order.id)
@@ -69,7 +72,7 @@ export const Route = createFileRoute("/api/admin/payments/decide")({
           return Response.json({ ok: true, status: "failed" });
         }
 
-        const { data: claimed } = await supabaseAdmin
+        const { data: claimed } = await paymentsAdmin
           .from("payment_orders")
           .update({ status: "paid", credited_at: new Date().toISOString() })
           .eq("id", order.id)

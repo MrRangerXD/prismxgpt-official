@@ -4,6 +4,9 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { ASSETS } from "@/lib/payments/assets";
 import { creditPlan } from "@/lib/payments/credit.server";
 import { scanOrder } from "@/lib/payments/verify.server";
+import { asPaymentClient } from "@/lib/payments/database-types";
+
+const paymentsAdmin = asPaymentClient(supabaseAdmin);
 
 const TOLERANCE = 0.02;
 
@@ -17,7 +20,7 @@ export const Route = createFileRoute("/api/payments/verify")({
           if (!auth.ok) return new Response("Forbidden.", { status: 403 });
         }
 
-        const { data: orders } = await supabaseAdmin
+        const { data: orders } = await paymentsAdmin
           .from("payment_orders")
           .select("id, user_id, plan_id, asset, expected_atomic, created_at, expires_at")
           .in("status", ["pending", "seen", "confirming"])
@@ -46,7 +49,7 @@ export const Route = createFileRoute("/api/payments/verify")({
           matched++;
 
           if (hit.confirmations < cfg.confirmations) {
-            await supabaseAdmin
+            await paymentsAdmin
               .from("payment_orders")
               .update({
                 status: "confirming",
@@ -58,7 +61,7 @@ export const Route = createFileRoute("/api/payments/verify")({
             continue;
           }
 
-          const { data: claimed } = await supabaseAdmin
+          const { data: claimed } = await paymentsAdmin
             .from("payment_orders")
             .update({
               status: "paid",

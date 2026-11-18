@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireApiAuth } from "@/lib/api-auth.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { asPaymentClient } from "@/lib/payments/database-types";
+
+const paymentsAdmin = asPaymentClient(supabaseAdmin);
 
 export const Route = createFileRoute("/api/payments/submit-utr")({
   server: {
@@ -22,7 +25,7 @@ export const Route = createFileRoute("/api/payments/submit-utr")({
           return new Response("UTR must be exactly 12 digits.", { status: 400 });
         }
 
-        const { data: order } = await supabaseAdmin
+        const { data: order } = await paymentsAdmin
           .from("payment_orders")
           .select("id, asset, status, expires_at")
           .eq("id", body.orderId)
@@ -36,7 +39,7 @@ export const Route = createFileRoute("/api/payments/submit-utr")({
           return new Response("Order expired.", { status: 410 });
         }
 
-        const { error } = await supabaseAdmin
+        const { error } = await paymentsAdmin
           .from("payment_orders")
           .update({ utr, status: "review" })
           .eq("id", order.id)

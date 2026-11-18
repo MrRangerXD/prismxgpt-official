@@ -29,7 +29,14 @@ import { Route as FeaturesImageEditingRouteImport } from './routes/features.imag
 import { Route as FeaturesImageGenerationRouteImport } from './routes/features.image-generation'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as ShareIdRouteImport } from './routes/share.$id'
+import { Route as ApiPaymentsAssetsRouteImport } from './routes/api/payments/assets'
+import { Route as ApiPaymentsCreateRouteImport } from './routes/api/payments/create'
+import { Route as ApiPaymentsOpenRouteImport } from './routes/api/payments/open'
+import { Route as ApiPaymentsStatusRouteImport } from './routes/api/payments/status'
+import { Route as ApiPaymentsSubmitUtrRouteImport } from './routes/api/payments/submit-utr'
+import { Route as ApiPaymentsVerifyRouteImport } from './routes/api/payments/verify'
 import { Route as ProjectsJoinTokenRouteImport } from './routes/projects.join.$token'
+import { Route as ApiAdminPaymentsDecideRouteImport } from './routes/api/admin/payments/decide'
 import { Route as ApiPublicSnapshotIdRouteImport } from './routes/api/public/snapshot.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -135,9 +142,44 @@ const ShareIdRoute = ShareIdRouteImport.update({
   path: '/share/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPaymentsAssetsRoute = ApiPaymentsAssetsRouteImport.update({
+  id: '/api/payments/assets',
+  path: '/api/payments/assets',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPaymentsCreateRoute = ApiPaymentsCreateRouteImport.update({
+  id: '/api/payments/create',
+  path: '/api/payments/create',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPaymentsOpenRoute = ApiPaymentsOpenRouteImport.update({
+  id: '/api/payments/open',
+  path: '/api/payments/open',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPaymentsStatusRoute = ApiPaymentsStatusRouteImport.update({
+  id: '/api/payments/status',
+  path: '/api/payments/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPaymentsSubmitUtrRoute = ApiPaymentsSubmitUtrRouteImport.update({
+  id: '/api/payments/submit-utr',
+  path: '/api/payments/submit-utr',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPaymentsVerifyRoute = ApiPaymentsVerifyRouteImport.update({
+  id: '/api/payments/verify',
+  path: '/api/payments/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectsJoinTokenRoute = ProjectsJoinTokenRouteImport.update({
   id: '/projects/join/$token',
   path: '/projects/join/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminPaymentsDecideRoute = ApiAdminPaymentsDecideRouteImport.update({
+  id: '/api/admin/payments/decide',
+  path: '/api/admin/payments/decide',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicSnapshotIdRoute = ApiPublicSnapshotIdRouteImport.update({
@@ -167,7 +209,14 @@ export interface FileRoutesByFullPath {
   '/features/image-generation': typeof FeaturesImageGenerationRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/share/$id': typeof ShareIdRoute
+  '/api/payments/assets': typeof ApiPaymentsAssetsRoute
+  '/api/payments/create': typeof ApiPaymentsCreateRoute
+  '/api/payments/open': typeof ApiPaymentsOpenRoute
+  '/api/payments/status': typeof ApiPaymentsStatusRoute
+  '/api/payments/submit-utr': typeof ApiPaymentsSubmitUtrRoute
+  '/api/payments/verify': typeof ApiPaymentsVerifyRoute
   '/projects/join/$token': typeof ProjectsJoinTokenRoute
+  '/api/admin/payments/decide': typeof ApiAdminPaymentsDecideRoute
   '/api/public/snapshot/$id': typeof ApiPublicSnapshotIdRoute
 }
 export interface FileRoutesByTo {
@@ -191,7 +240,14 @@ export interface FileRoutesByTo {
   '/features/image-generation': typeof FeaturesImageGenerationRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/share/$id': typeof ShareIdRoute
+  '/api/payments/assets': typeof ApiPaymentsAssetsRoute
+  '/api/payments/create': typeof ApiPaymentsCreateRoute
+  '/api/payments/open': typeof ApiPaymentsOpenRoute
+  '/api/payments/status': typeof ApiPaymentsStatusRoute
+  '/api/payments/submit-utr': typeof ApiPaymentsSubmitUtrRoute
+  '/api/payments/verify': typeof ApiPaymentsVerifyRoute
   '/projects/join/$token': typeof ProjectsJoinTokenRoute
+  '/api/admin/payments/decide': typeof ApiAdminPaymentsDecideRoute
   '/api/public/snapshot/$id': typeof ApiPublicSnapshotIdRoute
 }
 export interface FileRoutesById {
@@ -216,7 +272,14 @@ export interface FileRoutesById {
   '/features/image-generation': typeof FeaturesImageGenerationRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/share/$id': typeof ShareIdRoute
+  '/api/payments/assets': typeof ApiPaymentsAssetsRoute
+  '/api/payments/create': typeof ApiPaymentsCreateRoute
+  '/api/payments/open': typeof ApiPaymentsOpenRoute
+  '/api/payments/status': typeof ApiPaymentsStatusRoute
+  '/api/payments/submit-utr': typeof ApiPaymentsSubmitUtrRoute
+  '/api/payments/verify': typeof ApiPaymentsVerifyRoute
   '/projects/join/$token': typeof ProjectsJoinTokenRoute
+  '/api/admin/payments/decide': typeof ApiAdminPaymentsDecideRoute
   '/api/public/snapshot/$id': typeof ApiPublicSnapshotIdRoute
 }
 export interface FileRouteTypes {
@@ -242,7 +305,14 @@ export interface FileRouteTypes {
     | '/features/image-generation'
     | '/projects/$projectId'
     | '/share/$id'
+    | '/api/payments/assets'
+    | '/api/payments/create'
+    | '/api/payments/open'
+    | '/api/payments/status'
+    | '/api/payments/submit-utr'
+    | '/api/payments/verify'
     | '/projects/join/$token'
+    | '/api/admin/payments/decide'
     | '/api/public/snapshot/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -266,7 +336,14 @@ export interface FileRouteTypes {
     | '/features/image-generation'
     | '/projects/$projectId'
     | '/share/$id'
+    | '/api/payments/assets'
+    | '/api/payments/create'
+    | '/api/payments/open'
+    | '/api/payments/status'
+    | '/api/payments/submit-utr'
+    | '/api/payments/verify'
     | '/projects/join/$token'
+    | '/api/admin/payments/decide'
     | '/api/public/snapshot/$id'
   id:
     | '__root__'
@@ -290,7 +367,14 @@ export interface FileRouteTypes {
     | '/features/image-generation'
     | '/projects/$projectId'
     | '/share/$id'
+    | '/api/payments/assets'
+    | '/api/payments/create'
+    | '/api/payments/open'
+    | '/api/payments/status'
+    | '/api/payments/submit-utr'
+    | '/api/payments/verify'
     | '/projects/join/$token'
+    | '/api/admin/payments/decide'
     | '/api/public/snapshot/$id'
   fileRoutesById: FileRoutesById
 }
@@ -315,7 +399,14 @@ export interface RootRouteChildren {
   FeaturesImageGenerationRoute: typeof FeaturesImageGenerationRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   ShareIdRoute: typeof ShareIdRoute
+  ApiPaymentsAssetsRoute: typeof ApiPaymentsAssetsRoute
+  ApiPaymentsCreateRoute: typeof ApiPaymentsCreateRoute
+  ApiPaymentsOpenRoute: typeof ApiPaymentsOpenRoute
+  ApiPaymentsStatusRoute: typeof ApiPaymentsStatusRoute
+  ApiPaymentsSubmitUtrRoute: typeof ApiPaymentsSubmitUtrRoute
+  ApiPaymentsVerifyRoute: typeof ApiPaymentsVerifyRoute
   ProjectsJoinTokenRoute: typeof ProjectsJoinTokenRoute
+  ApiAdminPaymentsDecideRoute: typeof ApiAdminPaymentsDecideRoute
   ApiPublicSnapshotIdRoute: typeof ApiPublicSnapshotIdRoute
 }
 
@@ -461,11 +552,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShareIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/payments/assets': {
+      id: '/api/payments/assets'
+      path: '/api/payments/assets'
+      fullPath: '/api/payments/assets'
+      preLoaderRoute: typeof ApiPaymentsAssetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/payments/create': {
+      id: '/api/payments/create'
+      path: '/api/payments/create'
+      fullPath: '/api/payments/create'
+      preLoaderRoute: typeof ApiPaymentsCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/payments/open': {
+      id: '/api/payments/open'
+      path: '/api/payments/open'
+      fullPath: '/api/payments/open'
+      preLoaderRoute: typeof ApiPaymentsOpenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/payments/status': {
+      id: '/api/payments/status'
+      path: '/api/payments/status'
+      fullPath: '/api/payments/status'
+      preLoaderRoute: typeof ApiPaymentsStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/payments/submit-utr': {
+      id: '/api/payments/submit-utr'
+      path: '/api/payments/submit-utr'
+      fullPath: '/api/payments/submit-utr'
+      preLoaderRoute: typeof ApiPaymentsSubmitUtrRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/payments/verify': {
+      id: '/api/payments/verify'
+      path: '/api/payments/verify'
+      fullPath: '/api/payments/verify'
+      preLoaderRoute: typeof ApiPaymentsVerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/projects/join/$token': {
       id: '/projects/join/$token'
       path: '/projects/join/$token'
       fullPath: '/projects/join/$token'
       preLoaderRoute: typeof ProjectsJoinTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/payments/decide': {
+      id: '/api/admin/payments/decide'
+      path: '/api/admin/payments/decide'
+      fullPath: '/api/admin/payments/decide'
+      preLoaderRoute: typeof ApiAdminPaymentsDecideRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/snapshot/$id': {
@@ -499,7 +639,14 @@ const rootRouteChildren: RootRouteChildren = {
   FeaturesImageGenerationRoute: FeaturesImageGenerationRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   ShareIdRoute: ShareIdRoute,
+  ApiPaymentsAssetsRoute: ApiPaymentsAssetsRoute,
+  ApiPaymentsCreateRoute: ApiPaymentsCreateRoute,
+  ApiPaymentsOpenRoute: ApiPaymentsOpenRoute,
+  ApiPaymentsStatusRoute: ApiPaymentsStatusRoute,
+  ApiPaymentsSubmitUtrRoute: ApiPaymentsSubmitUtrRoute,
+  ApiPaymentsVerifyRoute: ApiPaymentsVerifyRoute,
   ProjectsJoinTokenRoute: ProjectsJoinTokenRoute,
+  ApiAdminPaymentsDecideRoute: ApiAdminPaymentsDecideRoute,
   ApiPublicSnapshotIdRoute: ApiPublicSnapshotIdRoute,
 }
 export const routeTree = rootRouteImport
