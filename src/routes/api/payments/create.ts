@@ -3,7 +3,7 @@ import { requireApiAuth } from "@/lib/api-auth.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { ASSETS } from "@/lib/payments/assets";
 import { expectedAtomic, qrPayload } from "@/lib/payments/pricing.server";
-import { asPaymentClient } from "@/lib/payments/database-types";
+import { asPaymentClient, type PaymentAsset } from "@/lib/payments/database-types";
 
 const paymentsAdmin = asPaymentClient(supabaseAdmin);
 
@@ -11,6 +11,12 @@ const MAX_OPEN = 3;
 const MAX_PER_HOUR = 20;
 
 type Method = { type?: string; value?: string; label?: string };
+
+const PAYMENT_ASSETS: PaymentAsset[] = ["upi", "ltc", "sol", "trx", "usdt_trc20", "usdt_spl"];
+
+function isAssetKey(asset: string): asset is PaymentAsset {
+  return PAYMENT_ASSETS.includes(asset as PaymentAsset) && Object.hasOwn(ASSETS, asset);
+}
 
 export const Route = createFileRoute("/api/payments/create")({
   server: {
@@ -26,8 +32,11 @@ export const Route = createFileRoute("/api/payments/create")({
           return new Response("Bad request.", { status: 400 });
         }
 
-        const cfg = body.asset ? ASSETS[body.asset] : undefined;
-        if (!cfg || !body.planId) return new Response("Unknown asset or plan.", { status: 400 });
+        const asset = body.asset;
+        if (!asset || !isAssetKey(asset) || !body.planId) {
+          return new Response("Unknown asset or plan.", { status: 400 });
+        }
+        const cfg = ASSETS[asset];
 
         const open = await paymentsAdmin
           .from("payment_orders")
@@ -66,9 +75,7 @@ export const Route = createFileRoute("/api/payments/create")({
         let payTo: string | null = null;
         if (cfg.chain === "upi") {
           payTo =
-            methods.find((m) => m.type === "upi" && m.value)?.value ??
-            process.env.UPI_VPA ??
-            null;
+            methods.find((m) => m.type === "upi" && m.value)?.value ?? process.env.UPI_VPA ?? null;
         } else {
           const sym = cfg.symbol.toLowerCase();
           payTo =
@@ -98,7 +105,7 @@ export const Route = createFileRoute("/api/payments/create")({
           .insert({
             user_id: auth.userId,
             plan_id: body.planId,
-            asset: body.asset,
+            asset,
             expected_atomic: atomic,
             address: payTo,
           })

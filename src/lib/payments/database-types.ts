@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
-type PaymentAsset = "upi" | "ltc" | "sol" | "trx" | "usdt_trc20" | "usdt_spl";
+export type PaymentAsset = "upi" | "ltc" | "sol" | "trx" | "usdt_trc20" | "usdt_spl";
 type PaymentStatus = "pending" | "seen" | "confirming" | "paid" | "expired" | "failed" | "review";
 
 type PaymentDatabase = Omit<Database, "public"> & {

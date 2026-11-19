@@ -15,12 +15,22 @@ export const Route = createFileRoute("/api/admin/payments/decide")({
         if (!auth.ok) return new Response("Sign in again.", { status: 401 });
         if (!(await isAdmin(auth.userId))) return new Response("Admins only.", { status: 403 });
 
-        const status = new URL(request.url).searchParams.get("status") ?? "review";
+        const requestedStatus = new URL(request.url).searchParams.get("status");
+        const statuses = [
+          "pending",
+          "seen",
+          "confirming",
+          "paid",
+          "expired",
+          "failed",
+          "review",
+        ] as const;
+        const status = statuses.includes(requestedStatus as (typeof statuses)[number])
+          ? (requestedStatus as (typeof statuses)[number])
+          : "review";
         const { data, error } = await paymentsAdmin
           .from("payment_orders")
-          .select(
-            "id, user_id, plan_id, asset, expected_atomic, utr, tx_hash, status, created_at",
-          )
+          .select("id, user_id, plan_id, asset, expected_atomic, utr, tx_hash, status, created_at")
           .eq("status", status)
           .order("created_at", { ascending: true })
           .limit(100);
@@ -29,7 +39,9 @@ export const Route = createFileRoute("/api/admin/payments/decide")({
         const ids = [...new Set((data ?? []).map((o) => o.user_id))];
         const { data: profiles } = ids.length
           ? await supabaseAdmin.from("profiles").select("id, email, display_name").in("id", ids)
-          : { data: [] as Array<{ id: string; email: string | null; display_name: string | null }> };
+          : {
+              data: [] as Array<{ id: string; email: string | null; display_name: string | null }>,
+            };
         const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
 
         return Response.json({
